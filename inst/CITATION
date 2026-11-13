@@ -1,0 +1,8 @@
+bibentry(
+  bibtype = "Manual",
+  title = "pdecompR: Partial Differential Equations and Finite-Element Computing in R",
+  author = person("Adam R", "Sophie"),
+  year = "2026",
+  note = "R package version 0.1.0",
+  url = "https://github.com/adamrsophie/pdecompR"
+)

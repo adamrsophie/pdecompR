@@ -1,0 +1,105 @@
+url: https://adamrsophie.github.io/pdecompR/
+
+template:
+  bootstrap: 5
+  light-switch: true
+  math-rendering: katex
+
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, lightswitch, github]
+
+home:
+  sidebar:
+    structure: [links, license, citation, authors, dev]
+
+articles:
+- title: Getting started
+  navbar: Getting started
+  contents:
+  - pdecompR
+  - meshes
+  - finite-elements
+- title: Elliptic problems
+  navbar: Elliptic problems
+  contents:
+  - poisson
+  - boundary-conditions
+  - assembly
+  - convergence
+  - weak-forms
+- title: Time-dependent and nonlinear problems
+  navbar: Time-dependent and nonlinear
+  contents:
+  - heat
+  - reaction-diffusion
+  - advection-diffusion
+  - nonlinear
+- title: Adaptivity, sensitivities and inverse problems
+  navbar: Adaptivity and inverse problems
+  contents:
+  - adaptivity
+  - inverse-problems
+
+reference:
+- title: Domains and meshes
+  contents:
+  - pde_domain
+  - pde_mesh
+  - pde_mesh_rectangle
+  - pde_mesh_polygon
+  - mesh_quality
+  - mesh_size
+  - boundary_markers
+  - set_boundary_marker
+  - refine_uniform
+  - read_gmsh
+  - write_vtk
+- title: Finite elements and quadrature
+  contents:
+  - fe_element
+  - fe_space
+  - fe_function
+  - boundary_dofs
+  - evaluate
+  - transfer_function
+  - quadrature_interval
+  - integrate_mesh
+  - element_stiffness_p1
+- title: Assembly and linear algebra
+  contents:
+  - assemble_matrix
+  - solve_linear_system
+- title: Problems and solvers
+  contents:
+  - dirichlet_bc
+  - elliptic_problem
+  - parabolic_problem
+  - reaction_diffusion_problem
+  - nonlinear_problem
+  - trial_function
+  - variational_problem
+  - discretize
+  - solve_pde
+  - update_mesh
+  - solution_at
+- title: Errors and adaptivity
+  contents:
+  - errornorm
+  - convergence_study
+  - estimate_error
+  - mark_elements
+  - adaptive_solve
+- title: Sensitivities, inverse problems and control
+  contents:
+  - pde_sensitivity
+  - pde_observations
+  - estimate_parameters
+  - optimal_control
+- title: Visualization
+  contents:
+  - pde_plots
+- title: Package
+  contents:
+  - pdecompR-package

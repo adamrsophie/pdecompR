@@ -1,0 +1,43 @@
+Package: pdecompR
+Title: Partial Differential Equations and Finite-Element Computing in R
+Version: 0.1.0
+Authors@R:
+    person("Adam R", "Sophie", email = "adamrsophie@gmail.com",
+           role = c("aut", "cre", "cph"))
+Description: An R-native framework for defining, discretizing, solving and
+    analyzing partial differential equations with the finite-element method.
+    It provides two-dimensional domains, structured and polygonal triangular
+    meshes with validation, quality measures and named boundary markers,
+    continuous Lagrange elements of degree one and two, Gaussian quadrature,
+    sparse assembly through 'Matrix', Dirichlet, Neumann and Robin boundary
+    conditions, a small weak-form language, elliptic, heat, reaction-diffusion,
+    advection-diffusion (with streamline upwind stabilization) and nonlinear
+    diffusion solvers, a posteriori error estimation with adaptive newest
+    vertex bisection, convergence studies, discrete forward and adjoint
+    sensitivities, parameter estimation and distributed optimal control.
+    The design is inspired by 'FEniCSx' <https://fenicsproject.org> and
+    'Gridap.jl' <https://github.com/gridap/Gridap.jl>; no Python or Julia is
+    required.
+License: GPL-3
+Encoding: UTF-8
+Language: en-US
+Roxygen: list(markdown = TRUE)
+Depends:
+    R (>= 4.3.0)
+Imports:
+    graphics,
+    grDevices,
+    Matrix,
+    methods,
+    stats,
+    utils
+Suggests:
+    knitr,
+    rmarkdown,
+    testthat (>= 3.0.0),
+    withr
+VignetteBuilder: knitr
+Config/testthat/edition: 3
+URL: https://github.com/adamrsophie/pdecompR, https://adamrsophie.github.io/pdecompR/
+BugReports: https://github.com/adamrsophie/pdecompR/issues
+Config/roxygen2/version: 8.1.1
