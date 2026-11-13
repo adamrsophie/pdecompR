@@ -5,6 +5,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Boundary conditions • pdecompR</title>
+<!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
+<link rel="icon" type="”image/svg+xml”" href="../favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="icon" sizes="any" href="../favicon.ico">
+<link rel="manifest" href="../site.webmanifest">
 <!-- katex math --><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" integrity="sha384-43gviWU0YVjaDtb/GhzOouOXtZMP/7XUzwPTstBeZFe/+rCMvRwr4yROQP43s0Xk" crossorigin="anonymous" onload="renderMathInElement(document.body);"></script><script src="../katex-auto.js"></script><script src="../lightswitch.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
@@ -85,8 +90,7 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-
-      <h1>Boundary conditions</h1>
+      <img src="../logo.svg" class="logo" alt=""><h1>Boundary conditions</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/adamrsophie/pdecompR/blob/main/vignettes/boundary-conditions.Rmd" class="external-link"><code>vignettes/boundary-conditions.Rmd</code></a></small>
@@ -140,7 +144,12 @@ v\,ds</span> in <span class="math inline">L</span>
 </tbody>
 </table>
 <p>Values may be numbers, <code>function(x, y)</code> or, in
-time-dependent problems, <code>function(x, y, t)</code>.</p>
+time-dependent problems, <code>function(x, y, t)</code>. A function
+counts as time dependent when its third argument is named
+<code>t</code>; other extra arguments keep their defaults. The Robin
+coefficient <code>alpha</code> must not depend on time (the Robin matrix
+is assembled once). Non-finite values (<code>NA</code>,
+<code>NaN</code>, <code>Inf</code>) are rejected.</p>
 <div class="section level2">
 <h2 id="dirichlet-conditions">Dirichlet conditions<a class="anchor" aria-label="anchor" href="#dirichlet-conditions"></a>
 </h2>
@@ -205,9 +214,16 @@ exists only if the data are compatible,</p>
 \int_\Omega f\,dx + \int_{\partial\Omega} h\,ds = 0,
 </span></p>
 <p>and then it is unique only up to a constant. pdecompR detects this
-case, checks the discrete compatibility condition, and returns the
-solution with zero mean, using a Lagrange multiplier. The result is
-labeled as gauged.</p>
+case from the assembled operator (no Dirichlet data and constants in its
+kernel, which also covers <code>robin_bc(0, ...)</code> and variational
+problems), checks the discrete compatibility condition through the
+multiplier of the zero-mean constraint, and returns the solution with
+zero mean. The result is labeled as gauged. With advection the operator
+is not symmetric and the condition involves its left null vector, not
+<span class="math inline">\int f + \int h</span>; a defect larger than
+<span class="math inline">h^2</span> then gives a warning. On a mesh
+with several disconnected parts each part has its own constant; this
+case is not detected.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">24</span><span class="op">)</span></span>
 <span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="../reference/elliptic_problem.html">poisson_problem</a></span><span class="op">(</span><span class="va">m</span>, source <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fl">2</span> <span class="op">*</span> <span class="va">pi</span><span class="op">^</span><span class="fl">2</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">cos</a></span><span class="op">(</span><span class="va">pi</span> <span class="op">*</span> <span class="va">x</span><span class="op">)</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">cos</a></span><span class="op">(</span><span class="va">pi</span> <span class="op">*</span> <span class="va">y</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
@@ -219,14 +235,14 @@ labeled as gauged.</p>
 <span><span class="co">#&gt;   solver: lu, status solved</span></span>
 <span><span class="co">#&gt;   linear residual: 6.84e-15 (relative 1.74e-14)</span></span>
 <span><span class="co">#&gt;   pure Neumann: zero-mean gauge, compatibility defect -1.57e-10</span></span>
-<span><span class="co">#&gt;   assembly 0.006 s, solve 0.004 s</span></span>
+<span><span class="co">#&gt;   assembly 0.006 s, solve 0.005 s</span></span>
 <span><span class="co">#&gt;   solution range [-0.9937, 1.003]</span></span>
 <span><span class="co">#&gt;   (the linear residual measures the algebraic solve, not the discretization error)</span></span></code></pre></div>
 <p>Incompatible data are an error, not an arbitrary answer:</p>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="../reference/elliptic_problem.html">poisson_problem</a></span><span class="op">(</span><span class="va">m</span>, source <span class="op">=</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Pure Neumann problem with incompatible data: int f + int g =     1 (relative     1). The problem has no solution.</span></span></code></pre></div>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Pure Neumann problem with incompatible data: compatibility defect     1 (relative     1). The problem has no solution.</span></span></code></pre></div>
 <p>Balancing the source with an outflow makes the problem solvable:</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="../reference/elliptic_problem.html">poisson_problem</a></span><span class="op">(</span><span class="va">m</span>, source <span class="op">=</span> <span class="fl">1</span>, boundary <span class="op">=</span> <span class="fu"><a href="../reference/dirichlet_bc.html">neumann_bc</a></span><span class="op">(</span><span class="op">-</span><span class="fl">0.25</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>

@@ -42,3 +42,13 @@ misfit_objective(space, observations)
 
 `pde_observations()` returns a data frame of class `pde_observations`;
 `misfit_objective()` returns a function of the degree-of-freedom vector.
+
+## Examples
+
+``` r
+obs <- pde_observations(c(0.3, 0.7), c(0.5, 0.5), c(0.1, 0.2), sd = 0.01)
+V <- fe_space(pde_mesh_rectangle(nx = 4))
+J <- misfit_objective(V, obs)
+J(interpolate(function(x, y) x, V)$values)$value
+#> [1] 1450
+```

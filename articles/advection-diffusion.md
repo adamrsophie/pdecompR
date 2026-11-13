@@ -58,16 +58,10 @@ gal <- solve_pde(do.call(elliptic_problem, common))
 supg <- solve_pde(do.call(elliptic_problem, c(common, stabilization = "supg")))
 op <- par(mfrow = c(1, 2))
 plot(gal, main = "Galerkin")
-```
-
-![](advection-diffusion_files/figure-html/unnamed-chunk-5-1.png)
-
-``` r
-
 plot(supg, main = "SUPG")
 ```
 
-![](advection-diffusion_files/figure-html/unnamed-chunk-5-2.png)
+![](advection-diffusion_files/figure-html/unnamed-chunk-5-1.png)
 
 ``` r
 

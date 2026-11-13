@@ -59,3 +59,17 @@ adaptive_solve(
 
 A list of class `pde_adaptive` with the final `solution`, the final
 `estimate` and a `history` data frame.
+
+## Examples
+
+``` r
+L <- pde_domain("polygon", vertices = cbind(c(0, 1, 1, 0.5, 0.5, 0), c(0, 0, 0.5, 0.5, 1, 1)))
+prob <- poisson_problem(pde_mesh_polygon(L, h = 0.25), source = 1, boundary = dirichlet_bc(0))
+res <- adaptive_solve(prob, max_iterations = 3)
+res$history
+#>   iteration ndof elements  estimator
+#> 1         0   45       64 0.23983008
+#> 2         1   95      156 0.15962762
+#> 3         2  168      292 0.11776162
+#> 4         3  332      603 0.08339254
+```

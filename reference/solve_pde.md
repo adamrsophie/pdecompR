@@ -7,7 +7,11 @@ parabolic, reaction-diffusion and nonlinear problems.
 
 ``` r
 # S3 method for class 'elasticity_problem'
-solve_pde(problem, method = "auto", ...)
+solve_pde(
+  problem,
+  method = c("auto", "cholesky", "lu", "cg", "bicgstab", "gmres"),
+  ...
+)
 
 solve_pde(problem, ...)
 
@@ -18,6 +22,7 @@ solve_pde(
   method = c("crank-nicolson", "backward-euler"),
   output_times = NULL,
   solver = "auto",
+  startup = 2L,
   ...
 )
 
@@ -69,6 +74,14 @@ solve_pde(
   Linear solver method, see
   [`solve_linear_system()`](https://adamrsophie.github.io/pdecompR/reference/solve_linear_system.md).
 
+- startup:
+
+  Number of initial backward Euler steps taken before Crank-Nicolson
+  (Rannacher startup). They damp the oscillations that Crank-Nicolson
+  produces for rough initial data or initial data that do not match the
+  Dirichlet data; a fixed number of such steps keeps second order.
+  Ignored for backward Euler.
+
 - tol, maxit:
 
   Newton tolerance on the free residual norm (relative to the initial
@@ -84,3 +97,25 @@ solve_pde(
 
 A `pde_solution` (stationary problems) or `pde_transient`
 (time-dependent problems).
+
+## References
+
+Rannacher, R. (1984). Finite element solution of diffusion problems with
+irregular data. *Numerische Mathematik*, 43, 309-327.
+
+## Examples
+
+``` r
+prob <- poisson_problem(pde_mesh_rectangle(nx = 8), source = 1, boundary = dirichlet_bc(0))
+sol <- solve_pde(prob)
+summary(sol)
+#> Finite-element solution (Lagrange P1)
+#>   mesh: 81 nodes, 128 triangles, h = 0.1768
+#>   degrees of freedom: 81 (49 free)
+#>   matrix nonzeros: 497
+#>   solver: cholesky, status solved
+#>   linear residual: 1.79e-16 (relative 1.64e-15)
+#>   assembly 0.002 s, solve    0 s
+#>   solution range [    0, 0.07278]
+#>   (the linear residual measures the algebraic solve, not the discretization error)
+```

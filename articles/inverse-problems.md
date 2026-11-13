@@ -155,16 +155,10 @@ ocb
 
 op <- par(mfrow = c(1, 2))
 plot(oc$state, main = "state, unconstrained")
-```
-
-![](inverse-problems_files/figure-html/unnamed-chunk-7-1.png)
-
-``` r
-
 plot(ocb$control, main = "control, 0 <= q <= 50")
 ```
 
-![](inverse-problems_files/figure-html/unnamed-chunk-7-2.png)
+![](inverse-problems_files/figure-html/unnamed-chunk-7-1.png)
 
 ``` r
 

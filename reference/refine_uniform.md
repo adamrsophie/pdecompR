@@ -44,6 +44,15 @@ parent edge of each new node in `info$new_nodes` (a two-column matrix of
 node indices), which makes exact transfer of P1 functions possible, see
 [`transfer_function()`](https://adamrsophie.github.io/pdecompR/reference/transfer_function.md).
 
+## References
+
+Mitchell, W. F. (1991). Adaptive refinement for arbitrary finite-element
+spaces with hierarchical bases. *Journal of Computational and Applied
+Mathematics*, 36, 65-78.
+
+Binev, P., Dahmen, W. and DeVore, R. (2004). Adaptive finite element
+methods with convergence rates. *Numerische Mathematik*, 97, 219-268.
+
 ## Examples
 
 ``` r

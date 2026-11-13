@@ -108,7 +108,19 @@ u * u
 grad(u) * grad(v)
 #> Error:
 #> ! Use `dot()` to multiply vector-valued expressions.
+dot(c(1, 0), grad(u)) * dot(c(1, 0), grad(v))
+#> Error:
+#> ! Products of two directional derivatives such as `dot(b, grad(u)) * dot(c, grad(v))` are not supported.
+grad(function(x, y) 1 + x)
+#> Error:
+#> ! `grad()` applies to trial or test functions.
 ```
+
+Streamline terms such as `dot(b, grad(u)) * dot(b, grad(v))` and
+gradients of products `grad(k * u)` are not part of the language; write
+the stiffness term with a coefficient, `k * dot(grad(u), grad(v))`,
+instead. Trial and test functions must come from the same function
+space.
 
 Forms are assembled with the same kernels as the problem constructors,
 so both routes have identical accuracy. Nonlinear forms, vector-valued

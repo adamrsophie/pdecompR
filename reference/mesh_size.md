@@ -18,3 +18,10 @@ mesh_size(mesh)
 ## Value
 
 The largest edge length `h` of the mesh.
+
+## Examples
+
+``` r
+mesh_size(pde_mesh_rectangle(nx = 4))
+#> [1] 0.3535534
+```

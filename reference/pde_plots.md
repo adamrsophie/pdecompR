@@ -105,7 +105,9 @@ The input, invisibly.
   marker.
 
 - `plot.fe_function()` draws a filled plot (each triangle colored by the
-  mean of its vertex values) or contour lines from a regular-grid
+  mean of its vertex values, with a color bar beside the domain; P2
+  functions are drawn on the four subtriangles of each element, using
+  the edge midpoint values) or contour lines from a regular-grid
   evaluation (`type = "contour"`).
 
 - `plot.pde_solution()` plots the solution; `plot.pde_transient()` plots

@@ -30,3 +30,15 @@ variational_problem(bilinear, linear, bcs = list())
 ## Value
 
 An object of class `variational_problem`.
+
+## Examples
+
+``` r
+V <- fe_space(pde_mesh_rectangle(nx = 8))
+u <- trial_function(V); v <- test_function(V)
+a <- integrate_domain(dot(grad(u), grad(v)))
+L <- integrate_domain(1 * v)
+sol <- solve_pde(variational_problem(a, L, dirichlet_bc(0)))
+max(sol$u$values)
+#> [1] 0.07278263
+```

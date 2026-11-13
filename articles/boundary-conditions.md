@@ -16,7 +16,10 @@ get the natural condition k\\\partial u/\partial n = 0 (no flux).
 | Robin | `robin_bc(alpha, value, marker)` | k\\\partial_n u + \alpha u = r | +\int \alpha u v\\ds in a, +\int r v\\ds in L |
 
 Values may be numbers, `function(x, y)` or, in time-dependent problems,
-`function(x, y, t)`.
+`function(x, y, t)`. A function counts as time dependent when its third
+argument is named `t`; other extra arguments keep their defaults. The
+Robin coefficient `alpha` must not depend on time (the Robin matrix is
+assembled once). Non-finite values (`NA`, `NaN`, `Inf`) are rejected.
 
 ## Dirichlet conditions
 
@@ -88,10 +91,16 @@ only if the data are compatible,
 
 \int\_\Omega f\\dx + \int\_{\partial\Omega} h\\ds = 0,
 
-and then it is unique only up to a constant. pdecompR detects this case,
-checks the discrete compatibility condition, and returns the solution
-with zero mean, using a Lagrange multiplier. The result is labeled as
-gauged.
+and then it is unique only up to a constant. pdecompR detects this case
+from the assembled operator (no Dirichlet data and constants in its
+kernel, which also covers `robin_bc(0, ...)` and variational problems),
+checks the discrete compatibility condition through the multiplier of
+the zero-mean constraint, and returns the solution with zero mean. The
+result is labeled as gauged. With advection the operator is not
+symmetric and the condition involves its left null vector, not \int f +
+\int h; a defect larger than h^2 then gives a warning. On a mesh with
+several disconnected parts each part has its own constant; this case is
+not detected.
 
 ``` r
 
@@ -105,7 +114,7 @@ summary(s)
 #>   solver: lu, status solved
 #>   linear residual: 6.84e-15 (relative 1.74e-14)
 #>   pure Neumann: zero-mean gauge, compatibility defect -1.57e-10
-#>   assembly 0.006 s, solve 0.004 s
+#>   assembly 0.006 s, solve 0.005 s
 #>   solution range [-0.9937, 1.003]
 #>   (the linear residual measures the algebraic solve, not the discretization error)
 ```
@@ -116,7 +125,7 @@ Incompatible data are an error, not an arbitrary answer:
 
 solve_pde(poisson_problem(m, source = 1))
 #> Error:
-#> ! Pure Neumann problem with incompatible data: int f + int g =     1 (relative     1). The problem has no solution.
+#> ! Pure Neumann problem with incompatible data: compatibility defect     1 (relative     1). The problem has no solution.
 ```
 
 Balancing the source with an outflow makes the problem solvable:

@@ -5,6 +5,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Advection-diffusion and stabilization • pdecompR</title>
+<!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
+<link rel="icon" type="”image/svg+xml”" href="../favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="icon" sizes="any" href="../favicon.ico">
+<link rel="manifest" href="../site.webmanifest">
 <!-- katex math --><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" integrity="sha384-43gviWU0YVjaDtb/GhzOouOXtZMP/7XUzwPTstBeZFe/+rCMvRwr4yROQP43s0Xk" crossorigin="anonymous" onload="renderMathInElement(document.body);"></script><script src="../katex-auto.js"></script><script src="../lightswitch.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
@@ -85,8 +90,7 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-
-      <h1>Advection-diffusion and stabilization</h1>
+      <img src="../logo.svg" class="logo" alt=""><h1>Advection-diffusion and stabilization</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/adamrsophie/pdecompR/blob/main/vignettes/advection-diffusion.Rmd" class="external-link"><code>vignettes/advection-diffusion.Rmd</code></a></small>
@@ -148,12 +152,10 @@ in a thin layer at the outflow boundary <span class="math inline">x =
 <span><span class="va">gal</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">elliptic_problem</span>, <span class="va">common</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">supg</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/do.call.html" class="external-link">do.call</a></span><span class="op">(</span><span class="va">elliptic_problem</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="va">common</span>, stabilization <span class="op">=</span> <span class="st">"supg"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">op</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">gal</span>, main <span class="op">=</span> <span class="st">"Galerkin"</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">gal</span>, main <span class="op">=</span> <span class="st">"Galerkin"</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">supg</span>, main <span class="op">=</span> <span class="st">"SUPG"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="advection-diffusion_files/figure-html/unnamed-chunk-5-1.png" class="r-plt" alt="" width="672"></p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">supg</span>, main <span class="op">=</span> <span class="st">"SUPG"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="advection-diffusion_files/figure-html/unnamed-chunk-5-2.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span><span class="va">op</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span>Galerkin <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="va">gal</span><span class="op">$</span><span class="va">u</span><span class="op">$</span><span class="va">values</span><span class="op">)</span>, SUPG <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="va">supg</span><span class="op">$</span><span class="va">u</span><span class="op">$</span><span class="va">values</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt;                [,1]      [,2]</span></span>
@@ -189,7 +191,7 @@ is not a positivity-preserving scheme, and no such claim is made.</p>
 <p><code><a href="../reference/parabolic_problem.html">parabolic_problem()</a></code> accepts the same advection field and
 stabilization; for transient problems the SUPG residual includes <span class="math inline">\partial_t u</span>, which adds <span class="math inline">\tau_T\int_T \partial_t u\,(b\cdot\nabla v)</span>
 to the mass matrix.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">blob</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="op">-</span><span class="fl">100</span> <span class="op">*</span> <span class="op">(</span><span class="op">(</span><span class="va">x</span> <span class="op">-</span> <span class="fl">0.25</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span> <span class="op">+</span> <span class="op">(</span><span class="va">y</span> <span class="op">-</span> <span class="fl">0.5</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">rot</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="op">-</span><span class="op">(</span><span class="va">y</span> <span class="op">-</span> <span class="fl">0.5</span><span class="op">)</span>, <span class="va">x</span> <span class="op">-</span> <span class="fl">0.5</span><span class="op">)</span> <span class="op">*</span> <span class="fl">2</span> <span class="op">*</span> <span class="va">pi</span></span>
 <span><span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/parabolic_problem.html">parabolic_problem</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">40</span><span class="op">)</span>, diffusion <span class="op">=</span> <span class="fl">1e-4</span>, advection <span class="op">=</span> <span class="va">rot</span>,</span>

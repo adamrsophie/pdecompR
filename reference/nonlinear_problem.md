@@ -106,6 +106,10 @@ The initial guess is the solution of the linear problem with `k(0)` and
 `g'(0)` (for the p-Laplacian, the Laplace problem), unless `initial` is
 given.
 
+## References
+
+Deuflhard, P. (2004). *Newton Methods for Nonlinear Problems*. Springer.
+
 ## Examples
 
 ``` r

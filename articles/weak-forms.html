@@ -5,6 +5,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>The weak-form language • pdecompR</title>
+<!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
+<link rel="icon" type="”image/svg+xml”" href="../favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="icon" sizes="any" href="../favicon.ico">
+<link rel="manifest" href="../site.webmanifest">
 <!-- katex math --><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" integrity="sha384-43gviWU0YVjaDtb/GhzOouOXtZMP/7XUzwPTstBeZFe/+rCMvRwr4yROQP43s0Xk" crossorigin="anonymous" onload="renderMathInElement(document.body);"></script><script src="../katex-auto.js"></script><script src="../lightswitch.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
@@ -85,8 +90,7 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-
-      <h1>The weak-form language</h1>
+      <img src="../logo.svg" class="logo" alt=""><h1>The weak-form language</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/adamrsophie/pdecompR/blob/main/vignettes/weak-forms.Rmd" class="external-link"><code>vignettes/weak-forms.Rmd</code></a></small>
@@ -226,7 +230,19 @@ results:</p>
 <span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> A term contains the trial function twice.</span></span>
 <span><span class="fu"><a href="../reference/trial_function.html">grad</a></span><span class="op">(</span><span class="va">u</span><span class="op">)</span> <span class="op">*</span> <span class="fu"><a href="../reference/trial_function.html">grad</a></span><span class="op">(</span><span class="va">v</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Use `dot()` to multiply vector-valued expressions.</span></span></code></pre></div>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Use `dot()` to multiply vector-valued expressions.</span></span>
+<span><span class="fu"><a href="../reference/trial_function.html">dot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="../reference/trial_function.html">grad</a></span><span class="op">(</span><span class="va">u</span><span class="op">)</span><span class="op">)</span> <span class="op">*</span> <span class="fu"><a href="../reference/trial_function.html">dot</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="../reference/trial_function.html">grad</a></span><span class="op">(</span><span class="va">v</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Products of two directional derivatives such as `dot(b, grad(u)) * dot(c, grad(v))` are not supported.</span></span>
+<span><span class="fu"><a href="../reference/trial_function.html">grad</a></span><span class="op">(</span><span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fl">1</span> <span class="op">+</span> <span class="va">x</span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> `grad()` applies to trial or test functions.</span></span></code></pre></div>
+<p>Streamline terms such as
+<code>dot(b, grad(u)) * dot(b, grad(v))</code> and gradients of products
+<code>grad(k * u)</code> are not part of the language; write the
+stiffness term with a coefficient,
+<code>k * dot(grad(u), grad(v))</code>, instead. Trial and test
+functions must come from the same function space.</p>
 <p>Forms are assembled with the same kernels as the problem
 constructors, so both routes have identical accuracy. Nonlinear forms,
 vector-valued and mixed spaces are planned extensions of this

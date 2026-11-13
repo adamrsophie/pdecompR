@@ -5,6 +5,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Error estimation and adaptive refinement • pdecompR</title>
+<!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
+<link rel="icon" type="”image/svg+xml”" href="../favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="icon" sizes="any" href="../favicon.ico">
+<link rel="manifest" href="../site.webmanifest">
 <!-- katex math --><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" integrity="sha384-43gviWU0YVjaDtb/GhzOouOXtZMP/7XUzwPTstBeZFe/+rCMvRwr4yROQP43s0Xk" crossorigin="anonymous" onload="renderMathInElement(document.body);"></script><script src="../katex-auto.js"></script><script src="../lightswitch.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
@@ -85,8 +90,7 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-
-      <h1>Error estimation and adaptive refinement</h1>
+      <img src="../logo.svg" class="logo" alt=""><h1>Error estimation and adaptive refinement</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/adamrsophie/pdecompR/blob/main/vignettes/adaptivity.Rmd" class="external-link"><code>vignettes/adaptivity.Rmd</code></a></small>
@@ -175,17 +179,17 @@ reentrant corner. Uniform refinement converges like <span class="math inline">N^
 <span><span class="va">ad</span></span>
 <span><span class="co">#&gt; Adaptive finite-element solution</span></span>
 <span><span class="co">#&gt;  iteration ndof elements estimator  error_L2 error_H1_semi</span></span>
-<span><span class="co">#&gt;          0   45       64   0.83538 2.035e-02       0.23525</span></span>
-<span><span class="co">#&gt;          1   50       74   0.54279 1.233e-02       0.17478</span></span>
-<span><span class="co">#&gt;          2   77      126   0.40454 6.221e-03       0.12736</span></span>
-<span><span class="co">#&gt;          3  139      240   0.29523 3.545e-03       0.09154</span></span>
-<span><span class="co">#&gt;          4  232      418   0.21865 1.830e-03       0.06692</span></span>
-<span><span class="co">#&gt;          5  420      778   0.16142 9.673e-04       0.04895</span></span>
-<span><span class="co">#&gt;          6  767     1454   0.11847 5.070e-04       0.03530</span></span>
-<span><span class="co">#&gt;          7 1359     2616   0.08812 2.999e-04       0.02610</span></span>
-<span><span class="co">#&gt;          8 2539     4936   0.06449 1.524e-04       0.01889</span></span>
-<span><span class="co">#&gt;          9 4569     8952   0.04778 8.313e-05       0.01394</span></span>
-<span><span class="co">#&gt;         10 8384    16534   0.03527 4.399e-05       0.01026</span></span></code></pre></div>
+<span><span class="co">#&gt;          0   45       64   0.83594 2.035e-02       0.23525</span></span>
+<span><span class="co">#&gt;          1   50       74   0.54365 1.233e-02       0.17478</span></span>
+<span><span class="co">#&gt;          2   77      126   0.40570 6.221e-03       0.12736</span></span>
+<span><span class="co">#&gt;          3  139      240   0.29549 3.545e-03       0.09154</span></span>
+<span><span class="co">#&gt;          4  234      422   0.21826 1.818e-03       0.06672</span></span>
+<span><span class="co">#&gt;          5  424      786   0.16074 9.570e-04       0.04866</span></span>
+<span><span class="co">#&gt;          6  780     1480   0.11854 5.098e-04       0.03526</span></span>
+<span><span class="co">#&gt;          7 1355     2608   0.08851 3.016e-04       0.02616</span></span>
+<span><span class="co">#&gt;          8 2541     4940   0.06478 1.537e-04       0.01894</span></span>
+<span><span class="co">#&gt;          9 4555     8924   0.04795 8.336e-05       0.01398</span></span>
+<span><span class="co">#&gt;         10 8383    16528   0.03545 4.440e-05       0.01030</span></span></code></pre></div>
 <div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">ad</span><span class="op">$</span><span class="va">solution</span><span class="op">$</span><span class="va">space</span><span class="op">$</span><span class="va">mesh</span>, markers <span class="op">=</span> <span class="cn">FALSE</span>, main <span class="op">=</span> <span class="st">"adapted mesh"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="adaptivity_files/figure-html/unnamed-chunk-5-1.png" class="r-plt" alt="" width="576"></p>
@@ -214,7 +218,7 @@ reentrant corner. Uniform refinement converges like <span class="math inline">N^
 <span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>adaptive_rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log</a></span><span class="op">(</span><span class="va">h</span><span class="op">$</span><span class="va">error_H1_semi</span><span class="op">[</span><span class="va">k</span><span class="op">]</span> <span class="op">/</span> <span class="va">h</span><span class="op">$</span><span class="va">error_H1_semi</span><span class="op">[</span><span class="va">k</span> <span class="op">-</span> <span class="fl">4</span><span class="op">]</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log</a></span><span class="op">(</span><span class="va">h</span><span class="op">$</span><span class="va">ndof</span><span class="op">[</span><span class="va">k</span><span class="op">]</span> <span class="op">/</span> <span class="va">h</span><span class="op">$</span><span class="va">ndof</span><span class="op">[</span><span class="va">k</span> <span class="op">-</span> <span class="fl">4</span><span class="op">]</span><span class="op">)</span>,</span>
 <span>  uniform_rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log</a></span><span class="op">(</span><span class="va">uni</span><span class="op">$</span><span class="va">H1_semi</span><span class="op">[</span><span class="fl">4</span><span class="op">]</span> <span class="op">/</span> <span class="va">uni</span><span class="op">$</span><span class="va">H1_semi</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log</a></span><span class="op">(</span><span class="va">uni</span><span class="op">$</span><span class="va">ndof</span><span class="op">[</span><span class="fl">4</span><span class="op">]</span> <span class="op">/</span> <span class="va">uni</span><span class="op">$</span><span class="va">ndof</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; adaptive_rate  uniform_rate </span></span>
-<span><span class="co">#&gt;      -0.51672      -0.34013</span></span></code></pre></div>
+<span><span class="co">#&gt;    -0.5181399    -0.3401300</span></span></code></pre></div>
 <p>Adaptivity recovers the optimal rate <span class="math inline">-1/2</span>, while uniform refinement shows <span class="math inline">-1/3</span>. Concentrating refinement is not
 automatically better, though: on smooth problems uniform refinement is
 just as good and cheaper per step, and an estimator that ignores

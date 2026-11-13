@@ -99,14 +99,16 @@ max(abs(sb$ux$values - xy[, 1] / 2), abs(sb$uy$values + 0.25 * xy[, 2] / 2))
 #> [1] 1.110223e-15
 ```
 
-Without enough constraints the problem has no unique solution, and the
-solver says so:
+Without enough constraints the problem has no unique solution. The
+solver checks, before solving, that the constrained displacement
+components remove both translations and the rotation, and says so
+otherwise:
 
 ``` r
 
 solve_pde(elasticity_problem(pde_mesh_rectangle(nx = 4), bcs = traction_bc(c(1, 0), "right")))
 #> Error:
-#> ! The elasticity system is singular or nearly singular: the displacement conditions must remove the rigid motions (two translations and a rotation).
+#> ! The elasticity problem is singular: the displacement conditions must remove the rigid motions (two translations and a rotation).
 ```
 
 ## Verification with a manufactured solution

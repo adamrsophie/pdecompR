@@ -94,6 +94,11 @@ stop when `||b - A x|| <= tol * ||b||`. Direct methods report the same
 relative residual. A small residual says the linear system was solved
 accurately; it says nothing about the discretization error of the PDE.
 
+## References
+
+Saad, Y. (2003). *Iterative Methods for Sparse Linear Systems*, 2nd
+edition. SIAM.
+
 ## Examples
 
 ``` r

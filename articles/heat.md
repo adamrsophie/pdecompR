@@ -57,12 +57,12 @@ summary(sol)
 #> Time-dependent finite-element solution
 #>   method: crank-nicolson  dt: 0.0025  steps: 40 
 #>   degrees of freedom: 625  ( 529  free)
-#>   linear solver: cholesky  max relative residual: 5.4e-16 
-#>   assembly 0.019 s, time stepping 0.013 s
+#>   linear solver: cholesky  max relative residual: 9.77e-16 
+#>   assembly 0.023 s, time stepping 0.026 s
 
 exact_end <- function(x, y) exp(-2 * pi^2 * kappa * 0.1) * u0(x, y)
 errornorm(solution_at(sol, 0.1), exact_end, "L2")
-#> [1] 0.001401432
+#> [1] 0.001295828
 #> attr(,"norm")
 #> [1] "L2"
 #> attr(,"gradient")
@@ -73,16 +73,10 @@ errornorm(solution_at(sol, 0.1), exact_end, "L2")
 
 op <- par(mfrow = c(1, 2))
 plot(sol, time = 0)
-```
-
-![](heat_files/figure-html/unnamed-chunk-4-1.png)
-
-``` r
-
 plot(sol, time = 0.1)
 ```
 
-![](heat_files/figure-html/unnamed-chunk-4-2.png)
+![](heat_files/figure-html/unnamed-chunk-4-1.png)
 
 ``` r
 
@@ -121,10 +115,10 @@ err <- sapply(c("backward-euler", "crank-nicolson"), function(m) sapply(dts, fun
 data.frame(dt = dts, err, rate_BE = c(NA, diff(log(err[, 1])) / diff(log(dts))),
            rate_CN = c(NA, diff(log(err[, 2])) / diff(log(dts))))
 #>       dt backward.euler crank.nicolson  rate_BE  rate_CN
-#> 1 0.1000   0.0021116021   3.446611e-05       NA       NA
-#> 2 0.0500   0.0010367972   8.482943e-06 1.026204 2.022542
-#> 3 0.0250   0.0005137428   2.121328e-06 1.013015 1.999597
-#> 4 0.0125   0.0002557196   5.303579e-07 1.006483 1.999930
+#> 1 0.1000   0.0021116021   8.483527e-05       NA       NA
+#> 2 0.0500   0.0010367972   8.362892e-06 1.026204 3.342590
+#> 3 0.0250   0.0005137428   2.121328e-06 1.013015 1.979034
+#> 4 0.0125   0.0002557196   5.303578e-07 1.006483 1.999930
 ```
 
 ## Time-dependent sources and boundary data

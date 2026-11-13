@@ -44,20 +44,20 @@ traveling front with speed 2\sqrt{rD}.
 
 ``` r
 
-mesh <- pde_mesh_rectangle(c(0, 10), c(0, 1), nx = 100, ny = 4)
+mesh <- pde_mesh_rectangle(c(0, 10), c(0, 1), nx = 80, ny = 2)
 prob <- reaction_diffusion_problem(
   mesh, species = "u", diffusion = 0.1,
   reaction = function(u, x, y, t) u * (1 - u),
   initial = list(u = function(x, y) as.numeric(x < 1)),
   time = c(0, 12))
-sol <- solve_pde(prob, dt = 0.05, method = "implicit-euler", output_times = c(0, 4, 8, 12))
+sol <- solve_pde(prob, dt = 0.1, method = "implicit-euler", output_times = c(0, 4, 8, 12))
 summary(sol)
 #> Time-dependent finite-element solution
-#>   method: implicit-euler  dt:  0.05  steps: 240 
-#>   degrees of freedom: 505  ( 505  free)
+#>   method: implicit-euler  dt:   0.1  steps: 120 
+#>   degrees of freedom: 243  ( 243  free)
 #>   linear solver: auto  max relative residual:    0 
-#>   Newton iterations per step: max 3  mean  2.05 
-#>   assembly 0.019 s, time stepping 0.838 s
+#>   Newton iterations per step: max 3  mean     3 
+#>   assembly 0.018 s, time stepping 0.629 s
 xs <- seq(0, 10, length.out = 300)
 plot(NULL, xlim = c(0, 10), ylim = c(0, 1.05), xlab = "x", ylab = "u", main = "Fisher-KPP front")
 for (k in seq_along(sol$times)) {
@@ -79,7 +79,7 @@ pos <- sapply(sol$times[-1], function(t) {
   u <- evaluate(solution_at(sol, t), xs, rep(0.5, 300)); xs[which.min(abs(u - 0.5))]
 })
 diff(pos) / 4
-#> [1] 0.5434783 0.6020067
+#> [1] 0.5769231 0.6270903
 ```
 
 ## A coupled system: Gray-Scott patterns

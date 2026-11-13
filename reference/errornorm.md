@@ -33,7 +33,10 @@ errornorm(
 
 - exact:
 
-  Exact solution `function(x, y)`.
+  Exact solution `function(x, y)`, or an
+  [`fe_function()`](https://adamrsophie.github.io/pdecompR/reference/fe_function.md)
+  reference solution (for example on a finer mesh, possibly of another
+  degree); its gradient is then used for gradient norms.
 
 - type:
 
@@ -45,7 +48,8 @@ errornorm(
 
 - diffusion:
 
-  Diffusion coefficient for the energy norm.
+  Diffusion coefficient for the energy norm: a number, a function of
+  `(x, y)` or a constant 2 by 2 matrix.
 
 - quad_degree:
 

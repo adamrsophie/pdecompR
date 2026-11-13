@@ -13,7 +13,9 @@ pde_sensitivity(
   mesh = NULL,
   objective = NULL,
   method = c("forward", "adjoint"),
-  h = 1e-06
+  h = 1e-06,
+  lower = -Inf,
+  upper = Inf
 )
 ```
 
@@ -47,6 +49,11 @@ pde_sensitivity(
 
   Relative difference step for the operator derivatives.
 
+- lower, upper:
+
+  Parameter bounds. Difference steps are shortened or made one-sided so
+  that `problem_fun` is never called outside them.
+
 ## Value
 
 A list of class `pde_sensitivity` with the `solution`, the
@@ -73,6 +80,11 @@ The operator derivatives `dK/dtheta_j`, `dr/dtheta_j` and
 operators with step `h_j = h max(1, |theta_j|)`. This is exact up to
 rounding when the coefficients are affine in `theta`, and second-order
 accurate otherwise. The solves themselves are not differenced.
+
+## References
+
+Hinze, M., Pinnau, R., Ulbrich, M. and Ulbrich, S. (2009). *Optimization
+with PDE Constraints*. Springer.
 
 ## Examples
 

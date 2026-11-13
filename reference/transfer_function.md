@@ -35,3 +35,13 @@ transfer_function(u, mesh, degree = u$space$degree)
 An
 [`fe_function()`](https://adamrsophie.github.io/pdecompR/reference/fe_function.md)
 on `mesh`.
+
+## Examples
+
+``` r
+mesh <- pde_mesh_rectangle(nx = 2)
+u <- interpolate(function(x, y) x + y, fe_space(mesh))
+v <- transfer_function(u, refine_uniform(mesh))
+evaluate(v, 0.3, 0.4)
+#> [1] 0.7
+```

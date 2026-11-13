@@ -5,6 +5,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Linear elasticity and vector-valued elements • pdecompR</title>
+<!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
+<link rel="icon" type="”image/svg+xml”" href="../favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="icon" sizes="any" href="../favicon.ico">
+<link rel="manifest" href="../site.webmanifest">
 <!-- katex math --><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" integrity="sha384-43gviWU0YVjaDtb/GhzOouOXtZMP/7XUzwPTstBeZFe/+rCMvRwr4yROQP43s0Xk" crossorigin="anonymous" onload="renderMathInElement(document.body);"></script><script src="../katex-auto.js"></script><script src="../lightswitch.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
@@ -85,8 +90,7 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-
-      <h1>Linear elasticity and vector-valued elements</h1>
+      <img src="../logo.svg" class="logo" alt=""><h1>Linear elasticity and vector-valued elements</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/adamrsophie/pdecompR/blob/main/vignettes/elasticity.Rmd" class="external-link"><code>vignettes/elasticity.Rmd</code></a></small>
@@ -184,12 +188,14 @@ y/E</span>, which the method reproduces to rounding error:</p>
 <span><span class="va">xy</span> <span class="op">&lt;-</span> <span class="va">sb</span><span class="op">$</span><span class="va">space</span><span class="op">$</span><span class="va">dof_coords</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">sb</span><span class="op">$</span><span class="va">ux</span><span class="op">$</span><span class="va">values</span> <span class="op">-</span> <span class="va">xy</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">sb</span><span class="op">$</span><span class="va">uy</span><span class="op">$</span><span class="va">values</span> <span class="op">+</span> <span class="fl">0.25</span> <span class="op">*</span> <span class="va">xy</span><span class="op">[</span>, <span class="fl">2</span><span class="op">]</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 1.110223e-15</span></span></code></pre></div>
-<p>Without enough constraints the problem has no unique solution, and
-the solver says so:</p>
+<p>Without enough constraints the problem has no unique solution. The
+solver checks, before solving, that the constrained displacement
+components remove both translations and the rotation, and says so
+otherwise:</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="../reference/elasticity_problem.html">elasticity_problem</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>, bcs <span class="op">=</span> <span class="fu"><a href="../reference/displacement_bc.html">traction_bc</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>, <span class="st">"right"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> The elasticity system is singular or nearly singular: the displacement conditions must remove the rigid motions (two translations and a rotation).</span></span></code></pre></div>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> The elasticity problem is singular: the displacement conditions must remove the rigid motions (two translations and a rotation).</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="verification-with-a-manufactured-solution">Verification with a manufactured solution<a class="anchor" aria-label="anchor" href="#verification-with-a-manufactured-solution"></a>

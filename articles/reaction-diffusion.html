@@ -5,6 +5,11 @@
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <title>Reaction-diffusion systems • pdecompR</title>
+<!-- favicons --><link rel="icon" type="image/png" sizes="96x96" href="../favicon-96x96.png">
+<link rel="icon" type="”image/svg+xml”" href="../favicon.svg">
+<link rel="apple-touch-icon" sizes="180x180" href="../apple-touch-icon.png">
+<link rel="icon" sizes="any" href="../favicon.ico">
+<link rel="manifest" href="../site.webmanifest">
 <!-- katex math --><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" integrity="sha384-nB0miv6/jRmo5UMMR1wu3Gz6NLsoTkbqJghGIsx//Rlm+ZU03BU6SQNC66uf4l5+" crossorigin="anonymous">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js" integrity="sha384-7zkQWkzuo3B5mTepMUcHkMB5jZaolc2xDwL6VFqjFALcbeS9Ggm/Yr2r3Dy4lfFg" crossorigin="anonymous"></script><script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js" integrity="sha384-43gviWU0YVjaDtb/GhzOouOXtZMP/7XUzwPTstBeZFe/+rCMvRwr4yROQP43s0Xk" crossorigin="anonymous" onload="renderMathInElement(document.body);"></script><script src="../katex-auto.js"></script><script src="../lightswitch.js"></script><script src="../deps/jquery-3.6.0/jquery-3.6.0.min.js"></script><meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
 <link href="../deps/bootstrap-5.3.8/bootstrap.min.css" rel="stylesheet">
@@ -85,8 +90,7 @@
 
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
-
-      <h1>Reaction-diffusion systems</h1>
+      <img src="../logo.svg" class="logo" alt=""><h1>Reaction-diffusion systems</h1>
             
       
       <small class="dont-index">Source: <a href="https://github.com/adamrsophie/pdecompR/blob/main/vignettes/reaction-diffusion.Rmd" class="external-link"><code>vignettes/reaction-diffusion.Rmd</code></a></small>
@@ -140,20 +144,20 @@ solution if positivity matters.</p>
 D\Delta u + r u(1 - u)</span> develops a traveling front with speed
 <span class="math inline">2\sqrt{rD}</span>.</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
-<code class="sourceCode R"><span><span class="va">mesh</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">10</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>, nx <span class="op">=</span> <span class="fl">100</span>, ny <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span>
+<code class="sourceCode R"><span><span class="va">mesh</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">10</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>, nx <span class="op">=</span> <span class="fl">80</span>, ny <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="va">prob</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/reaction_diffusion_problem.html">reaction_diffusion_problem</a></span><span class="op">(</span></span>
 <span>  <span class="va">mesh</span>, species <span class="op">=</span> <span class="st">"u"</span>, diffusion <span class="op">=</span> <span class="fl">0.1</span>,</span>
 <span>  reaction <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">u</span>, <span class="va">x</span>, <span class="va">y</span>, <span class="va">t</span><span class="op">)</span> <span class="va">u</span> <span class="op">*</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">u</span><span class="op">)</span>,</span>
 <span>  initial <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>u <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="va">x</span> <span class="op">&lt;</span> <span class="fl">1</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>  time <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">12</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="va">sol</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="va">prob</span>, dt <span class="op">=</span> <span class="fl">0.05</span>, method <span class="op">=</span> <span class="st">"implicit-euler"</span>, output_times <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">4</span>, <span class="fl">8</span>, <span class="fl">12</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">sol</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="va">prob</span>, dt <span class="op">=</span> <span class="fl">0.1</span>, method <span class="op">=</span> <span class="st">"implicit-euler"</span>, output_times <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">4</span>, <span class="fl">8</span>, <span class="fl">12</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary</a></span><span class="op">(</span><span class="va">sol</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Time-dependent finite-element solution</span></span>
-<span><span class="co">#&gt;   method: implicit-euler  dt:  0.05  steps: 240 </span></span>
-<span><span class="co">#&gt;   degrees of freedom: 505  ( 505  free)</span></span>
+<span><span class="co">#&gt;   method: implicit-euler  dt:   0.1  steps: 120 </span></span>
+<span><span class="co">#&gt;   degrees of freedom: 243  ( 243  free)</span></span>
 <span><span class="co">#&gt;   linear solver: auto  max relative residual:    0 </span></span>
-<span><span class="co">#&gt;   Newton iterations per step: max 3  mean  2.05 </span></span>
-<span><span class="co">#&gt;   assembly 0.019 s, time stepping 0.838 s</span></span>
+<span><span class="co">#&gt;   Newton iterations per step: max 3  mean     3 </span></span>
+<span><span class="co">#&gt;   assembly 0.018 s, time stepping 0.629 s</span></span>
 <span><span class="va">xs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">10</span>, length.out <span class="op">=</span> <span class="fl">300</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="cn">NULL</span>, xlim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">10</span><span class="op">)</span>, ylim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1.05</span><span class="op">)</span>, xlab <span class="op">=</span> <span class="st">"x"</span>, ylab <span class="op">=</span> <span class="st">"u"</span>, main <span class="op">=</span> <span class="st">"Fisher-KPP front"</span><span class="op">)</span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">k</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">sol</span><span class="op">$</span><span class="va">times</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
@@ -170,7 +174,7 @@ measured speeds are a little smaller:</p>
 <span>  <span class="va">u</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/evaluate.html">evaluate</a></span><span class="op">(</span><span class="fu"><a href="../reference/solution_at.html">solution_at</a></span><span class="op">(</span><span class="va">sol</span>, <span class="va">t</span><span class="op">)</span>, <span class="va">xs</span>, <span class="fu"><a href="https://rdrr.io/r/base/rep.html" class="external-link">rep</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">300</span><span class="op">)</span><span class="op">)</span>; <span class="va">xs</span><span class="op">[</span><span class="fu"><a href="https://rdrr.io/r/base/which.min.html" class="external-link">which.min</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">u</span> <span class="op">-</span> <span class="fl">0.5</span><span class="op">)</span><span class="op">)</span><span class="op">]</span></span>
 <span><span class="op">}</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/diff.html" class="external-link">diff</a></span><span class="op">(</span><span class="va">pos</span><span class="op">)</span> <span class="op">/</span> <span class="fl">4</span></span>
-<span><span class="co">#&gt; [1] 0.5434783 0.6020067</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 0.5769231 0.6270903</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="a-coupled-system-gray-scott-patterns">A coupled system: Gray-Scott patterns<a class="anchor" aria-label="anchor" href="#a-coupled-system-gray-scott-patterns"></a>

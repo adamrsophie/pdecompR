@@ -98,19 +98,32 @@ With `stabilization = "supg"` (P1 only) the streamline upwind
 Petrov-Galerkin terms
 `sum_T tau_T int_T (b . grad u + c u - f) (b . grad v)` are added, with
 `tau_T = h_T / (2 |b|) (coth(Pe) - 1 / Pe)`, `Pe = |b| h_T / (2 k)`,
-evaluated at the element centroid with `h_T` the longest edge. The
-method is consistent: the exact solution satisfies the stabilized
-equations.
+evaluated at the element centroid with `h_T` the longest edge (for a
+matrix `K`, `k` is the streamline diffusivity `b'Kb / |b|^2`). For P1
+elements the diffusive part of the element residual vanishes, so the
+method is consistent when the diffusion is constant; with variable
+diffusion the term `grad k . grad u_h` is omitted, which keeps the
+convergence order but is not strictly consistent.
 
-Problems without Dirichlet or Robin conditions and without reaction are
-pure Neumann problems: the solution is unique only up to a constant. The
-solver then checks the compatibility condition `int f + int g = 0` and
-returns the solution with zero mean, labeled as such. The discrete check
-is `|sum_i b_i| <= compatibility_tol * sum_i |b_i|` (an argument of
+When no Dirichlet data are imposed and constants lie in the kernel of
+the assembled operator (no reaction, no Robin term with positive
+`alpha`), the problem is a pure Neumann problem: the solution is unique
+only up to a constant. The solver then checks the compatibility
+condition (for a symmetric operator `int f + int g = 0`) and returns the
+solution with zero mean, labeled as such. The compatibility defect is
+read from the Lagrange multiplier of the zero-mean constraint and
+compared with `compatibility_tol * sum_i |b_i|` (an argument of
 [`solve_pde()`](https://adamrsophie.github.io/pdecompR/reference/solve_pde.md),
-default `1e-6`), which tolerates quadrature error in compatible data; a
-Lagrange multiplier for the zero-mean constraint absorbs the remaining
-defect and is reported.
+default `1e-6`). For a nonsymmetric operator (advection) the left null
+vector is not constant; there a defect above `h^2` gives a warning
+instead of an error, because data that are compatible for the PDE leave
+a defect of the size of the discretization error.
+
+## References
+
+Brooks, A. N. and Hughes, T. J. R. (1982). Streamline
+upwind/Petrov-Galerkin formulations for convection dominated flows.
+*Computer Methods in Applied Mechanics and Engineering*, 32, 199-259.
 
 ## Examples
 

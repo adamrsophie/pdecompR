@@ -64,8 +64,10 @@ the `objective`, the gradient norm and solver details.
 
 subject to `-div(k grad u) = f + q` with the given boundary conditions,
 where the control `q` is a P1 function and norms are `L2` norms
-(computed with the mass matrix). The problem is strictly convex for
-`alpha > 0`.
+(computed with the mass matrix). The target enters through its nodal
+interpolant, so the reported tracking term is `||u - I_h u_target||`;
+features of the target smaller than the mesh size are not seen. The
+problem is strictly convex for `alpha > 0`.
 
 Without bounds the first-order optimality (KKT) system is solved
 directly with sparse LU. With bounds `lower <= q <= upper`, the reduced
