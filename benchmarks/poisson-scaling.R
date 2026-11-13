@@ -5,7 +5,6 @@
 library(pdecompR)
 f <- function(x, y) 2 * pi^2 * sin(pi * x) * sin(pi * y)
 run <- function(n, degree) {
-  mesh <- pde_mesh_rectangle(nx = n)
   t_mesh <- system.time(mesh <- pde_mesh_rectangle(nx = n))[["elapsed"]]
   s <- solve_pde(poisson_problem(mesh, source = f, boundary = dirichlet_bc(0), degree = degree))
   data.frame(degree = degree, n = n, ndof = s$space$ndof, elements = nrow(mesh$triangles),

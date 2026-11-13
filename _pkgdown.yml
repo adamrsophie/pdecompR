@@ -36,6 +36,7 @@ articles:
   - reaction-diffusion
   - advection-diffusion
   - nonlinear
+  - elasticity
 - title: Adaptivity, sensitivities and inverse problems
   navbar: Adaptivity and inverse problems
   contents:
@@ -78,6 +79,8 @@ reference:
   - parabolic_problem
   - reaction_diffusion_problem
   - nonlinear_problem
+  - elasticity_problem
+  - displacement_bc
   - trial_function
   - variational_problem
   - discretize

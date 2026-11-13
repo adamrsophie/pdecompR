@@ -159,6 +159,11 @@ print.fe_expr <- function(x, ...) {
 #' @rdname trial_function
 #' @export
 integrate_domain <- function(expr) {
+  if (is.function(expr)) {
+    stopf(paste0("`expr` is a function, not a weak-form expression. In ",
+                 "`function(x, y) f(x, y) * v` the `* v` is part of the function body; ",
+                 "define `f <- function(x, y) ...` first and write `f * v`."))
+  }
   if (!inherits(expr, "fe_expr")) stopf("`expr` must be a weak-form expression.")
   structure(list(parts = list(list(where = "domain", marker = NULL, expr = expr)),
                  space = expr$space), class = "fe_form")
@@ -167,6 +172,11 @@ integrate_domain <- function(expr) {
 #' @rdname trial_function
 #' @export
 integrate_boundary <- function(expr, marker = "boundary") {
+  if (is.function(expr)) {
+    stopf(paste0("`expr` is a function, not a weak-form expression. In ",
+                 "`function(x, y) f(x, y) * v` the `* v` is part of the function body; ",
+                 "define `f <- function(x, y) ...` first and write `f * v`."))
+  }
   if (!inherits(expr, "fe_expr")) stopf("`expr` must be a weak-form expression.")
   boundary_rows(expr$space$mesh, marker)
   structure(list(parts = list(list(where = "boundary", marker = marker, expr = expr)),

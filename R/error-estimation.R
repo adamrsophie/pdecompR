@@ -18,7 +18,9 @@
 #' about 1e-9 relative, which is adequate for convergence studies on
 #' moderately fine meshes.
 #'
-#' @param u An [fe_function()] or `pde_solution`.
+#' @param u An [fe_function()], `pde_solution` or `pde_vector_solution` (from
+#'   [elasticity_problem()]; then `exact` returns two columns and `gradient` is a
+#'   list of two gradient functions, one per component).
 #' @param exact Exact solution `function(x, y)`.
 #' @param type Norm type.
 #' @param gradient Exact gradient `function(x, y)` returning a two-column
@@ -37,6 +39,10 @@
 errornorm <- function(u, exact, type = c("L2", "H1_semi", "H1", "energy"), gradient = NULL,
                       diffusion = 1, quad_degree = NULL, elementwise = FALSE) {
   type <- match.arg(type)
+  if (inherits(u, "pde_vector_solution")) {
+    if (type == "energy") stopf("Use \"L2\", \"H1_semi\" or \"H1\" for vector solutions.")
+    return(vector_errornorm(u, exact, type, gradient))
+  }
   if (inherits(u, "pde_solution")) u <- u$u
   stopifnot(inherits(u, "fe_function"))
   V <- u$space
@@ -133,7 +139,7 @@ convergence_study <- function(problem, exact, gradient = NULL, mesh_sizes = NULL
     errs <- vapply(norms, function(nm) as.numeric(errornorm(sol, exact, nm, gradient = gradient,
                                                              diffusion = problem$diffusion)),
                    numeric(1))
-    c(h = mesh_size(mesh), ndof = sol$space$ndof, errs)
+    c(h = mesh_size(mesh), ndof = sol$diagnostics$ndof, errs)
   })
   out <- as.data.frame(do.call(rbind, rows))
   for (nm in norms) {

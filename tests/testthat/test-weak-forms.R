@@ -1,3 +1,9 @@
+test_that("a bare coefficient function gets a targeted error", {
+  V <- fe_space(pde_mesh_rectangle(nx = 2)); v <- test_function(V)
+  expect_error(integrate_domain(function(x, y) x * v), "part of the function body")
+  expect_error(integrate_boundary(function(x, y) x * v, "left"), "part of the function body")
+})
+
 test_that("the weak-form language reproduces the Poisson solver", {
   m <- pde_mesh_rectangle(nx = 8)
   V <- fe_space(m)

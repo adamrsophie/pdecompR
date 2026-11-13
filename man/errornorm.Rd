@@ -15,7 +15,9 @@ errornorm(
 )
 }
 \arguments{
-\item{u}{An \code{\link[=fe_function]{fe_function()}} or \code{pde_solution}.}
+\item{u}{An \code{\link[=fe_function]{fe_function()}}, \code{pde_solution} or \code{pde_vector_solution} (from
+\code{\link[=elasticity_problem]{elasticity_problem()}}; then \code{exact} returns two columns and \code{gradient} is a
+list of two gradient functions, one per component).}
 
 \item{exact}{Exact solution \verb{function(x, y)}.}
 
