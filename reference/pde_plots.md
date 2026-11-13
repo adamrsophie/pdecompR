@@ -6,6 +6,9 @@ never need a graphics device).
 ## Usage
 
 ``` r
+# S3 method for class 'pde_vector_solution'
+plot(x, scale = NULL, main = "Deformed mesh (color: |u|)", ...)
+
 # S3 method for class 'pde_mesh'
 plot(x, markers = TRUE, main = "Mesh", ...)
 
@@ -47,9 +50,10 @@ plot(x, main = "Adaptive refinement", ...)
 
   Object to plot.
 
-- markers:
+- scale:
 
-  Color boundary edges by marker.
+  Displacement magnification for the deformed mesh (default: 10 percent
+  of the domain size over the largest displacement).
 
 - main:
 
@@ -58,6 +62,10 @@ plot(x, main = "Adaptive refinement", ...)
 - ...:
 
   Passed to the underlying plotting functions.
+
+- markers:
+
+  Color boundary edges by marker.
 
 - type:
 

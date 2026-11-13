@@ -32,6 +32,8 @@
   stabilization](https://adamrsophie.github.io/pdecompR/articles/advection-diffusion.md):
 - [Nonlinear problems and Newton's
   method](https://adamrsophie.github.io/pdecompR/articles/nonlinear.md):
+- [Linear elasticity and vector-valued
+  elements](https://adamrsophie.github.io/pdecompR/articles/elasticity.md):
 
 ### Adaptivity, sensitivities and inverse problems
 

@@ -25,8 +25,11 @@ errornorm(
 - u:
 
   An
-  [`fe_function()`](https://adamrsophie.github.io/pdecompR/reference/fe_function.md)
-  or `pde_solution`.
+  [`fe_function()`](https://adamrsophie.github.io/pdecompR/reference/fe_function.md),
+  `pde_solution` or `pde_vector_solution` (from
+  [`elasticity_problem()`](https://adamrsophie.github.io/pdecompR/reference/elasticity_problem.md);
+  then `exact` returns two columns and `gradient` is a list of two
+  gradient functions, one per component).
 
 - exact:
 

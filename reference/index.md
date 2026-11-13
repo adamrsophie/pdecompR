@@ -80,6 +80,11 @@
 - [`nonlinear_problem()`](https://adamrsophie.github.io/pdecompR/reference/nonlinear_problem.md)
   [`p_laplace_problem()`](https://adamrsophie.github.io/pdecompR/reference/nonlinear_problem.md)
   : Nonlinear stationary problems
+- [`elasticity_problem()`](https://adamrsophie.github.io/pdecompR/reference/elasticity_problem.md)
+  : Linear elasticity
+- [`displacement_bc()`](https://adamrsophie.github.io/pdecompR/reference/displacement_bc.md)
+  [`traction_bc()`](https://adamrsophie.github.io/pdecompR/reference/displacement_bc.md)
+  : Boundary conditions for linear elasticity
 - [`trial_function()`](https://adamrsophie.github.io/pdecompR/reference/trial_function.md)
   [`test_function()`](https://adamrsophie.github.io/pdecompR/reference/trial_function.md)
   [`grad()`](https://adamrsophie.github.io/pdecompR/reference/trial_function.md)
@@ -126,7 +131,8 @@
 
 ## Visualization
 
-- [`plot(`*`<pde_mesh>`*`)`](https://adamrsophie.github.io/pdecompR/reference/pde_plots.md)
+- [`plot(`*`<pde_vector_solution>`*`)`](https://adamrsophie.github.io/pdecompR/reference/pde_plots.md)
+  [`plot(`*`<pde_mesh>`*`)`](https://adamrsophie.github.io/pdecompR/reference/pde_plots.md)
   [`plot(`*`<fe_function>`*`)`](https://adamrsophie.github.io/pdecompR/reference/pde_plots.md)
   [`plot(`*`<pde_solution>`*`)`](https://adamrsophie.github.io/pdecompR/reference/pde_plots.md)
   [`plot(`*`<pde_transient>`*`)`](https://adamrsophie.github.io/pdecompR/reference/pde_plots.md)

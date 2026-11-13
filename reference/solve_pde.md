@@ -6,6 +6,9 @@ parabolic, reaction-diffusion and nonlinear problems.
 ## Usage
 
 ``` r
+# S3 method for class 'elasticity_problem'
+solve_pde(problem, method = "auto", ...)
+
 solve_pde(problem, ...)
 
 # S3 method for class 'parabolic_problem'
@@ -40,6 +43,11 @@ solve_pde(
 
   A `pde_problem`.
 
+- method:
+
+  For time-dependent problems: `"crank-nicolson"` (second order) or
+  `"backward-euler"` (first order, L-stable).
+
 - ...:
 
   Passed to methods: `method`, `tol` and other arguments of
@@ -50,11 +58,6 @@ solve_pde(
 
   Time step. The number of steps is `ceiling((T - t0) / dt)` and the
   step is then adjusted to land exactly on the final time.
-
-- method:
-
-  For time-dependent problems: `"crank-nicolson"` (second order) or
-  `"backward-euler"` (first order, L-stable).
 
 - output_times:
 

@@ -58,7 +58,7 @@ summary(sol)
 #>   method: crank-nicolson  dt: 0.0025  steps: 40 
 #>   degrees of freedom: 625  ( 529  free)
 #>   linear solver: cholesky  max relative residual: 5.4e-16 
-#>   assembly 0.025 s, time stepping 0.018 s
+#>   assembly 0.019 s, time stepping 0.013 s
 
 exact_end <- function(x, y) exp(-2 * pi^2 * kappa * 0.1) * u0(x, y)
 errornorm(solution_at(sol, 0.1), exact_end, "L2")

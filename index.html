@@ -53,6 +53,7 @@
     <li><a class="dropdown-item" href="articles/reaction-diffusion.html">Reaction-diffusion systems</a></li>
     <li><a class="dropdown-item" href="articles/advection-diffusion.html">Advection-diffusion and stabilization</a></li>
     <li><a class="dropdown-item" href="articles/nonlinear.html">Nonlinear problems and Newton's method</a></li>
+    <li><a class="dropdown-item" href="articles/elasticity.html">Linear elasticity and vector-valued elements</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Adaptivity and inverse problems</h6></li>
     <li><a class="dropdown-item" href="articles/adaptivity.html">Error estimation and adaptive refinement</a></li>
@@ -150,7 +151,7 @@
 </tr>
 <tr>
 <td>Finite elements</td>
-<td>continuous Lagrange P1 and P2 on triangles; interpolation, point evaluation, observation matrices</td>
+<td>continuous Lagrange P1 and P2 on triangles, scalar and vector valued; interpolation, point evaluation, observation matrices</td>
 </tr>
 <tr>
 <td>Quadrature</td>
@@ -170,7 +171,7 @@
 </tr>
 <tr>
 <td>PDE classes</td>
-<td>elliptic (diffusion, advection, reaction), SUPG stabilization, heat and parabolic problems (backward Euler, Crank-Nicolson), reaction-diffusion systems (IMEX, Newton), quasilinear diffusion, semilinear reaction, p-Laplacian</td>
+<td>elliptic (diffusion, advection, reaction), linear elasticity (vector P1/P2, plane strain and stress), SUPG stabilization, heat and parabolic problems (backward Euler, Crank-Nicolson), reaction-diffusion systems (IMEX, Newton), quasilinear diffusion, semilinear reaction, p-Laplacian</td>
 </tr>
 <tr>
 <td>Weak forms</td>
@@ -192,7 +193,7 @@
 </tr>
 </tbody>
 </table>
-<p>Three-dimensional meshes, vector-valued and mixed elements, discontinuous Galerkin methods and parallel or GPU backends are not available yet; see the roadmap in the documentation site.</p>
+<p>Three-dimensional meshes, mixed elements (Stokes), discontinuous Galerkin methods and parallel or GPU backends are not available yet; see the roadmap in the documentation site.</p>
 </div>
 <div class="section level2">
 <h2 id="validation">Validation<a class="anchor" aria-label="anchor" href="#validation"></a>
@@ -208,13 +209,13 @@
 <tbody>
 <tr>
 <td>P1</td>
-<td>16, 32</td>
+<td>8, 16, 32</td>
 <td>1.97, 1.99</td>
 <td>0.99, 1.00</td>
 </tr>
 <tr>
 <td>P2</td>
-<td>8, 16</td>
+<td>8, 16, 32</td>
 <td>2.98, 3.00</td>
 <td>1.95, 1.99</td>
 </tr>
@@ -244,7 +245,8 @@
 <div class="license">
 <h2 data-toc-skip>License</h2>
 <ul class="list-unstyled">
-<li><a href="https://www.r-project.org/Licenses/GPL-3" class="external-link">GPL-3</a></li>
+<li><a href="LICENSE.html">Full license</a></li>
+<li><small><a href="https://www.r-project.org/Licenses/GPL-3" class="external-link">GPL-3</a></small></li>
 </ul>
 </div>
 

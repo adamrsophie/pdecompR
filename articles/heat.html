@@ -51,6 +51,7 @@
     <li><a class="dropdown-item" href="../articles/reaction-diffusion.html">Reaction-diffusion systems</a></li>
     <li><a class="dropdown-item" href="../articles/advection-diffusion.html">Advection-diffusion and stabilization</a></li>
     <li><a class="dropdown-item" href="../articles/nonlinear.html">Nonlinear problems and Newton's method</a></li>
+    <li><a class="dropdown-item" href="../articles/elasticity.html">Linear elasticity and vector-valued elements</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Adaptivity and inverse problems</h6></li>
     <li><a class="dropdown-item" href="../articles/adaptivity.html">Error estimation and adaptive refinement</a></li>
@@ -155,7 +156,7 @@ zero boundary values and no source, the exact solution is <span class="math inli
 <span><span class="co">#&gt;   method: crank-nicolson  dt: 0.0025  steps: 40 </span></span>
 <span><span class="co">#&gt;   degrees of freedom: 625  ( 529  free)</span></span>
 <span><span class="co">#&gt;   linear solver: cholesky  max relative residual: 5.4e-16 </span></span>
-<span><span class="co">#&gt;   assembly 0.025 s, time stepping 0.018 s</span></span>
+<span><span class="co">#&gt;   assembly 0.019 s, time stepping 0.013 s</span></span>
 <span></span>
 <span><span class="va">exact_end</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="op">-</span><span class="fl">2</span> <span class="op">*</span> <span class="va">pi</span><span class="op">^</span><span class="fl">2</span> <span class="op">*</span> <span class="va">kappa</span> <span class="op">*</span> <span class="fl">0.1</span><span class="op">)</span> <span class="op">*</span> <span class="fu">u0</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/errornorm.html">errornorm</a></span><span class="op">(</span><span class="fu"><a href="../reference/solution_at.html">solution_at</a></span><span class="op">(</span><span class="va">sol</span>, <span class="fl">0.1</span><span class="op">)</span>, <span class="va">exact_end</span>, <span class="st">"L2"</span><span class="op">)</span></span>

@@ -51,6 +51,7 @@
     <li><a class="dropdown-item" href="../articles/reaction-diffusion.html">Reaction-diffusion systems</a></li>
     <li><a class="dropdown-item" href="../articles/advection-diffusion.html">Advection-diffusion and stabilization</a></li>
     <li><a class="dropdown-item" href="../articles/nonlinear.html">Nonlinear problems and Newton's method</a></li>
+    <li><a class="dropdown-item" href="../articles/elasticity.html">Linear elasticity and vector-valued elements</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Adaptivity and inverse problems</h6></li>
     <li><a class="dropdown-item" href="../articles/adaptivity.html">Error estimation and adaptive refinement</a></li>
@@ -152,7 +153,7 @@ D\Delta u + r u(1 - u)</span> develops a traveling front with speed
 <span><span class="co">#&gt;   degrees of freedom: 505  ( 505  free)</span></span>
 <span><span class="co">#&gt;   linear solver: auto  max relative residual:    0 </span></span>
 <span><span class="co">#&gt;   Newton iterations per step: max 3  mean  2.05 </span></span>
-<span><span class="co">#&gt;   assembly 0.023 s, time stepping 1.01 s</span></span>
+<span><span class="co">#&gt;   assembly 0.019 s, time stepping 0.838 s</span></span>
 <span><span class="va">xs</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">10</span>, length.out <span class="op">=</span> <span class="fl">300</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="cn">NULL</span>, xlim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">10</span><span class="op">)</span>, ylim <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1.05</span><span class="op">)</span>, xlab <span class="op">=</span> <span class="st">"x"</span>, ylab <span class="op">=</span> <span class="st">"u"</span>, main <span class="op">=</span> <span class="st">"Fisher-KPP front"</span><span class="op">)</span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">k</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_along</a></span><span class="op">(</span><span class="va">sol</span><span class="op">$</span><span class="va">times</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>

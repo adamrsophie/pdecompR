@@ -73,30 +73,30 @@ solve_pde(variational_problem(a, L, dirichlet_bc(0)))
 | Area | Functionality |
 |----|----|
 | Geometry and meshes | rectangles and simple polygons; structured meshes (three diagonal patterns); polygon meshes (ear clipping, Delaunay flips, refinement); validation of connectivity, orientation, degeneracy and boundary markers; quality measures; Gmsh 2.2 and 4.1 import; VTK export |
-| Finite elements | continuous Lagrange P1 and P2 on triangles; interpolation, point evaluation, observation matrices |
+| Finite elements | continuous Lagrange P1 and P2 on triangles, scalar and vector valued; interpolation, point evaluation, observation matrices |
 | Quadrature | Gauss-Legendre on intervals; triangle rules exact to any degree |
 | Assembly | sparse triplet assembly of stiffness, mass, advection and boundary matrices, load vectors, constant tensor diffusion |
 | Boundary conditions | Dirichlet (by elimination, keeps SPD), Neumann, Robin; pure Neumann problems with compatibility check and zero-mean gauge |
 | Linear solvers | sparse Cholesky and LU; preconditioned CG, BiCGSTAB and GMRES; residual diagnostics |
-| PDE classes | elliptic (diffusion, advection, reaction), SUPG stabilization, heat and parabolic problems (backward Euler, Crank-Nicolson), reaction-diffusion systems (IMEX, Newton), quasilinear diffusion, semilinear reaction, p-Laplacian |
+| PDE classes | elliptic (diffusion, advection, reaction), linear elasticity (vector P1/P2, plane strain and stress), SUPG stabilization, heat and parabolic problems (backward Euler, Crank-Nicolson), reaction-diffusion systems (IMEX, Newton), quasilinear diffusion, semilinear reaction, p-Laplacian |
 | Weak forms | [`trial_function()`](https://adamrsophie.github.io/pdecompR/reference/trial_function.md), [`test_function()`](https://adamrsophie.github.io/pdecompR/reference/trial_function.md), [`grad()`](https://adamrsophie.github.io/pdecompR/reference/trial_function.md), [`dot()`](https://adamrsophie.github.io/pdecompR/reference/trial_function.md), [`integrate_domain()`](https://adamrsophie.github.io/pdecompR/reference/trial_function.md), [`integrate_boundary()`](https://adamrsophie.github.io/pdecompR/reference/trial_function.md) |
 | Verification | L2, H1 and energy errors, convergence studies with observed orders |
 | Adaptivity | residual error estimator, Doerfler marking, newest vertex bisection, adaptive loop |
 | Inference | discrete forward and adjoint sensitivities, parameter estimation with adjoint gradients, distributed optimal control |
 
-Three-dimensional meshes, vector-valued and mixed elements,
-discontinuous Galerkin methods and parallel or GPU backends are not
-available yet; see the roadmap in the documentation site.
+Three-dimensional meshes, mixed elements (Stokes), discontinuous
+Galerkin methods and parallel or GPU backends are not available yet; see
+the roadmap in the documentation site.
 
 ## Validation
 
 Every solver is verified against analytical solutions in the test suite.
 Observed orders on the unit square with `u = sin(pi x) sin(pi y)`:
 
-| Element | meshes | L2 order   | H1 order   |
-|---------|--------|------------|------------|
-| P1      | 16, 32 | 1.97, 1.99 | 0.99, 1.00 |
-| P2      | 8, 16  | 2.98, 3.00 | 1.95, 1.99 |
+| Element | meshes    | L2 order   | H1 order   |
+|---------|-----------|------------|------------|
+| P1      | 8, 16, 32 | 1.97, 1.99 | 0.99, 1.00 |
+| P2      | 8, 16, 32 | 2.98, 3.00 | 1.95, 1.99 |
 
 Affine solutions are reproduced to rounding error; Crank-Nicolson and
 backward Euler show temporal orders 2 and 1; Newton’s method converges

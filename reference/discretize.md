@@ -7,6 +7,9 @@ representation from the mathematical problem definition.
 ## Usage
 
 ``` r
+# S3 method for class 'elasticity_problem'
+discretize(problem, ...)
+
 discretize(problem, ...)
 ```
 

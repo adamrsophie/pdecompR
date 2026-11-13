@@ -36,6 +36,7 @@
     <li><a class="dropdown-item" href="../articles/reaction-diffusion.html">Reaction-diffusion systems</a></li>
     <li><a class="dropdown-item" href="../articles/advection-diffusion.html">Advection-diffusion and stabilization</a></li>
     <li><a class="dropdown-item" href="../articles/nonlinear.html">Nonlinear problems and Newton's method</a></li>
+    <li><a class="dropdown-item" href="../articles/elasticity.html">Linear elasticity and vector-valued elements</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Adaptivity and inverse problems</h6></li>
     <li><a class="dropdown-item" href="../articles/adaptivity.html">Error estimation and adaptive refinement</a></li>
@@ -290,6 +291,20 @@
 
         <dt>
 
+          <code><a href="elasticity_problem.html">elasticity_problem()</a></code>
+
+        </dt>
+        <dd>Linear elasticity</dd>
+
+        <dt>
+
+          <code><a href="displacement_bc.html">displacement_bc()</a></code> <code><a href="displacement_bc.html">traction_bc()</a></code>
+
+        </dt>
+        <dd>Boundary conditions for linear elasticity</dd>
+
+        <dt>
+
           <code><a href="trial_function.html">trial_function()</a></code> <code><a href="trial_function.html">test_function()</a></code> <code><a href="trial_function.html">grad()</a></code> <code><a href="trial_function.html">vector_coefficient()</a></code> <code><a href="trial_function.html">dot()</a></code> <code><a href="trial_function.html">integrate_domain()</a></code> <code><a href="trial_function.html">integrate_boundary()</a></code>
 
         </dt>
@@ -422,7 +437,7 @@
 
       <dl><dt>
 
-          <code><a href="pde_plots.html">plot(<i>&lt;pde_mesh&gt;</i>)</a></code> <code><a href="pde_plots.html">plot(<i>&lt;fe_function&gt;</i>)</a></code> <code><a href="pde_plots.html">plot(<i>&lt;pde_solution&gt;</i>)</a></code> <code><a href="pde_plots.html">plot(<i>&lt;pde_transient&gt;</i>)</a></code> <code><a href="pde_plots.html">plot(<i>&lt;pde_convergence&gt;</i>)</a></code> <code><a href="pde_plots.html">plot_indicators()</a></code> <code><a href="pde_plots.html">plot(<i>&lt;pde_adaptive&gt;</i>)</a></code>
+          <code><a href="pde_plots.html">plot(<i>&lt;pde_vector_solution&gt;</i>)</a></code> <code><a href="pde_plots.html">plot(<i>&lt;pde_mesh&gt;</i>)</a></code> <code><a href="pde_plots.html">plot(<i>&lt;fe_function&gt;</i>)</a></code> <code><a href="pde_plots.html">plot(<i>&lt;pde_solution&gt;</i>)</a></code> <code><a href="pde_plots.html">plot(<i>&lt;pde_transient&gt;</i>)</a></code> <code><a href="pde_plots.html">plot(<i>&lt;pde_convergence&gt;</i>)</a></code> <code><a href="pde_plots.html">plot_indicators()</a></code> <code><a href="pde_plots.html">plot(<i>&lt;pde_adaptive&gt;</i>)</a></code>
 
         </dt>
         <dd>Plot meshes and finite-element functions</dd>

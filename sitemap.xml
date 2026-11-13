@@ -1,12 +1,13 @@
 <urlset xmlns = 'http://www.sitemaps.org/schemas/sitemap/0.9'>
 <url><loc>https://adamrsophie.github.io/pdecompR/404.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/CONTRIBUTING.html</loc></url>
-<url><loc>https://adamrsophie.github.io/pdecompR/LICENSE-text.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/LICENSE.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/articles/adaptivity.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/articles/advection-diffusion.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/articles/assembly.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/articles/boundary-conditions.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/articles/convergence.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/articles/elasticity.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/articles/finite-elements.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/articles/heat.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/articles/index.html</loc></url>
@@ -27,6 +28,8 @@
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/convergence_study.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/dirichlet_bc.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/discretize.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/reference/displacement_bc.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/reference/elasticity_problem.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/element_stiffness_p1.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/elliptic_problem.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/errornorm.html</loc></url>

@@ -11,6 +11,9 @@
     intervals and triangles, sparse assembly through ‘Matrix’;
   - Dirichlet, Neumann and Robin conditions, pure Neumann problems with
     compatibility checks and a zero-mean gauge;
+  - linear elasticity with vector-valued P1 and P2 displacements, plane
+    strain and plane stress, displacement (including roller) and
+    traction conditions;
   - elliptic (diffusion, advection with optional SUPG, reaction), heat
     and general parabolic (backward Euler, Crank-Nicolson),
     reaction-diffusion systems (IMEX and Newton), quasilinear and
