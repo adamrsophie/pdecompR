@@ -21,7 +21,9 @@ convergence_study(
 
 - problem:
 
-  A stationary `pde_problem` (elliptic, variational or nonlinear).
+  A stationary `pde_problem` (elliptic, nonlinear or elasticity).
+  Variational problems are tied to their function space and are not
+  supported.
 
 - exact:
 
@@ -53,6 +55,8 @@ convergence_study(
 
 A data frame of class `pde_convergence` with columns `h`, `ndof`, one
 column per norm and the observed rates.
+[`summary()`](https://rdrr.io/r/base/summary.html) reports the finest
+errors and the last and mean observed rates per norm.
 
 ## Details
 

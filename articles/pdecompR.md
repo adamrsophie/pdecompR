@@ -89,7 +89,7 @@ summary(solution)
 #>   matrix nonzeros: 1889
 #>   solver: cholesky, status solved
 #>   linear residual: 5.18e-15 (relative 8.45e-15)
-#>   assembly 0.007 s, solve 0.009 s
+#>   assembly 0.009 s, solve 0.011 s
 #>   solution range [    0, 0.9968]
 #>   (the linear residual measures the algebraic solve, not the discretization error)
 plot(solution)

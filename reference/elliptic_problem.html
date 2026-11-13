@@ -175,7 +175,8 @@ compared with <code>compatibility_tol * sum_i |b_i|</code> (an argument of
 <code><a href="solve_pde.html">solve_pde()</a></code>, default <code>1e-6</code>). For a nonsymmetric operator (advection) the
 left null vector is not constant; there a defect above <code>h^2</code> gives a
 warning instead of an error, because data that are compatible for the PDE
-leave a defect of the size of the discretization error.</p>
+leave a defect of the size of the discretization error; defects above
+about one percent are still errors.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

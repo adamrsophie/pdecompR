@@ -221,9 +221,10 @@ multiplier of the zero-mean constraint, and returns the solution with
 zero mean. The result is labeled as gauged. With advection the operator
 is not symmetric and the condition involves its left null vector, not
 <span class="math inline">\int f + \int h</span>; a defect larger than
-<span class="math inline">h^2</span> then gives a warning. On a mesh
-with several disconnected parts each part has its own constant; this
-case is not detected.</p>
+<span class="math inline">h^2</span> gives a warning and a clearly
+incompatible defect (above about one percent) an error. On a mesh with
+several disconnected parts each part has its own constant; this case is
+not detected.</p>
 <div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">24</span><span class="op">)</span></span>
 <span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="../reference/elliptic_problem.html">poisson_problem</a></span><span class="op">(</span><span class="va">m</span>, source <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fl">2</span> <span class="op">*</span> <span class="va">pi</span><span class="op">^</span><span class="fl">2</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">cos</a></span><span class="op">(</span><span class="va">pi</span> <span class="op">*</span> <span class="va">x</span><span class="op">)</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">cos</a></span><span class="op">(</span><span class="va">pi</span> <span class="op">*</span> <span class="va">y</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
@@ -235,7 +236,7 @@ case is not detected.</p>
 <span><span class="co">#&gt;   solver: lu, status solved</span></span>
 <span><span class="co">#&gt;   linear residual: 6.84e-15 (relative 1.74e-14)</span></span>
 <span><span class="co">#&gt;   pure Neumann: zero-mean gauge, compatibility defect -1.57e-10</span></span>
-<span><span class="co">#&gt;   assembly 0.006 s, solve 0.005 s</span></span>
+<span><span class="co">#&gt;   assembly 0.008 s, solve 0.007 s</span></span>
 <span><span class="co">#&gt;   solution range [-0.9937, 1.003]</span></span>
 <span><span class="co">#&gt;   (the linear residual measures the algebraic solve, not the discretization error)</span></span></code></pre></div>
 <p>Incompatible data are an error, not an arbitrary answer:</p>

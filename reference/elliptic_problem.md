@@ -117,7 +117,8 @@ compared with `compatibility_tol * sum_i |b_i|` (an argument of
 default `1e-6`). For a nonsymmetric operator (advection) the left null
 vector is not constant; there a defect above `h^2` gives a warning
 instead of an error, because data that are compatible for the PDE leave
-a defect of the size of the discretization error.
+a defect of the size of the discretization error; defects above about
+one percent are still errors.
 
 ## References
 

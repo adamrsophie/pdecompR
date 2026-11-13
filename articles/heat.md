@@ -58,7 +58,7 @@ summary(sol)
 #>   method: crank-nicolson  dt: 0.0025  steps: 40 
 #>   degrees of freedom: 625  ( 529  free)
 #>   linear solver: cholesky  max relative residual: 9.77e-16 
-#>   assembly 0.023 s, time stepping 0.026 s
+#>   assembly 0.031 s, time stepping 0.033 s
 
 exact_end <- function(x, y) exp(-2 * pi^2 * kappa * 0.1) * u0(x, y)
 errornorm(solution_at(sol, 0.1), exact_end, "L2")
@@ -100,25 +100,28 @@ legend("topright", c("finite elements", "exact"), lty = 1:2, col = c("black", "r
 To measure the time error alone, use a solution that the spatial
 discretization represents exactly: u = e^{-t}(x + 2y) is linear in
 space, so the semidiscrete solution is exact and any remaining error
-comes from time stepping.
+comes from time stepping. Crank-Nicolson takes two backward Euler steps
+first (`startup = 2`, Rannacher startup) to damp oscillations from rough
+initial data; a fixed number of such steps keeps second order, and their
+effect shows only on the coarsest steps.
 
 ``` r
 
 ex <- function(x, y, t) exp(-t) * (x + 2 * y)
 p <- heat_problem(pde_mesh_rectangle(nx = 4), source = function(x, y, t) -exp(-t) * (x + 2 * y),
                   initial = function(x, y) x + 2 * y, bcs = dirichlet_bc(ex), time = c(0, 1))
-dts <- c(0.1, 0.05, 0.025, 0.0125)
+dts <- c(0.05, 0.025, 0.0125, 0.00625)
 err <- sapply(c("backward-euler", "crank-nicolson"), function(m) sapply(dts, function(dt) {
   s <- solve_pde(p, dt = dt, method = m, output_times = 1)
   max(abs(s$values[, 1] - ex(s$space$dof_coords[, 1], s$space$dof_coords[, 2], 1)))
 }))
 data.frame(dt = dts, err, rate_BE = c(NA, diff(log(err[, 1])) / diff(log(dts))),
            rate_CN = c(NA, diff(log(err[, 2])) / diff(log(dts))))
-#>       dt backward.euler crank.nicolson  rate_BE  rate_CN
-#> 1 0.1000   0.0021116021   8.483527e-05       NA       NA
-#> 2 0.0500   0.0010367972   8.362892e-06 1.026204 3.342590
-#> 3 0.0250   0.0005137428   2.121328e-06 1.013015 1.979034
-#> 4 0.0125   0.0002557196   5.303578e-07 1.006483 1.999930
+#>        dt backward.euler crank.nicolson  rate_BE  rate_CN
+#> 1 0.05000   0.0010367972   8.362892e-06       NA       NA
+#> 2 0.02500   0.0005137428   2.121328e-06 1.013015 1.979034
+#> 3 0.01250   0.0002557196   5.303578e-07 1.006483 1.999930
+#> 4 0.00625   0.0001275734   1.325911e-07 1.003236 1.999982
 ```
 
 ## Time-dependent sources and boundary data

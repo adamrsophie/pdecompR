@@ -147,7 +147,7 @@ for (n in c(16, 32, 64)) {
   cat(sprintf("n = %3d  dofs = %6d  assembly %.2fs  solve %.2fs\n", n, s$space$ndof,
               s$diagnostics$assembly_time, s$diagnostics$solve_time))
 }
-#> n =  16  dofs =    289  assembly 0.00s  solve 0.00s
-#> n =  32  dofs =   1089  assembly 0.00s  solve 0.00s
-#> n =  64  dofs =   4225  assembly 0.03s  solve 0.00s
+#> n =  16  dofs =    289  assembly 0.00s  solve 0.01s
+#> n =  32  dofs =   1089  assembly 0.01s  solve 0.00s
+#> n =  64  dofs =   4225  assembly 0.03s  solve 0.01s
 ```
