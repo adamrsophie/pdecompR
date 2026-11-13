@@ -102,9 +102,10 @@ plot.pde_solution <- function(x, ...) {
 
 #' @rdname pde_plots
 #' @export
-plot.pde_transient <- function(x, time = max(x$times), species = 1, ...) {
+plot.pde_transient <- function(x, time = max(x$times), species = 1, main = NULL, ...) {
   u <- solution_at(x, time, species)
-  plot(u, main = sprintf("%s at t = %s", u$name, fmt_num(time)), ...)
+  if (is.null(main)) main <- sprintf("%s at t = %s", u$name, fmt_num(time))
+  plot(u, main = main, ...)
   invisible(x)
 }
 

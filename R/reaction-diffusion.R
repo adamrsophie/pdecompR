@@ -114,6 +114,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
   reac <- function(U, t) {
     r <- as.matrix(problem$reaction(U, xy[, 1], xy[, 2], t))
     if (!all(dim(r) == dim(U))) stopf("`reaction` must return a matrix with %d rows and %d columns.", n, ns)
+    dimnames(r) <- list(NULL, sp)
     r
   }
   natload <- function(s, t) natural_bc_terms(V, problem$bcs[[s]], t)$b
@@ -190,7 +191,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
         it <- it + 1L
         J <- jac_r(Z, tn)
         blocks <- lapply(seq_len(ns), function(a) lapply(seq_len(ns), function(b) {
-          M %*% Matrix::Diagonal(x = J[, a, b])
+          Matrix::Diagonal(x = J[, a, b])
         }))
         JR <- do.call(rbind, lapply(blocks, function(row) do.call(cbind, row)))
         Jac <- (Lb - dt * Mb %*% JR)[freeb, freeb, drop = FALSE]

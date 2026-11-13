@@ -67,8 +67,8 @@ pde_domain <- function(type = c("rectangle", "polygon"),
   if (any(len <= 0)) stopf("Polygon has a zero-length side.")
   area2 <- sum(v[, 1] * v[nxt, 2] - v[nxt, 1] * v[, 2])
   scale <- max(abs(v))^2
+  if (nv > 3L && polygon_self_intersects(v)) stopf("Polygon boundary intersects itself.")
   if (abs(area2) <= 1e-14 * max(scale, 1)) stopf("Polygon has zero area.")
-  if (polygon_self_intersects(v)) stopf("Polygon boundary intersects itself.")
   if (area2 < 0) {
     message("Polygon vertices were clockwise; reordered counterclockwise.")
     v <- v[nv:1, , drop = FALSE]

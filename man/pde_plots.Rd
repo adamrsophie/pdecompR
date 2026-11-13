@@ -25,7 +25,7 @@
 
 \method{plot}{pde_solution}(x, ...)
 
-\method{plot}{pde_transient}(x, time = max(x$times), species = 1, ...)
+\method{plot}{pde_transient}(x, time = max(x$times), species = 1, main = NULL, ...)
 
 \method{plot}{pde_convergence}(x, main = "Mesh convergence", ...)
 

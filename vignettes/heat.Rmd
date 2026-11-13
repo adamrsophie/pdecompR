@@ -1,0 +1,138 @@
+---
+title: "The heat equation and parabolic problems"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{The heat equation and parabolic problems}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height = 4.5)
+```
+
+```{r}
+library(pdecompR)
+```
+
+## Semidiscretization
+
+For
+
+$$
+\partial_t u - \nabla\cdot(\kappa\nabla u) = f(x, t), \qquad u(\cdot, 0) = u_0,
+$$
+
+the finite-element method in space gives the system of ordinary
+differential equations
+
+$$
+M \frac{d\mathbf U}{dt} + K\mathbf U = \mathbf F(t),
+$$
+
+with mass matrix $M_{ij} = \int\phi_j\phi_i$ and stiffness matrix $K$. Both
+are assembled once.
+
+## Time stepping
+
+The theta method with step $\Delta t$ reads
+
+$$
+(M + \theta\Delta t K)\mathbf U^{n+1} = (M - (1 - \theta)\Delta t K)\mathbf U^n
++ \Delta t\left(\theta \mathbf F^{n+1} + (1 - \theta)\mathbf F^n\right).
+$$
+
+* $\theta = 1$, **backward Euler**: first order, L-stable, damps all modes.
+* $\theta = 1/2$, **Crank-Nicolson**: second order, A-stable but only weakly
+  damping; very rough initial data can produce slowly decaying oscillations.
+
+The matrix $M + \theta\Delta t K$ is factored once (Cholesky) and reused at
+every step. Dirichlet data $g(x, t)$ are imposed at each new time level.
+
+## Decay of a Fourier mode
+
+With $u_0 = \sin(\pi x)\sin(\pi y)$, zero boundary values and no source, the
+exact solution is $e^{-2\pi^2\kappa t}u_0$.
+
+```{r}
+kappa <- 0.5
+u0 <- function(x, y) sin(pi * x) * sin(pi * y)
+prob <- heat_problem(pde_mesh_rectangle(nx = 24), diffusivity = kappa, initial = u0,
+                     bcs = dirichlet_bc(0), time = c(0, 0.1))
+sol <- solve_pde(prob, dt = 0.0025)
+sol
+summary(sol)
+
+exact_end <- function(x, y) exp(-2 * pi^2 * kappa * 0.1) * u0(x, y)
+errornorm(solution_at(sol, 0.1), exact_end, "L2")
+```
+
+```{r, fig.width = 7, fig.height = 3.4}
+op <- par(mfrow = c(1, 2))
+plot(sol, time = 0)
+plot(sol, time = 0.1)
+par(op)
+```
+
+The solution amplitude follows the exact decay:
+
+```{r}
+peak <- apply(sol$values, 2, max)
+plot(sol$times, peak, type = "l", xlab = "t", ylab = "max u", lwd = 2)
+curve(exp(-2 * pi^2 * kappa * x), add = TRUE, lty = 2, col = "red")
+legend("topright", c("finite elements", "exact"), lty = 1:2, col = c("black", "red"), bty = "n")
+```
+
+## Temporal convergence in isolation
+
+To measure the time error alone, use a solution that the spatial
+discretization represents exactly: $u = e^{-t}(x + 2y)$ is linear in space,
+so the semidiscrete solution is exact and any remaining error comes from
+time stepping.
+
+```{r}
+ex <- function(x, y, t) exp(-t) * (x + 2 * y)
+p <- heat_problem(pde_mesh_rectangle(nx = 4), source = function(x, y, t) -exp(-t) * (x + 2 * y),
+                  initial = function(x, y) x + 2 * y, bcs = dirichlet_bc(ex), time = c(0, 1))
+dts <- c(0.1, 0.05, 0.025, 0.0125)
+err <- sapply(c("backward-euler", "crank-nicolson"), function(m) sapply(dts, function(dt) {
+  s <- solve_pde(p, dt = dt, method = m, output_times = 1)
+  max(abs(s$values[, 1] - ex(s$space$dof_coords[, 1], s$space$dof_coords[, 2], 1)))
+}))
+data.frame(dt = dts, err, rate_BE = c(NA, diff(log(err[, 1])) / diff(log(dts))),
+           rate_CN = c(NA, diff(log(err[, 2])) / diff(log(dts))))
+```
+
+## Time-dependent sources and boundary data
+
+Sources and boundary values can depend on time. Here a hot spot moves along
+the bottom boundary while the top is kept cold:
+
+```{r}
+hot <- function(x, y, t) exp(-50 * (x - 0.2 - 0.6 * t)^2)
+p <- heat_problem(pde_mesh_rectangle(nx = 32), diffusivity = 0.05, initial = 0,
+                  bcs = list(dirichlet_bc(hot, "bottom"), dirichlet_bc(0, "top")), time = c(0, 1))
+s <- solve_pde(p, dt = 0.025, output_times = c(0.25, 0.5, 1))
+plot(s, time = 1)
+```
+
+## Conservation and stability
+
+With zero-flux boundaries and no source, the total heat
+$\int u\,dx = \mathbf 1^\top M \mathbf U$ is conserved exactly by both schemes,
+because $\mathbf 1^\top K = 0$:
+
+```{r}
+p <- heat_problem(pde_mesh_rectangle(nx = 16), initial = function(x, y) exp(-30 * ((x - 0.3)^2 + y^2)),
+                  time = c(0, 0.5))
+s <- solve_pde(p, dt = 0.05, method = "backward-euler")
+w <- assemble_vector(s$space, 1)
+range(colSums(w * s$values))
+```
+
+## General parabolic problems
+
+`parabolic_problem()` adds advection and reaction,
+$\partial_t u - \nabla\cdot(k\nabla u) + b\cdot\nabla u + cu = f$, with
+optional SUPG stabilization (consistent: the time derivative is included in
+the stabilized residual). See the advection-diffusion article.

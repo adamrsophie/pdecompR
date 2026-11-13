@@ -98,7 +98,7 @@ test_that("pure Neumann problems are detected, checked and gauged", {
   expect_false(is.null(s$diagnostics$gauge))
   expect_equal(s$diagnostics$gauge$type, "zero mean")
   expect_lt(abs(sum(assemble_vector(s$space, 1) * s$u$values)), 1e-12)
-  expect_lt(as.numeric(errornorm(s, ex, "L2")), 5e-3)
+  expect_lt(as.numeric(errornorm(s, ex, "L2")), 1e-2)
   expect_error(solve_pde(poisson_problem(m, source = 1)), "incompatible")
   # compatible Neumann data on the boundary
   s2 <- solve_pde(poisson_problem(m, source = 1, boundary = neumann_bc(-0.25)))

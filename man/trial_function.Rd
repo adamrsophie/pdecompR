@@ -56,14 +56,18 @@ Supported integrands, with \code{c} a scalar coefficient (number or
 }
 
 Scalar coefficients multiply; products are evaluated pointwise at the
-quadrature points. The functions \code{grad()} and \code{dot()} only act on these
+quadrature points. Write a coefficient function first and multiply it
+afterwards (\verb{f <- function(x, y) x * y; f * v}): in
+\code{function(x, y) x * y * v} the \verb{* v} belongs to the function body. The
+functions \code{grad()} and \code{dot()} only act on these
 symbolic objects and do not mask any base R function.
 }
 \examples{
 V <- fe_space(pde_mesh_rectangle(nx = 8))
 u <- trial_function(V); v <- test_function(V)
 a <- integrate_domain(dot(grad(u), grad(v)))
-L <- integrate_domain(function(x, y) 2 * pi^2 * sin(pi * x) * sin(pi * y) * v)
+f <- function(x, y) 2 * pi^2 * sin(pi * x) * sin(pi * y)
+L <- integrate_domain(f * v)
 prob <- variational_problem(a, L, dirichlet_bc(0))
 sol <- solve_pde(prob)
 }

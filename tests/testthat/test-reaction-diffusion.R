@@ -1,3 +1,11 @@
+test_that("implicit Euler Newton converges quadratically", {
+  p <- reaction_diffusion_problem(pde_mesh_rectangle(c(0, 10), c(0, 1), nx = 20, ny = 2), diffusion = 0.1,
+                                  reaction = function(u, x, y, t) u * (1 - u),
+                                  initial = list(u = function(x, y) as.numeric(x < 1)), time = c(0, 0.2))
+  s <- solve_pde(p, dt = 0.05, method = "implicit-euler")
+  expect_lte(max(s$diagnostics$newton_iterations), 4)
+})
+
 test_that("linear decay matches the analytical solution", {
   D <- 0.1; c0 <- 2
   ex <- function(x, y, t) exp(-(2 * pi^2 * D + c0) * t) * sin(pi * x) * sin(pi * y)

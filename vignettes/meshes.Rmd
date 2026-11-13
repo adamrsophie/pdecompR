@@ -1,0 +1,171 @@
+---
+title: "Domains and meshes"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Domains and meshes}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height = 4.5)
+```
+
+```{r}
+library(pdecompR)
+```
+
+The mesh is the foundation of every finite-element computation. pdecompR
+represents two-dimensional triangular meshes with explicit topology and
+named boundary regions, and it validates every mesh it builds.
+
+## Domains
+
+A domain is a pure geometric description. Rectangles have four named sides;
+polygons name each side individually.
+
+```{r}
+pde_domain("rectangle", x = c(0, 2), y = c(0, 1))
+
+L <- rbind(c(0, 0), c(2, 0), c(2, 1), c(1, 1), c(1, 2), c(0, 2))
+dom <- pde_domain("polygon", vertices = L,
+                  markers = c("bottom", "right", "step", "step", "top", "left"))
+dom
+```
+
+Validation rejects degenerate geometry: repeated vertices, zero-length
+sides, zero area and self-intersecting boundaries. Clockwise polygons are
+reordered (their markers follow) and a message says so.
+
+```{r, error = TRUE}
+pde_domain("polygon", vertices = rbind(c(0, 0), c(1, 1), c(1, 0), c(0, 1)))
+```
+
+## Structured meshes
+
+`pde_mesh_rectangle()` generates structured meshes with three diagonal
+patterns. Corner nodes belong to both adjacent sides.
+
+```{r, fig.width = 7, fig.height = 2.6}
+op <- par(mfrow = c(1, 3), mar = c(2, 2, 2, 1))
+for (p in c("right", "left", "alternating")) {
+  plot(pde_mesh_rectangle(nx = 4, pattern = p), main = p, markers = FALSE)
+}
+par(op)
+```
+
+## The mesh object
+
+A `pde_mesh` stores
+
+* `nodes`: an $n \times 2$ matrix of coordinates;
+* `triangles`: an $m \times 3$ integer matrix, counterclockwise;
+* `edges`: the unique edges, and `element_edges` mapping each triangle's local
+  edges $(v_1, v_2)$, $(v_2, v_3)$, $(v_3, v_1)$ to global edges;
+* `edge_elements`: the one or two triangles sharing each edge;
+* `boundary`: a data frame of boundary edges with nodes `n1`, `n2` (oriented
+  with the domain on the left), the global edge, the parent element, the
+  local edge and the marker.
+
+```{r}
+mesh <- pde_mesh_rectangle(nx = 2)
+head(mesh$triangles)
+mesh$boundary
+```
+
+## Validation
+
+`pde_mesh()` builds a mesh from raw coordinates and connectivity and checks
+it thoroughly. It rejects invalid node indices, repeated nodes in an element,
+duplicate elements, zero-area triangles, unused nodes, edges shared by more
+than two triangles, overlapping elements, and boundary definitions that do
+not match the topological boundary. Clockwise elements are an error unless
+reorientation is requested explicitly.
+
+```{r, error = TRUE}
+P <- rbind(c(0, 0), c(1, 0), c(1, 1), c(0, 1))
+pde_mesh(P, rbind(c(1, 3, 2), c(1, 3, 4)))
+m <- pde_mesh(P, rbind(c(1, 3, 2), c(1, 3, 4)), fix_orientation = TRUE)
+m$info$reoriented
+pde_mesh(rbind(c(0, 0), c(1, 0), c(2, 0)), rbind(c(1, 2, 3)))
+```
+
+Boundary markers can be supplied as an explicit list of boundary edges; every
+topological boundary edge must appear exactly once.
+
+```{r}
+be <- rbind(c(1, 2), c(2, 3), c(3, 4), c(4, 1))
+m <- pde_mesh(P, rbind(c(1, 2, 3), c(1, 3, 4)), be, c("inflow", "wall", "outflow", "wall"))
+table(m$boundary$marker)
+```
+
+## Geometry and quality
+
+`mesh_quality()` returns, per element, the area, longest and shortest edges,
+minimum and maximum angles and the shape ratio $2r/R$ (inradius over
+circumradius; 1 for equilateral triangles).
+
+```{r}
+summary(pde_mesh_rectangle(nx = 8))
+head(mesh_quality(pde_mesh_rectangle(nx = 8)))
+```
+
+## Polygonal domains
+
+`pde_mesh_polygon()` triangulates a simple polygon by ear clipping, flips
+edges until the coarse triangulation is Delaunay, and refines uniformly until
+the longest edge is at most `h`. Side markers are kept.
+
+```{r}
+mL <- pde_mesh_polygon(dom, h = 0.25)
+summary(mL)
+plot(mL, main = "L-shaped domain")
+```
+
+This mesher has no external dependencies but does not guarantee element
+quality for arbitrary polygons. For complex geometry, generate a mesh with
+[Gmsh](https://gmsh.info) and read it with `read_gmsh()`; physical line
+groups become boundary markers.
+
+```{r}
+f <- system.file("extdata", "square.msh", package = "pdecompR")
+gm <- read_gmsh(f)
+table(gm$boundary$marker)
+```
+
+`write_vtk()` exports meshes and solutions to the VTK format for ParaView.
+
+## Refinement
+
+`refine_uniform()` splits each triangle into four similar triangles.
+`refine_mesh()` refines selected elements by newest vertex bisection and
+keeps the mesh conforming: no hanging nodes appear, and the minimum angle
+stays bounded.
+
+```{r}
+m <- pde_mesh_rectangle(nx = 4)
+for (k in 1:5) {
+  P <- m$nodes; T <- m$triangles
+  cx <- (P[T[, 1], 1] + P[T[, 2], 1] + P[T[, 3], 1]) / 3
+  cy <- (P[T[, 1], 2] + P[T[, 2], 2] + P[T[, 3], 2]) / 3
+  m <- refine_mesh(m, which(sqrt((cx - 0.5)^2 + (cy - 0.5)^2) < 0.15))
+}
+plot(m, main = "Local refinement around (0.5, 0.5)")
+min(mesh_quality(m)$min_angle)
+```
+
+Refined meshes record the parent edge of every new node in
+`info$new_nodes`, so P1 functions transfer exactly from coarse to fine
+meshes (`transfer_function()`).
+
+## Selecting boundary parts
+
+`boundary_nodes()` and `boundary_dofs()` select nodes by marker. For imported
+meshes without physical groups, `set_boundary_marker()` relabels boundary
+edges whose midpoints satisfy a predicate.
+
+```{r}
+m <- set_boundary_marker(pde_mesh_rectangle(nx = 8), "inlet",
+                         function(x, y) x < 1e-12 & y > 0.25 & y < 0.75)
+table(m$boundary$marker)
+```

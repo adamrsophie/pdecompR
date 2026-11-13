@@ -65,7 +65,8 @@ V <- fe_space(mesh, degree = 2)
 u <- trial_function(V)
 v <- test_function(V)
 a <- integrate_domain(dot(grad(u), grad(v)))
-L <- integrate_domain(function(x, y) 2 * pi^2 * sin(pi * x) * sin(pi * y) * v)
+f <- function(x, y) 2 * pi^2 * sin(pi * x) * sin(pi * y)
+L <- integrate_domain(f * v)
 solve_pde(variational_problem(a, L, dirichlet_bc(0)))
 ```
 

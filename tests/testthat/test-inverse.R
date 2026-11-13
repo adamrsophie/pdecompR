@@ -27,9 +27,10 @@ test_that("unconstrained optimal control matches the reduced gradient optimum", 
   b <- optimal_control(m, tgt, alpha = 1e-3, lower = -1e6, upper = 1e6, control = list(maxit = 2000, factr = 1e2, pgtol = 0))
   expect_equal(b$objective, a$objective, tolerance = 1e-5)
   expect_equal(a$control$values, b$control$values, tolerance = 1e-2)
-  # for tiny alpha the state approaches the (reachable) target
+  # for tiny alpha the state approaches the target up to the P1 interpolation error
   c1 <- optimal_control(m, tgt, alpha = 1e-8)
-  expect_lt(as.numeric(errornorm(c1$state, tgt, "L2")), 0.01)
+  expect_lt(as.numeric(errornorm(c1$state, tgt, "L2")), 0.03)
+  expect_lt(as.numeric(errornorm(c1$state, tgt, "L2")), as.numeric(errornorm(a$state, tgt, "L2")))
 })
 
 test_that("bounded control respects the bounds", {

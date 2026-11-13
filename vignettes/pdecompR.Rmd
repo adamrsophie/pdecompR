@@ -1,0 +1,138 @@
+---
+title: "Introduction to pdecompR"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction to pdecompR}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height = 4.5)
+```
+
+pdecompR solves partial differential equations (PDEs) with the
+finite-element method, entirely in R. This article walks through the whole
+pipeline once, from a geometric domain to a verified numerical solution. The
+other articles go deeper into each step.
+
+```{r}
+library(pdecompR)
+```
+
+## From a PDE to a linear system
+
+Consider the Poisson problem on the unit square $\Omega = (0, 1)^2$:
+
+$$
+-\nabla \cdot (k \nabla u) = f \quad \text{in } \Omega, \qquad u = 0 \quad \text{on } \partial\Omega .
+$$
+
+Multiplying by a test function $v$ that vanishes on the boundary and
+integrating by parts gives the **weak formulation**: find
+$u \in H^1_0(\Omega)$ such that
+
+$$
+a(u, v) = \int_\Omega k \nabla u \cdot \nabla v \, dx
+= \int_\Omega f v \, dx = L(v) \quad \text{for all } v \in H^1_0(\Omega).
+$$
+
+The weak form needs only first derivatives, so piecewise polynomials that are
+continuous across element boundaries are admissible. The finite-element
+method replaces $H^1_0(\Omega)$ by a finite-dimensional space $V_h$ spanned
+by basis functions $\phi_1, \dots, \phi_N$. Writing
+$u_h = \sum_j U_j \phi_j$ and testing with every $\phi_i$ gives the linear
+system
+
+$$
+K \mathbf U = \mathbf F, \qquad K_{ij} = \int_\Omega k \nabla \phi_j \cdot \nabla \phi_i \, dx, \qquad
+F_i = \int_\Omega f \phi_i \, dx .
+$$
+
+Each basis function is nonzero only on a few elements, so $K$ is sparse. If
+$k > 0$ the matrix restricted to the interior degrees of freedom is symmetric
+positive definite, and a sparse Cholesky factorization solves it.
+
+## The pipeline in code
+
+**Geometry and mesh.** `pde_mesh_rectangle()` splits the square into
+$n_x \times n_y$ cells and each cell into two triangles. Boundary edges carry
+markers (`"bottom"`, `"right"`, `"top"`, `"left"`), and `"boundary"` selects
+all of them.
+
+```{r}
+mesh <- pde_mesh_rectangle(x = c(0, 1), y = c(0, 1), nx = 16, ny = 16)
+mesh
+plot(mesh)
+```
+
+**Problem definition.** A problem object stores the mathematical definition
+(coefficients, source, boundary conditions) and nothing numerical:
+
+```{r}
+f <- function(x, y) 2 * pi^2 * sin(pi * x) * sin(pi * y)
+problem <- poisson_problem(mesh, diffusion = 1, source = f,
+                           boundary = dirichlet_bc(value = 0, marker = "boundary"))
+problem
+```
+
+**Discretization and solution.** `solve_pde()` builds the P1 space,
+assembles $K$ and $\mathbf F$, eliminates the Dirichlet degrees of freedom
+and solves the sparse system:
+
+```{r}
+solution <- solve_pde(problem)
+summary(solution)
+plot(solution)
+```
+
+The summary separates the *algebraic* residual of the linear solve from the
+*discretization* error. A tiny residual only says that $K \mathbf U = \mathbf F$
+was solved accurately.
+
+**Verification.** For this source the exact solution is
+$u = \sin(\pi x)\sin(\pi y)$, so the discretization error can be measured:
+
+```{r}
+exact <- function(x, y) sin(pi * x) * sin(pi * y)
+errornorm(solution, exact, "L2")
+errornorm(solution, exact, "H1_semi")
+```
+
+and a refinement study shows the expected orders, 2 in $L^2$ and 1 in $H^1$
+for linear elements:
+
+```{r}
+study <- convergence_study(problem, exact, mesh_sizes = c(4, 8, 16, 32))
+study
+plot(study)
+```
+
+## Objects and conventions
+
+| Object | Created by | Meaning |
+|--------|------------|---------|
+| `pde_domain` | `pde_domain()` | geometry: rectangle or polygon with side markers |
+| `pde_mesh` | `pde_mesh_rectangle()`, `pde_mesh_polygon()`, `pde_mesh()`, `read_gmsh()` | nodes, triangles, edges, boundary edges with markers |
+| `fe_element` | `fe_element()` | reference Lagrange element |
+| `fe_space` | `fe_space()` | global degrees of freedom on a mesh |
+| `fe_function` | `fe_function()`, `interpolate()` | coefficient vector in a space |
+| `pde_bc` | `dirichlet_bc()`, `neumann_bc()`, `robin_bc()` | boundary conditions selected by marker |
+| `pde_problem` | `poisson_problem()`, `elliptic_problem()`, `heat_problem()`, ... | mathematical problem |
+| `pde_discretization` | `discretize()` | assembled system before elimination |
+| `pde_solution` | `solve_pde()` | solution with `pde_diagnostics` |
+
+All indices are one-based. Triangles are counterclockwise, boundary edges are
+oriented with the domain on their left, and boundary conditions are selected
+by marker, never by comparing floating-point coordinates.
+
+## Where to go next
+
+* *Meshes* explains domains, validation, quality and refinement.
+* *Finite elements* covers basis functions, quadrature and spaces.
+* *Poisson*, *Boundary conditions*, *Assembly* and *Convergence* treat
+  elliptic problems in depth; *Weak forms* shows the form language.
+* *Heat*, *Reaction-diffusion*, *Advection-diffusion* and *Nonlinear* cover
+  time-dependent and nonlinear problems.
+* *Adaptivity* and *Inverse problems* cover error estimation, adaptive
+  refinement, sensitivities, parameter estimation and optimal control.

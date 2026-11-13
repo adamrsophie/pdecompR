@@ -2,7 +2,7 @@ test_that("Lagrange bases satisfy the nodal property and partition of unity", {
   for (p in 1:2) {
     el <- fe_element(p)
     B <- el$basis(el$nodes[, 1], el$nodes[, 2])
-    expect_equal(B, diag(el$ndof), tolerance = 1e-14)
+    expect_equal(unname(B), diag(el$ndof), tolerance = 1e-14)
     xi <- runif(20) / 2; eta <- runif(20) / 2
     expect_equal(rowSums(el$basis(xi, eta)), rep(1, 20), tolerance = 1e-14)
     G <- el$grad(xi, eta)
@@ -19,8 +19,8 @@ test_that("basis gradients match finite differences", {
     G <- el$grad(xi, eta)
     fdx <- (el$basis(xi + h, eta) - el$basis(xi - h, eta)) / (2 * h)
     fdy <- (el$basis(xi, eta + h) - el$basis(xi, eta - h)) / (2 * h)
-    expect_equal(G$xi, fdx, tolerance = 1e-8)
-    expect_equal(G$eta, fdy, tolerance = 1e-8)
+    expect_equal(unname(G$xi), unname(fdx), tolerance = 1e-8)
+    expect_equal(unname(G$eta), unname(fdy), tolerance = 1e-8)
   }
 })
 

@@ -1,0 +1,128 @@
+---
+title: "Sparse assembly and linear solvers"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Sparse assembly and linear solvers}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height = 4.5)
+```
+
+```{r}
+library(pdecompR)
+library(Matrix)
+```
+
+## Element loops without loops
+
+Assembly computes, for every element $T$ and every pair of local basis
+functions,
+
+$$
+A^T_{ij} = \sum_q w_q \det B_T \left[ c\,\phi_i\phi_j + \phi_i\,(b\cdot\nabla\phi_j)
++ \nabla\phi_i^\top D\,\nabla\phi_j \right](\hat x_q),
+$$
+
+with $i$ the test index (row) and $j$ the trial index (column). pdecompR
+vectorizes over elements: the loops run over quadrature points and the
+$3\times3$ (or $6\times6$) local indices, while each operation acts on a
+vector of length $m$ (the number of elements). The local matrices are then
+summed into a global sparse matrix through triplets
+$(I, J, A^T_{ij})$, which `Matrix::sparseMatrix()` accumulates into the
+compressed column format.
+
+```{r}
+V <- fe_space(pde_mesh_rectangle(nx = 16))
+K <- assemble_matrix(V, "stiffness")
+M <- assemble_matrix(V, "mass")
+C <- assemble_matrix(V, "advection", c(1, 0))
+class(K); dim(K); nnzero(K)
+```
+
+The structure reflects the mesh connectivity:
+
+```{r}
+image(K[1:60, 1:60], main = "stiffness pattern (first 60 dofs)")
+```
+
+## Properties worth checking
+
+```{r}
+max(abs(K %*% rep(1, V$ndof)))   # constants are in the kernel of K
+sum(M)                           # 1' M 1 is the area
+isSymmetric(K); isSymmetric(M)
+range(eigen(as.matrix(M), only.values = TRUE)$values)
+```
+
+The stiffness matrix with Dirichlet rows and columns removed is symmetric
+positive definite; the advection matrix is not symmetric.
+
+## Load vectors and boundary terms
+
+```{r}
+b <- assemble_vector(V, function(x, y) x * y)
+sum(b)                                            # int x y = 1/4
+sum(assemble_boundary_vector(V, 1, "left"))       # length of the left edge
+```
+
+## Invariance under renumbering
+
+Assembly does not depend on the order of nodes: renumbering the nodes
+permutes the matrix.
+
+```{r}
+m <- pde_mesh_rectangle(nx = 4)
+perm <- sample(nrow(m$nodes)); inv <- order(perm)
+m2 <- pde_mesh(m$nodes[perm, ], matrix(inv[m$triangles], ncol = 3))
+K1 <- as.matrix(assemble_matrix(fe_space(m), "stiffness"))
+K2 <- as.matrix(assemble_matrix(fe_space(m2), "stiffness"))
+max(abs(K2 - K1[perm, perm]))
+```
+
+## Linear solvers
+
+`solve_linear_system()` chooses sparse Cholesky for symmetric matrices (with
+a fallback to sparse LU when the matrix is not positive definite) and sparse
+LU otherwise. Preconditioned conjugate gradients, BiCGSTAB and restarted
+GMRES are also available.
+
+```{r}
+A <- K + M
+rhs <- assemble_vector(V, 1)
+for (m in c("auto", "lu", "cg", "bicgstab", "gmres")) {
+  s <- solve_linear_system(A, rhs, method = m, tol = 1e-12)
+  cat(sprintf("%-8s %-9s iterations %4s  relative residual %.2e\n", m, s$info$method,
+              s$info$iterations, s$info$relative_residual))
+}
+```
+
+Every solve reports a status, the residual and its relative size, the
+iteration count, the matrix size and the number of nonzeros. Iterative
+methods report `"not converged"` instead of returning silently:
+
+```{r}
+solve_linear_system(A, rhs, method = "cg", maxit = 3)$info$status
+```
+
+For repeated solves with the same matrix (time stepping), `linear_solver()`
+factors once and returns a reusable `solve()` function.
+
+## Cost
+
+Assembly is linear in the number of elements, and so is the memory of the
+sparse matrices. The supernodal Cholesky factorization of two-dimensional
+finite-element matrices costs roughly $O(N^{1.5})$ operations with fill
+reducing orderings, which keeps meshes with $10^5$ to $10^6$ unknowns
+practical on a workstation.
+
+```{r}
+for (n in c(32, 64, 128)) {
+  mesh <- pde_mesh_rectangle(nx = n)
+  t <- system.time(s <- solve_pde(poisson_problem(mesh, source = 1, boundary = dirichlet_bc(0))))
+  cat(sprintf("n = %3d  dofs = %6d  assembly %.2fs  solve %.2fs\n", n, s$space$ndof,
+              s$diagnostics$assembly_time, s$diagnostics$solve_time))
+}
+```

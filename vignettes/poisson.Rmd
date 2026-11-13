@@ -1,0 +1,129 @@
+---
+title: "Solving the Poisson equation"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Solving the Poisson equation}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height = 4.5)
+```
+
+```{r}
+library(pdecompR)
+```
+
+## The model problem
+
+$$
+-\nabla\cdot(k\nabla u) = f \ \text{in } \Omega, \qquad u = g \ \text{on } \Gamma_D, \qquad
+k \frac{\partial u}{\partial n} = h \ \text{on } \Gamma_N .
+$$
+
+For $k$ bounded and uniformly positive and $\Gamma_D$ of positive length,
+the Lax-Milgram lemma guarantees a unique weak solution, and Cea's lemma
+says the Galerkin solution is the best approximation in the energy norm. For
+smooth solutions on shape-regular meshes, P1 elements give
+
+$$
+\|u - u_h\|_{L^2} = O(h^2), \qquad |u - u_h|_{H^1} = O(h),
+$$
+
+and P2 elements one order more in each norm.
+
+## A manufactured solution
+
+Choose $u = \sin(\pi x)\sin(\pi y)$; then $f = 2\pi^2 \sin(\pi x)\sin(\pi y)$ and
+$u = 0$ on $\partial\Omega$.
+
+```{r}
+exact <- function(x, y) sin(pi * x) * sin(pi * y)
+grad_exact <- function(x, y) cbind(pi * cos(pi * x) * sin(pi * y), pi * sin(pi * x) * cos(pi * y))
+f <- function(x, y) 2 * pi^2 * sin(pi * x) * sin(pi * y)
+
+mesh <- pde_mesh_rectangle(nx = 32, ny = 32)
+problem <- poisson_problem(mesh, source = f, boundary = dirichlet_bc(0))
+sol <- solve_pde(problem)
+sol
+c(L2 = errornorm(sol, exact, "L2"),
+  H1 = errornorm(sol, exact, "H1_semi", gradient = grad_exact))
+```
+
+The discrete solution can be inspected as a filled plot or with contour
+lines:
+
+```{r, fig.width = 7, fig.height = 3.4}
+op <- par(mfrow = c(1, 2))
+plot(sol$u, type = "contour", main = "contours")
+err <- interpolate(exact, sol$space)
+err$values <- sol$u$values - err$values
+err$name <- "nodal error"
+plot(err, type = "contour")
+par(op)
+```
+
+## Quadratic elements
+
+`degree = 2` switches to P2 elements; nothing else changes.
+
+```{r}
+p2 <- poisson_problem(pde_mesh_rectangle(nx = 8), source = f, boundary = dirichlet_bc(0), degree = 2)
+convergence_study(p2, exact, grad_exact, mesh_sizes = c(4, 8, 16, 32))
+```
+
+## The affine patch test
+
+A linear function is in the P1 space, so with zero source and matching
+Dirichlet data the discrete solution must be the exact solution up to
+rounding. This checks assembly, boundary enforcement and interpolation at
+once, and it holds on any mesh:
+
+```{r}
+lin <- function(x, y) x + 2 * y
+L <- pde_mesh_polygon(rbind(c(0, 0), c(2, 0), c(2, 1), c(1, 1), c(1, 2), c(0, 2)), h = 0.3)
+s <- solve_pde(poisson_problem(L, source = 0, boundary = dirichlet_bc(lin)))
+max(abs(s$u$values - lin(L$nodes[, 1], L$nodes[, 2])))
+```
+
+## Variable and anisotropic diffusion
+
+The diffusion coefficient can be a function of position (checked to be
+positive at all quadrature points) or a constant symmetric positive definite
+matrix.
+
+```{r}
+k <- function(x, y) 1 + 10 * (x > 0.5)
+s <- solve_pde(poisson_problem(pde_mesh_rectangle(nx = 32), diffusion = k, source = 1,
+                               boundary = dirichlet_bc(0)))
+plot(s, main = "jump in diffusion at x = 0.5")
+
+Ktensor <- matrix(c(1, 0, 0, 0.05), 2)
+s2 <- solve_pde(poisson_problem(pde_mesh_rectangle(nx = 32), diffusion = Ktensor, source = 1,
+                                boundary = dirichlet_bc(0)))
+plot(s2$u, type = "contour", main = "anisotropic diffusion")
+```
+
+A coefficient that is not uniformly positive is rejected rather than
+silently producing an indefinite system:
+
+```{r, error = TRUE}
+solve_pde(poisson_problem(pde_mesh_rectangle(nx = 4), diffusion = function(x, y) x - 0.5,
+                          source = 1, boundary = dirichlet_bc(0)))
+```
+
+## Behind solve_pde()
+
+`discretize()` exposes the assembled system:
+
+```{r}
+disc <- discretize(problem)
+disc
+dim(disc$A); length(disc$dirichlet$dofs)
+```
+
+The Dirichlet values are eliminated: with free indices $f$ and Dirichlet
+indices $d$, the solver solves $A_{ff} U_f = b_f - A_{fd} U_d$. The reduced
+matrix $A_{ff}$ keeps the symmetry and definiteness of $A$, so Cholesky
+applies; rows and columns are never overwritten inconsistently.

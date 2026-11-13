@@ -1,0 +1,118 @@
+---
+title: "Numerical convergence and verification"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Numerical convergence and verification}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>", fig.width = 6, fig.height = 4.5)
+```
+
+```{r}
+library(pdecompR)
+```
+
+A solver is only trustworthy when its errors behave as the theory predicts.
+This article shows how pdecompR measures errors and how its solvers are
+verified.
+
+## Kinds of error
+
+A computed solution differs from the true solution of a physical problem for
+several distinct reasons:
+
+* **model error**: the PDE does not describe reality exactly;
+* **discretization error**: $u - u_h$ for the exact discrete solution $u_h$;
+* **quadrature error**: integrals in assembly are approximated;
+* **algebraic error**: the linear or nonlinear solve is not exact;
+* **time integration error** for evolution problems.
+
+The solver diagnostics report the algebraic residual. `errornorm()` measures
+the discretization error against a known solution, and `estimate_error()`
+estimates it when no exact solution is known.
+
+## Error norms
+
+$$
+\|u - u_h\|_{L^2}^2 = \int_\Omega (u - u_h)^2, \qquad
+|u - u_h|_{H^1}^2 = \int_\Omega |\nabla(u - u_h)|^2, \qquad
+\|u - u_h\|_{E}^2 = \int_\Omega k\,|\nabla(u - u_h)|^2 .
+$$
+
+They are computed element by element with a quadrature rule two degrees
+higher than the assembly rule. Nodal errors are a different quantity: they
+can converge faster (superconvergence) and should not be mistaken for the
+$L^2$ error.
+
+```{r}
+exact <- function(x, y) sin(pi * x) * sin(pi * y)
+gradient <- function(x, y) cbind(pi * cos(pi * x) * sin(pi * y), pi * sin(pi * x) * cos(pi * y))
+f <- function(x, y) 2 * pi^2 * exact(x, y)
+sol <- solve_pde(poisson_problem(pde_mesh_rectangle(nx = 16), source = f, boundary = dirichlet_bc(0)))
+errornorm(sol, exact, "L2")
+errornorm(sol, exact, "H1", gradient = gradient)
+errornorm(sol, exact, "H1_semi")   # gradient by finite differences, labeled
+```
+
+## Convergence studies
+
+`convergence_study()` solves on a sequence of meshes and reports observed
+orders
+
+$$
+p_i = \frac{\log(e_{i-1}/e_i)}{\log(h_{i-1}/h_i)} .
+$$
+
+```{r}
+prob <- poisson_problem(pde_mesh_rectangle(nx = 4), source = f, boundary = dirichlet_bc(0))
+p1 <- convergence_study(prob, exact, gradient, mesh_sizes = c(4, 8, 16, 32, 64))
+p1
+plot(p1, main = "P1 elements")
+```
+
+Observed orders approach 2 and 1 as $h$ decreases. On coarse meshes the
+error is not yet asymptotic, which is why tests in pdecompR accept, for
+example, an observed $L^2$ order above 1.9 instead of demanding exactly 2.
+
+For quadratic elements the orders are 3 and 2:
+
+```{r}
+p2b <- convergence_study(poisson_problem(pde_mesh_rectangle(nx = 4), source = f,
+                                         boundary = dirichlet_bc(0), degree = 2),
+                         exact, gradient, mesh_sizes = c(4, 8, 16, 32))
+p2b
+```
+
+On meshes that are not structured, `convergence_study()` refines uniformly:
+
+```{r}
+L <- pde_mesh_polygon(rbind(c(0, 0), c(1, 0), c(1, 1), c(0.5, 0.7), c(0, 1)), h = 0.3)
+ex2 <- function(x, y) exp(x) * sin(y)
+cs <- convergence_study(poisson_problem(L, source = 0, boundary = dirichlet_bc(ex2)), ex2,
+                        refinements = 3)
+cs
+```
+
+## The validation suite
+
+The package tests encode these verifications permanently:
+
+| Problem | Check |
+|---------|-------|
+| affine solution $x + 2y$ (P1, P2, polygon mesh) | reproduced to $10^{-12}$ |
+| Poisson, $\sin\pi x \sin\pi y$, P1 | orders above 1.9 ($L^2$) and 0.95 ($H^1$) |
+| Poisson, P2 | orders above 2.85 and 1.9 |
+| mixed Dirichlet and Neumann | optimal orders |
+| variable diffusion, Robin conditions | optimal orders |
+| pure Neumann | compatibility check, zero-mean gauge, error bound |
+| heat equation, P1-exact solution | temporal orders 2 (Crank-Nicolson) and 1 (backward Euler) |
+| reaction-diffusion | linear decay, logistic ODE, coupled linear ODE |
+| advection-diffusion | optimal orders; SUPG removes oscillations |
+| quasilinear, semilinear and p-Laplace problems | optimal orders, Newton convergence |
+| adaptivity on the L-shaped domain | optimal adaptive rate, beats uniform refinement |
+| sensitivities | forward, adjoint and finite differences agree |
+
+These tests use meshes of at most 32 by 32 so that `R CMD check` stays fast.

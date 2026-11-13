@@ -17,7 +17,7 @@ test_that("forms with reaction, advection and boundary terms match the elliptic 
   b <- c(1, -0.5)
   a <- integrate_domain(k * dot(grad(u), grad(v)) + 2 * u * v + dot(b, grad(u)) * v) +
     integrate_boundary(3 * u * v, "right")
-  L <- integrate_domain(1 * v) + integrate_boundary(function(x, y) y * v, "right") +
+  L <- integrate_domain(1 * v) + integrate_boundary((function(x, y) y) * v, "right") +
     integrate_boundary(0.5 * v, "top")
   s1 <- solve_pde(variational_problem(a, L, dirichlet_bc(0, "left")))
   prob <- elliptic_problem(m, diffusion = k, reaction = 2, advection = b, source = 1,
