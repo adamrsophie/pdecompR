@@ -1,0 +1,27 @@
+# Discretize a PDE problem
+
+Builds the finite-element space and assembles the global system of a
+linear stationary problem. The result separates the numerical
+representation from the mathematical problem definition.
+
+## Usage
+
+``` r
+discretize(problem, ...)
+```
+
+## Arguments
+
+- problem:
+
+  A `pde_problem`.
+
+- ...:
+
+  Unused.
+
+## Value
+
+An object of class `pde_discretization` with the space, the full matrix
+`A` and load `b` (before Dirichlet elimination), the Dirichlet degrees
+of freedom and values, and assembly timings.
