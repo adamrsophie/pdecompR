@@ -94,7 +94,8 @@ discrete compatibility condition through the multiplier of the zero-mean
 constraint, and returns the solution with zero mean. The result is labeled
 as gauged. With advection the operator is not symmetric and the condition
 involves its left null vector, not $\int f + \int h$; a defect larger than
-$h^2$ then gives a warning. On a mesh with several disconnected parts each
+$h^2$ gives a warning and a clearly incompatible defect (above about one
+percent) an error. On a mesh with several disconnected parts each
 part has its own constant; this case is not detected.
 
 ```{r}

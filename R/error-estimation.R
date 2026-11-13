@@ -118,8 +118,9 @@ fd_gradient <- function(f, h = 1e-5) {
 #' (pre-asymptotic behavior). For P1 and a smooth solution the asymptotic
 #' orders are 2 in L2 and 1 in H1; for P2 they are 3 and 2.
 #'
-#' @param problem A stationary `pde_problem` (elliptic, variational or
-#'   nonlinear).
+#' @param problem A stationary `pde_problem` (elliptic, nonlinear or
+#'   elasticity). Variational problems are tied to their function space and
+#'   are not supported.
 #' @param exact Exact solution `function(x, y)`.
 #' @param gradient Exact gradient (optional, see [errornorm()]).
 #' @param mesh_sizes Cell counts for rectangle meshes.
@@ -127,7 +128,8 @@ fd_gradient <- function(f, h = 1e-5) {
 #' @param norms Norms to report.
 #' @param ... Passed to [solve_pde()].
 #' @return A data frame of class `pde_convergence` with columns `h`, `ndof`,
-#'   one column per norm and the observed rates.
+#'   one column per norm and the observed rates. `summary()` reports the
+#'   finest errors and the last and mean observed rates per norm.
 #' @examples
 #' mesh <- pde_mesh_rectangle(nx = 4)
 #' f <- function(x, y) 2 * pi^2 * sin(pi * x) * sin(pi * y)
@@ -178,6 +180,27 @@ convergence_study <- function(problem, exact, gradient = NULL, mesh_sizes = NULL
     out[[paste0("rate_", nm)]] <- r
   }
   structure(out, class = c("pde_convergence", "data.frame"), norms = norms)
+}
+
+#' @export
+summary.pde_convergence <- function(object, ...) {
+  norms <- attr(object, "norms")
+  last <- nrow(object)
+  out <- data.frame(norm = norms,
+                    finest_error = vapply(norms, function(nm) object[[nm]][last], numeric(1)),
+                    last_rate = vapply(norms, function(nm) object[[paste0("rate_", nm)]][last], numeric(1)),
+                    mean_rate = vapply(norms, function(nm) mean(object[[paste0("rate_", nm)]][-1]), numeric(1)),
+                    row.names = NULL)
+  structure(list(rates = out, h = range(object$h), ndof = range(object$ndof)),
+            class = "summary.pde_convergence")
+}
+
+#' @export
+print.summary.pde_convergence <- function(x, ...) {
+  cat("Mesh convergence study: h from ", fmt_num(x$h[2]), " to ", fmt_num(x$h[1]), ", ",
+      x$ndof[1], " to ", x$ndof[2], " degrees of freedom\n", sep = "")
+  print(x$rates, digits = 4, row.names = FALSE)
+  invisible(x)
 }
 
 #' @export

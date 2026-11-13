@@ -15,8 +15,9 @@ convergence_study(
 )
 }
 \arguments{
-\item{problem}{A stationary \code{pde_problem} (elliptic, variational or
-nonlinear).}
+\item{problem}{A stationary \code{pde_problem} (elliptic, nonlinear or
+elasticity). Variational problems are tied to their function space and
+are not supported.}
 
 \item{exact}{Exact solution \verb{function(x, y)}.}
 
@@ -32,7 +33,8 @@ nonlinear).}
 }
 \value{
 A data frame of class \code{pde_convergence} with columns \code{h}, \code{ndof},
-one column per norm and the observed rates.
+one column per norm and the observed rates. \code{summary()} reports the
+finest errors and the last and mean observed rates per norm.
 }
 \description{
 Solves a problem on a sequence of meshes and reports errors and observed

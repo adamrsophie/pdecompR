@@ -40,7 +40,8 @@
 #' [solve_pde()], default `1e-6`). For a nonsymmetric operator (advection) the
 #' left null vector is not constant; there a defect above `h^2` gives a
 #' warning instead of an error, because data that are compatible for the PDE
-#' leave a defect of the size of the discretization error.
+#' leave a defect of the size of the discretization error; defects above
+#' about one percent are still errors.
 #'
 #' @param mesh A [pde_mesh()].
 #' @param diffusion Diffusion coefficient `k`.
@@ -306,6 +307,11 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
       # continuous one, so data that are compatible for the PDE leave a
       # defect of the size of the discretization error; only defects above
       # h^2 are reported.
+      if (abs(rel) > 0.01 + 10 * tol_c) {
+        stopf(paste0("Pure Neumann problem with incompatible data: ",
+                     "compatibility defect %s (relative %s). The problem has no solution."),
+              fmt_num(comp), fmt_num(rel))
+      }
       warnf(paste0("Pure Neumann problem: the data violate the discrete compatibility condition ",
                    "by %s (relative %s); the solution satisfies the equations up to a constant ",
                    "times the multiplier. Check that the data are compatible."),

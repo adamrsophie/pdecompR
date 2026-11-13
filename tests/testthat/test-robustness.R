@@ -38,8 +38,8 @@ test_that("pure Neumann advection problems use the left null vector", {
   f <- function(x, y) exp(x) * (x - 0.5)
   s <- expect_no_warning(solve_pde(elliptic_problem(m, advection = c(1, 0), source = f)))
   expect_equal(s$diagnostics$gauge$type, "zero mean")
-  expect_warning(solve_pde(elliptic_problem(m, advection = c(1, 0), source = function(x, y) x - 0.5)),
-                 "compatibility")
+  expect_error(solve_pde(elliptic_problem(m, advection = c(1, 0), source = function(x, y) x - 0.5)),
+               "incompatible")
 })
 
 test_that("time-dependent natural boundary data work in parabolic problems", {
@@ -182,4 +182,14 @@ test_that("the estimator sees Dirichlet data the space cannot represent", {
   s <- solve_pde(poisson_problem(pde_mesh_rectangle(nx = 1), source = 0,
                                  boundary = dirichlet_bc(function(x, y) x^2 - y^2)))
   expect_gt(estimate_error(s)$total, 0.1)
+})
+
+test_that("convergence studies have a summary", {
+  prob <- poisson_problem(pde_mesh_rectangle(nx = 4), source = function(x, y) 2 * pi^2 * u_sin(x, y),
+                          boundary = dirichlet_bc(0))
+  cs <- convergence_study(prob, u_sin, mesh_sizes = c(4, 8, 16))
+  sm <- summary(cs)
+  expect_s3_class(sm, "summary.pde_convergence")
+  expect_gt(sm$rates$last_rate[1], 1.8)
+  expect_output(print(sm), "finest_error")
 })

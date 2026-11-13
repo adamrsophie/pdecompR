@@ -88,13 +88,16 @@ legend("topright", c("finite elements", "exact"), lty = 1:2, col = c("black", "r
 To measure the time error alone, use a solution that the spatial
 discretization represents exactly: $u = e^{-t}(x + 2y)$ is linear in space,
 so the semidiscrete solution is exact and any remaining error comes from
-time stepping.
+time stepping. Crank-Nicolson takes two backward Euler steps first
+(`startup = 2`, Rannacher startup) to damp oscillations from rough initial
+data; a fixed number of such steps keeps second order, and their effect
+shows only on the coarsest steps.
 
 ```{r}
 ex <- function(x, y, t) exp(-t) * (x + 2 * y)
 p <- heat_problem(pde_mesh_rectangle(nx = 4), source = function(x, y, t) -exp(-t) * (x + 2 * y),
                   initial = function(x, y) x + 2 * y, bcs = dirichlet_bc(ex), time = c(0, 1))
-dts <- c(0.1, 0.05, 0.025, 0.0125)
+dts <- c(0.05, 0.025, 0.0125, 0.00625)
 err <- sapply(c("backward-euler", "crank-nicolson"), function(m) sapply(dts, function(dt) {
   s <- solve_pde(p, dt = dt, method = m, output_times = 1)
   max(abs(s$values[, 1] - ex(s$space$dof_coords[, 1], s$space$dof_coords[, 2], 1)))

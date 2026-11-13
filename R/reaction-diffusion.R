@@ -226,6 +226,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
         Jac <- (Lb - dt * Mb %*% JR)[freeb, freeb, drop = FALSE]
         ls <- solve_linear_system(Jac, -g, method = if (solver == "auto") "lu" else solver, ...)
         if (!ls$info$status %in% c("solved", "converged")) bad <- ls$info
+        max_rel <- max(max_rel, ls$info$relative_residual)
         step <- ls$x
         lam <- 1
         repeat {

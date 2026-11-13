@@ -93,7 +93,8 @@ compared with \verb{compatibility_tol * sum_i |b_i|} (an argument of
 \code{\link[=solve_pde]{solve_pde()}}, default \code{1e-6}). For a nonsymmetric operator (advection) the
 left null vector is not constant; there a defect above \code{h^2} gives a
 warning instead of an error, because data that are compatible for the PDE
-leave a defect of the size of the discretization error.
+leave a defect of the size of the discretization error; defects above
+about one percent are still errors.
 }
 \examples{
 mesh <- pde_mesh_rectangle(nx = 8)
