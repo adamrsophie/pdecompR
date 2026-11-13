@@ -1,4 +1,4 @@
-# pdecompR: Partial Differential Equations and Finite-Element Computing in R
+# pdecompR: Partial Differential Equations and Finite-Element Computing in R <img src="man/figures/logo.png" align="right" height="139" alt="pdecompR logo" />
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/adamrsophie/pdecompR/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/adamrsophie/pdecompR/actions/workflows/R-CMD-check.yaml)
