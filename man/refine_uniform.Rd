@@ -44,3 +44,11 @@ nrow(refine_uniform(mesh)$triangles)
 fine <- refine_mesh(mesh, marked = 1)
 nrow(fine$triangles)
 }
+\references{
+Mitchell, W. F. (1991). Adaptive refinement for arbitrary
+finite-element spaces with hierarchical bases. \emph{Journal of Computational
+and Applied Mathematics}, 36, 65-78.
+
+Binev, P., Dahmen, W. and DeVore, R. (2004). Adaptive finite element
+methods with convergence rates. \emph{Numerische Mathematik}, 97, 219-268.
+}

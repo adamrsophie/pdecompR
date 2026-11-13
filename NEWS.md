@@ -21,3 +21,29 @@
     marking and newest vertex bisection;
   * discrete forward and adjoint sensitivities, parameter estimation and
     distributed optimal control.
+
+* Robustness before release:
+  * singular systems are detected from the assembled operator: Robin
+    conditions with `alpha = 0`, variational problems, advection with
+    zero-flux boundaries (left null vector compatibility) and elasticity
+    constraints that leave a rigid motion;
+  * linear solves that do not reach their tolerance give a warning, and
+    iterative solvers guard against breakdown and zero right-hand sides;
+  * the error estimator evaluates the diffusion on each side of an edge,
+    gives Dirichlet conditions precedence as the solver does, and measures
+    how well the space represents Dirichlet data;
+  * finite-element coefficients and initial data are evaluated on their own
+    space, so they may come from another mesh or degree; `errornorm()`
+    accepts a reference `fe_function`;
+  * time-dependent Neumann and Robin data work in heat and
+    reaction-diffusion problems; only a third argument named `t` makes a
+    function time dependent;
+  * Crank-Nicolson starts with two backward Euler steps (`startup`) to damp
+    oscillations from rough initial data;
+  * the weak-form language rejects products of directional derivatives,
+    gradients of coefficient products and mixed function spaces;
+  * SUPG accepts tensor diffusion; P2 functions are plotted on subdivided
+    elements; plots compose with `par(mfrow = ...)`; `write_vtk()` writes
+    displacement vectors and time-dependent solutions;
+  * stricter input checks for reaction-diffusion species, boundary edges,
+    observations, Dirichlet values, polygon size and Gmsh files.

@@ -12,9 +12,11 @@
 #'
 #' At the estimate, the Gauss-Newton approximation `H = S^T W S + lambda I`
 #' (with `S` the forward sensitivities of the predicted observations) gives
-#' approximate standard errors `sqrt(diag(H^-1))`. These reflect measurement
-#' noise only, under a local linearization; they do not include
-#' discretization error. To expose the latter, the model is re-solved at the
+#' approximate standard errors. Without regularization they are
+#' `sqrt(diag(H^-1))`; with `lambda > 0` they are the propagated measurement
+#' noise `sqrt(diag(H^-1 S^T W S H^-1))` (the regularized estimator is biased
+#' and this ignores the bias). They reflect measurement noise only, under a
+#' local linearization; they do not include discretization error. To expose the latter, the model is re-solved at the
 #' estimate on a uniformly refined mesh (when `problem_fun` accepts a mesh)
 #' and the change in the predicted observations is reported.
 #'
@@ -51,7 +53,8 @@ estimate_parameters <- function(problem_fun, theta0, observations, mesh = NULL,
   cache <- new.env()
   eval_at <- function(theta) {
     if (!is.null(cache$theta) && identical(cache$theta, theta)) return(cache$res)
-    s <- pde_sensitivity(problem_fun, theta, mesh = mesh, objective = obj, method = "adjoint")
+    s <- pde_sensitivity(problem_fun, theta, mesh = mesh, objective = obj, method = "adjoint",
+                         lower = lower, upper = upper)
     reg <- regularization * (theta - theta_ref)
     res <- list(value = s$value + 0.5 * sum(reg * (theta - theta_ref)),
                 gradient = s$gradient + reg, solution = s$solution)
@@ -64,12 +67,16 @@ estimate_parameters <- function(problem_fun, theta0, observations, mesh = NULL,
                       method = "L-BFGS-B", lower = lower, upper = upper, control = control)
   est <- opt$par
   fin <- eval_at(est)
-  fs <- pde_sensitivity(problem_fun, est, mesh = mesh, method = "forward")
+  fs <- pde_sensitivity(problem_fun, est, mesh = mesh, method = "forward", lower = lower, upper = upper)
   P <- evaluation_matrix(V, observations$x, observations$y)
   So <- as.matrix(P %*% fs$sensitivities)
   W <- 1 / observations$sd^2
-  H <- crossprod(So * sqrt(W)) + diag(regularization, length(est))
-  se <- tryCatch(sqrt(diag(solve(H))), error = function(e) rep(NA_real_, length(est)))
+  G <- crossprod(So * sqrt(W))
+  H <- G + diag(regularization, length(est))
+  se <- tryCatch({
+    Hi <- solve(H)
+    sqrt(diag(if (regularization > 0) Hi %*% G %*% Hi else Hi))
+  }, error = function(e) rep(NA_real_, length(est)))
   pred <- as.numeric(P %*% fin$solution$u$values)
   disc <- NULL
   if (length(formals(problem_fun)) >= 2L && !is.null(mesh)) {
@@ -109,7 +116,9 @@ print.pde_estimate <- function(x, ...) {
 #'
 #' subject to `-div(k grad u) = f + q` with the given boundary conditions,
 #' where the control `q` is a P1 function and norms are `L2` norms (computed
-#' with the mass matrix). The problem is strictly convex for `alpha > 0`.
+#' with the mass matrix). The target enters through its nodal interpolant, so
+#' the reported tracking term is `||u - I_h u_target||`; features of the
+#' target smaller than the mesh size are not seen. The problem is strictly convex for `alpha > 0`.
 #'
 #' Without bounds the first-order optimality (KKT) system is solved directly
 #' with sparse LU. With bounds `lower <= q <= upper`, the reduced problem is

@@ -46,6 +46,12 @@ refine_uniform <- function(mesh) {
 }
 
 #' @rdname refine_uniform
+#' @references Mitchell, W. F. (1991). Adaptive refinement for arbitrary
+#'   finite-element spaces with hierarchical bases. *Journal of Computational
+#'   and Applied Mathematics*, 36, 65-78.
+#'
+#'   Binev, P., Dahmen, W. and DeVore, R. (2004). Adaptive finite element
+#'   methods with convergence rates. *Numerische Mathematik*, 97, 219-268.
 #' @export
 refine_mesh <- function(mesh, marked) {
   stopifnot(inherits(mesh, "pde_mesh"))

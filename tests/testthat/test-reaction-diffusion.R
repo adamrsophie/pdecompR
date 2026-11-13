@@ -68,4 +68,9 @@ test_that("user Jacobians are used and agree with finite differences", {
   s2 <- solve_pde(do.call(reaction_diffusion_problem, c(base, jacobian = jac)), dt = 0.05,
                   method = "implicit-euler")
   expect_equal(s1$values$p, s2$values$p, tolerance = 1e-7)
+  calls <- 0
+  jac_count <- function(u, x, y, t) { calls <<- calls + 1; jac(u, x, y, t) }
+  solve_pde(do.call(reaction_diffusion_problem, c(base, jacobian = jac_count)), dt = 0.05,
+            method = "implicit-euler")
+  expect_gt(calls, 0)
 })

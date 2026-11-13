@@ -69,14 +69,17 @@ parabolic_operators <- function(problem) {
   advt <- NULL; madvt <- NULL
   if (problem$stabilization == "supg") {
     tq <- matrix(supg_tau(problem$mesh, problem$diffusion, problem$advection), geo$m, geo$nq)
-    D <- list(xx = D + tq * bq$x * bq$x, xy = tq * bq$x * bq$y,
-              yx = tq * bq$y * bq$x, yy = D + tq * bq$y * bq$y)
+    D <- supg_diffusion(D, tq, bq)
     if (!is.null(cq)) advt <- list(x = tq * cq * bq$x, y = tq * cq * bq$y)
     madvt <- list(x = tq * bq$x, y = tq * bq$y)
   }
   M <- global_matrix(V, local_bilinear(geo, mass = matrix(1, geo$m, geo$nq), advt = madvt))
   A <- global_matrix(V, local_bilinear(geo, mass = cq, adv = bq, advt = advt, diff = D))
-  robin <- natural_bc_terms(V, Filter(function(b) b$type == "robin", problem$bcs))$A
+  rb <- Filter(function(b) b$type == "robin", problem$bcs)
+  if (any(vapply(rb, function(b) is_time_function(b$alpha), logical(1)))) {
+    stopf("Time-dependent Robin coefficients `alpha` are not supported; the Robin value may depend on t.")
+  }
+  robin <- natural_bc_terms(V, rb, problem$time[1])$A
   if (!is.null(robin)) A <- A + robin
   load <- function(t) {
     fq <- coef_qp(problem$source, geo, t, "source")
@@ -98,12 +101,21 @@ parabolic_operators <- function(problem) {
 #' @param output_times Times at which to store the solution; they must lie on
 #'   the time grid. Default: every step.
 #' @param solver Linear solver method, see [solve_linear_system()].
+#' @param startup Number of initial backward Euler steps taken before
+#'   Crank-Nicolson (Rannacher startup). They damp the oscillations that
+#'   Crank-Nicolson produces for rough initial data or initial data that do
+#'   not match the Dirichlet data; a fixed number of such steps keeps second
+#'   order. Ignored for backward Euler.
+#' @references Rannacher, R. (1984). Finite element solution of diffusion
+#'   problems with irregular data. *Numerische Mathematik*, 43, 309-327.
 #' @export
 solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson", "backward-euler"),
-                                        output_times = NULL, solver = "auto", ...) {
+                                        output_times = NULL, solver = "auto", startup = 2L, ...) {
   method <- match.arg(method)
   check_number(dt, "dt", positive = TRUE)
+  startup <- check_count(startup, "startup", min = 0L)
   theta <- if (method == "crank-nicolson") 0.5 else 1
+  if (theta == 1) startup <- 0L
   ops <- parabolic_operators(problem)
   V <- ops$V
   t0 <- problem$time[1]; t1 <- problem$time[2]
@@ -121,29 +133,39 @@ solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson"
   ts <- proc.time()[["elapsed"]]
   slv <- linear_solver(L[free, free, drop = FALSE], solver, ...)
   Lfd <- L[free, bdofs, drop = FALSE]
+  if (startup > 0L) {
+    Lbe <- ops$M + dt * ops$A
+    slv_be <- linear_solver(Lbe[free, free, drop = FALSE], solver, ...)
+    Lfd_be <- Lbe[free, bdofs, drop = FALSE]
+  }
   U <- matrix(NA_real_, V$ndof, length(out_idx))
   k_out <- 1L
   if (out_idx[1] == 1L) { U[, 1] <- u; k_out <- 2L }
   F_old <- ops$load(t0)
   max_rel <- 0
+  bad <- NULL
   for (n in seq_len(N)) {
     tn <- grid[n + 1L]
     F_new <- if (ops$time_dependent) ops$load(tn) else F_old
-    rhs <- as.numeric(R %*% u) + dt * (theta * F_new + (1 - theta) * F_old)
+    be <- n <= startup
+    rhs <- if (be) as.numeric(ops$M %*% u) + dt * F_new
+           else as.numeric(R %*% u) + dt * (theta * F_new + (1 - theta) * F_old)
     rhs <- rhs[free]
     ud <- if (length(bdofs)) dirichlet_data(V, problem$bcs, tn)$values else numeric()
-    if (length(bdofs)) rhs <- rhs - as.numeric(Lfd %*% ud)
-    s <- slv$solve(rhs)
+    if (length(bdofs)) rhs <- rhs - as.numeric((if (be) Lfd_be else Lfd) %*% ud)
+    s <- (if (be) slv_be else slv)$solve(rhs)
     u[free] <- s$x
     if (length(bdofs)) u[bdofs] <- ud
     max_rel <- max(max_rel, s$info$relative_residual)
+    if (!s$info$status %in% c("solved", "converged")) bad <- s$info
     F_old <- F_new
     if (k_out <= length(out_idx) && out_idx[k_out] == n + 1L) {
       U[, k_out] <- u; k_out <- k_out + 1L
     }
   }
+  if (!is.null(bad)) warn_solver(bad, "linear solve of at least one time step")
   diag <- structure(list(ndof = V$ndof, free = length(free), steps = N, dt = dt,
-                         method = method, theta = theta, solver = slv$info,
+                         method = method, theta = theta, startup = startup, solver = slv$info,
                          max_relative_residual = max_rel,
                          assembly_time = ops$assembly_time,
                          solve_time = proc.time()[["elapsed"]] - ts),
@@ -164,7 +186,7 @@ output_index <- function(output_times, grid, dt) {
 
 initial_values <- function(initial, V) {
   if (inherits(initial, "fe_function")) {
-    if (initial$space$ndof == V$ndof && identical(initial$space$mesh$triangles, V$mesh$triangles)) {
+    if (same_space(initial$space, V)) {
       return(initial$values)
     }
     return(transfer_function(initial, V$mesh, V$degree)$values)
@@ -179,6 +201,12 @@ initial_values <- function(initial, V) {
 #' @param time A stored output time (the nearest stored time is used).
 #' @param species For reaction-diffusion systems, the species name or index.
 #' @return An [fe_function()].
+#' @examples
+#' prob <- heat_problem(pde_mesh_rectangle(nx = 4), initial = function(x, y) sin(pi * x) * sin(pi * y),
+#'                      bcs = dirichlet_bc(0), time = c(0, 0.1))
+#' sol <- solve_pde(prob, dt = 0.05)
+#' u <- solution_at(sol, 0.1)
+#' evaluate(u, 0.5, 0.5)
 #' @export
 solution_at <- function(solution, time, species = 1) {
   stopifnot(inherits(solution, "pde_transient"))

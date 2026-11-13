@@ -51,9 +51,11 @@ cached so the objective and gradient at the same \code{theta} share one solve.
 
 At the estimate, the Gauss-Newton approximation \verb{H = S^T W S + lambda I}
 (with \code{S} the forward sensitivities of the predicted observations) gives
-approximate standard errors \code{sqrt(diag(H^-1))}. These reflect measurement
-noise only, under a local linearization; they do not include
-discretization error. To expose the latter, the model is re-solved at the
+approximate standard errors. Without regularization they are
+\code{sqrt(diag(H^-1))}; with \code{lambda > 0} they are the propagated measurement
+noise \verb{sqrt(diag(H^-1 S^T W S H^-1))} (the regularized estimator is biased
+and this ignores the bias). They reflect measurement noise only, under a
+local linearization; they do not include discretization error. To expose the latter, the model is re-solved at the
 estimate on a uniformly refined mesh (when \code{problem_fun} accepts a mesh)
 and the change in the predicted observations is reported.
 

@@ -155,6 +155,12 @@ assign_boundary <- function(mesh, boundary_edges, boundary_markers) {
     stopf("`boundary_markers` must have one entry per boundary edge.")
   }
   n <- nrow(mesh$nodes)
+  if (!is.numeric(be) || any(!is.finite(be)) || any(be != round(be)) || any(be < 1 | be > n)) {
+    stopf("`boundary_edges` must contain node indices between 1 and %d.", n)
+  }
+  if (!is.character(boundary_markers) || anyNA(boundary_markers) || any(!nzchar(boundary_markers))) {
+    stopf("`boundary_markers` must be nonempty names.")
+  }
   k_given <- edge_key(be[, 1], be[, 2], n)
   if (anyDuplicated(k_given)) stopf("`boundary_edges` lists an edge twice.")
   k_topo <- edge_key(bd$n1, bd$n2, n)
@@ -381,6 +387,8 @@ mesh_edge_lengths <- function(mesh) {
 #'
 #' @param mesh A [pde_mesh()].
 #' @return The largest edge length `h` of the mesh.
+#' @examples
+#' mesh_size(pde_mesh_rectangle(nx = 4))
 #' @export
 mesh_size <- function(mesh) max(mesh_edge_lengths(mesh))
 
@@ -413,13 +421,13 @@ boundary_rows <- function(mesh, marker) {
   if (!is.character(marker) || length(marker) < 1L) {
     stopf("`marker` must be a character vector.")
   }
-  if ("boundary" %in% marker) return(seq_len(nrow(mesh$boundary)))
   known <- unique(mesh$boundary$marker)
-  unknown <- setdiff(marker, known)
+  unknown <- setdiff(marker, c(known, "boundary"))
   if (length(unknown)) {
     stopf("Unknown boundary marker(s): %s. Available: %s.",
           paste(unknown, collapse = ", "), paste(c(known, "boundary"), collapse = ", "))
   }
+  if ("boundary" %in% marker) return(seq_len(nrow(mesh$boundary)))
   which(mesh$boundary$marker %in% marker)
 }
 
@@ -450,6 +458,7 @@ set_boundary_marker <- function(mesh, marker, which) {
     stopf("`which` must return one logical value per boundary edge.")
   }
   mesh$boundary$marker[sel] <- marker
+  mesh$info$markers_edited <- TRUE
   mesh
 }
 

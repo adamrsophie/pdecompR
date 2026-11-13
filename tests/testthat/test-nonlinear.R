@@ -12,7 +12,10 @@ test_that("quasilinear diffusion converges with Newton's method", {
   s <- solve_pde(update_mesh(prob, pde_mesh_rectangle(nx = 16)))
   expect_true(s$converged)
   r <- s$newton$residual
-  # quadratic convergence: the last ratios r_{k+1} / r_k^2 stay bounded
+  # quadratic convergence: each step roughly squares the relative residual
+  rr <- r / r[1]
+  idx <- which(rr < 1e-2 & rr > 1e-13)
+  if (length(idx) >= 2L) expect_gt(min(log(rr[idx[-1]]) / log(rr[idx[-length(idx)]])), 1.6)
   expect_lt(tail(r, 1), 1e-10 * r[1])
   expect_lte(nrow(s$newton), 8)
   # finite-difference derivative gives the same solution

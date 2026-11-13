@@ -86,3 +86,7 @@ prob <- nonlinear_problem(mesh, diffusion = function(u) 1 + u^2,
 sol <- solve_pde(prob)
 sol$newton
 }
+\references{
+Deuflhard, P. (2004). \emph{Newton Methods for Nonlinear Problems}.
+Springer.
+}

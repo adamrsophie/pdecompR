@@ -15,3 +15,6 @@ The largest edge length \code{h} of the mesh.
 \description{
 Mesh size
 }
+\examples{
+mesh_size(pde_mesh_rectangle(nx = 4))
+}

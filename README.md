@@ -86,9 +86,10 @@ solve_pde(variational_problem(a, L, dirichlet_bc(0)))
 | Adaptivity | residual error estimator, Doerfler marking, newest vertex bisection, adaptive loop |
 | Inference | discrete forward and adjoint sensitivities, parameter estimation with adjoint gradients, distributed optimal control |
 
-Three-dimensional meshes, mixed elements (Stokes), discontinuous
-Galerkin methods and parallel or GPU backends are not available yet; see the
-roadmap in the documentation site.
+Not available yet: three-dimensional and one-dimensional meshes, subdomain
+markers and holes, mixed elements (Stokes), discontinuous Galerkin methods,
+time-dependent coefficients in parabolic problems, nonlinear weak forms,
+adjoints for nonlinear and transient problems, and parallel or GPU backends.
 
 ## Validation
 

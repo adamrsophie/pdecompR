@@ -80,8 +80,10 @@ never need a graphics device).
 \item \code{plot.pde_mesh()} draws the triangles and colors boundary edges by
 marker.
 \item \code{plot.fe_function()} draws a filled plot (each triangle colored by the
-mean of its vertex values) or contour lines from a regular-grid
-evaluation (\code{type = "contour"}).
+mean of its vertex values, with a color bar beside the domain; P2
+functions are drawn on the four subtriangles of each element, using the
+edge midpoint values) or contour lines from a regular-grid evaluation
+(\code{type = "contour"}).
 \item \code{plot.pde_solution()} plots the solution; \code{plot.pde_transient()} plots a
 stored time; \code{plot.pde_convergence()} draws errors against \code{h} on log
 scales with reference slopes; \code{plot_indicators()} draws element-wise

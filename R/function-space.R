@@ -81,6 +81,7 @@ boundary_dofs <- function(space, marker = "boundary") {
 #' @export
 fe_function <- function(space, values, name = "u") {
   stopifnot(inherits(space, "fe_space"))
+  if (!is.numeric(values)) stopf("`values` must be numeric.")
   values <- as.numeric(values)
   if (length(values) != space$ndof) {
     stopf("`values` has length %d; the space has %d degrees of freedom.",
@@ -132,8 +133,12 @@ print.fe_function <- function(x, ...) {
 evaluate <- function(u, x, y = NULL, gradient = FALSE) {
   stopifnot(inherits(u, "fe_function"))
   if (is.null(y)) {
-    x <- as.matrix(x); y <- x[, 2]; x <- x[, 1]
+    x <- as.matrix(x)
+    if (ncol(x) == 1L && nrow(x) == 2L) x <- t(x)
+    if (ncol(x) != 2L) stopf("Give points as `x` and `y` vectors or as a two-column matrix.")
+    y <- x[, 2]; x <- x[, 1]
   }
+  if (length(x) != length(y)) stopf("`x` and `y` must have the same length.")
   loc <- locate_points(u$space$mesh, x, y)
   ok <- !is.na(loc$element)
   val <- rep(NA_real_, length(x))
@@ -243,6 +248,11 @@ locate_points <- function(mesh, x, y, tol = 1e-10) {
 #' @param mesh Target [pde_mesh()].
 #' @param degree Degree of the target space.
 #' @return An [fe_function()] on `mesh`.
+#' @examples
+#' mesh <- pde_mesh_rectangle(nx = 2)
+#' u <- interpolate(function(x, y) x + y, fe_space(mesh))
+#' v <- transfer_function(u, refine_uniform(mesh))
+#' evaluate(v, 0.3, 0.4)
 #' @export
 transfer_function <- function(u, mesh, degree = u$space$degree) {
   stopifnot(inherits(u, "fe_function"))

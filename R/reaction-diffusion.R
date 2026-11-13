@@ -56,18 +56,40 @@ reaction_diffusion_problem <- function(mesh, species = "u", diffusion = 1, react
     stopf("`species` must be distinct names.")
   }
   if (!is.function(reaction)) stopf("`reaction` must be a function(u, x, y, t).")
-  if (!is.list(diffusion)) diffusion <- as.list(rep_len(diffusion, ns))
-  if (length(diffusion) != ns) stopf("Give one diffusion coefficient per species.")
-  for (d in diffusion) check_coefficient(d, "diffusion")
-  names(diffusion) <- species
-  if (!is.list(initial) || is.function(initial)) initial <- list(initial)
-  if (length(initial) != ns) stopf("Give one initial condition per species.")
-  if (is.null(names(initial))) names(initial) <- species
-  initial <- initial[species]
+  by_species <- function(x, what) {
+    if (is.null(names(x))) {
+      if (length(x) != ns) stopf("Give one %s per species.", what)
+      names(x) <- species
+    } else if (!setequal(names(x), species) || anyDuplicated(names(x))) {
+      stopf("The names of `%s` (%s) must match the species (%s).", what,
+            paste(names(x), collapse = ", "), paste(species, collapse = ", "))
+    }
+    x[species]
+  }
+  if (is.function(diffusion) || inherits(diffusion, "fe_function") || is.matrix(diffusion)) {
+    diffusion <- rep(list(diffusion), ns)
+  }
+  if (!is.list(diffusion)) {
+    if (length(diffusion) != 1L && length(diffusion) != ns) stopf("Give one diffusion coefficient or one per species.")
+    diffusion <- if (is.null(names(diffusion))) as.list(rep_len(diffusion, ns)) else as.list(diffusion)
+  }
+  diffusion <- by_species(diffusion, "diffusion")
+  for (d in diffusion) {
+    check_coefficient(d, "diffusion")
+    if (is.numeric(d) && d < 0) stopf("Diffusion coefficients must be nonnegative.")
+  }
+  if (!is.list(initial) || is.function(initial) || inherits(initial, "fe_function")) {
+    initial <- list(initial)
+  }
+  initial <- by_species(initial, "initial")
   if (inherits(bcs, "pde_bc")) bcs <- list(bcs)
   if (length(bcs) && is.null(names(bcs))) {
     if (ns == 1L) bcs <- list(bcs) else stopf("`bcs` must be a list named by species.")
     names(bcs) <- species
+  }
+  if (length(bcs) && !all(names(bcs) %in% species)) {
+    stopf("`bcs` names (%s) must be species names (%s).", paste(names(bcs), collapse = ", "),
+          paste(species, collapse = ", "))
   }
   bcs <- lapply(stats::setNames(species, species), function(s) normalize_bcs(bcs[[s]]))
   for (b in bcs) check_bc_markers(b, mesh)
@@ -96,7 +118,11 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
   M <- assemble_matrix(V, "mass")
   K <- lapply(problem$diffusion, function(d) assemble_matrix(V, "stiffness", d))
   for (s in sp) {
-    nat <- natural_bc_terms(V, problem$bcs[[s]])
+    if (any(vapply(problem$bcs[[s]], function(b) b$type == "robin" && is_time_function(b$alpha),
+                   logical(1)))) {
+      stopf("Time-dependent Robin coefficients `alpha` are not supported; the Robin value may depend on t.")
+    }
+    nat <- natural_bc_terms(V, problem$bcs[[s]], problem$time[1])
     if (!is.null(nat$A)) K[[s]] <- K[[s]] + nat$A
   }
   assembly_time <- proc.time()[["elapsed"]] - ta
@@ -124,13 +150,15 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
   if (out_idx[1] == 1L) { for (s in sp) store[[s]][, 1] <- U[, s]; k_out <- 2L }
   ts <- proc.time()[["elapsed"]]
   newton_its <- integer(0)
+  newton_res <- numeric(0)
   max_rel <- 0
+  bad <- NULL
   if (method == "imex-euler") {
     solvers <- list(); free <- list(); Lfd <- list()
     for (s in sp) {
       L <- M + dt * K[[s]]
       free[[s]] <- setdiff(seq_len(n), dir[[s]]$dofs)
-      solvers[[s]] <- linear_solver(L[free[[s]], free[[s]], drop = FALSE], solver)
+      solvers[[s]] <- linear_solver(L[free[[s]], free[[s]], drop = FALSE], solver, ...)
       Lfd[[s]] <- L[free[[s]], dir[[s]]$dofs, drop = FALSE]
     }
     for (k in seq_len(N)) {
@@ -145,6 +173,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
         if (length(dd$dofs)) r <- r - as.numeric(Lfd[[s]] %*% dd$values)
         sol <- solvers[[s]]$solve(r)
         max_rel <- max(max_rel, sol$info$relative_residual)
+        if (!sol$info$status %in% c("solved", "converged")) bad <- sol$info
         Unew[f, s] <- sol$x
         if (length(dd$dofs)) Unew[dd$dofs, s] <- dd$values
       }
@@ -195,7 +224,9 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
         }))
         JR <- do.call(rbind, lapply(blocks, function(row) do.call(cbind, row)))
         Jac <- (Lb - dt * Mb %*% JR)[freeb, freeb, drop = FALSE]
-        step <- solve_linear_system(Jac, -g, method = "lu")$x
+        ls <- solve_linear_system(Jac, -g, method = if (solver == "auto") "lu" else solver, ...)
+        if (!ls$info$status %in% c("solved", "converged")) bad <- ls$info
+        step <- ls$x
         lam <- 1
         repeat {
           Zt <- Z; zt <- as.vector(Zt); zt[freeb] <- zt[freeb] + lam * step
@@ -210,16 +241,20 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
         warnf("Newton did not converge at t = %s (residual %s).", fmt_num(tn), fmt_num(gn))
       }
       newton_its <- c(newton_its, it)
+      newton_res <- c(newton_res, gn / max(g0, 1e-300))
       U <- Z
       if (k_out <= length(out_idx) && out_idx[k_out] == k + 1L) {
         for (s in sp) store[[s]][, k_out] <- U[, s]; k_out <- k_out + 1L
       }
     }
   }
-  diag <- structure(list(ndof = n, free = n, steps = N, dt = dt, method = method,
+  if (!is.null(bad)) warn_solver(bad, "linear solve of at least one time step")
+  nfix <- sum(vapply(sp, function(s) length(dir[[s]]$dofs), integer(1)))
+  diag <- structure(list(ndof = n * ns, free = n * ns - nfix, steps = N, dt = dt, method = method,
                          species = sp, solver = list(method = solver),
                          max_relative_residual = max_rel,
                          newton_iterations = if (length(newton_its)) newton_its else NULL,
+                         newton_relative_residual = if (length(newton_res)) newton_res else NULL,
                          assembly_time = assembly_time,
                          solve_time = proc.time()[["elapsed"]] - ts),
                     class = "pde_diagnostics")

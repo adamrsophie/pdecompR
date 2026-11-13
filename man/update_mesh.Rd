@@ -18,3 +18,8 @@ The updated problem.
 Returns a copy of \code{problem} posed on \code{mesh}; coefficients and boundary
 conditions are kept. Used by convergence studies and adaptive loops.
 }
+\examples{
+prob <- poisson_problem(pde_mesh_rectangle(nx = 2), source = 1, boundary = dirichlet_bc(0))
+finer <- update_mesh(prob, pde_mesh_rectangle(nx = 8))
+finer
+}

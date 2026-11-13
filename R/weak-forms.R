@@ -56,6 +56,15 @@ mono <- function(trial = "none", test = "none", coefs = list(), vec = NULL, rank
 
 new_expr <- function(terms, space) structure(list(terms = terms, space = space), class = "fe_expr")
 
+# Stop when weak-form objects live on different function spaces.
+check_same_space <- function(...) {
+  sp <- Filter(Negate(is.null), lapply(list(...), function(z) if (inherits(z, c("fe_expr", "fe_form"))) z$space))
+  for (o in sp[-1]) {
+    if (!same_space(sp[[1]], o)) stopf("The trial and test functions must come from the same function space.")
+  }
+  invisible(TRUE)
+}
+
 as_expr <- function(x, space) {
   if (inherits(x, "fe_expr")) return(x)
   if ((is.numeric(x) && length(x) == 1L) || is.function(x) || inherits(x, "fe_function")) {
@@ -73,6 +82,9 @@ grad <- function(x) {
   if (!inherits(x, "fe_expr")) stopf("`grad()` applies to trial or test functions.")
   terms <- lapply(x$terms, function(t) {
     if (t$rank != 0L || !is.null(t$vec)) stopf("`grad()` applies to u or v only.")
+    if (!all(vapply(t$coefs, is.numeric, logical(1)))) {
+      stopf("`grad()` of a product with a spatial coefficient is not supported; write `k * grad(u)`.")
+    }
     if (t$trial == "value" && t$test == "none") t$trial <- "grad"
     else if (t$test == "value" && t$trial == "none") t$test <- "grad"
     else stopf("`grad()` applies to u or v only.")
@@ -100,6 +112,7 @@ dot <- function(a, b) {
     if (inherits(z, "fe_vector_coefficient")) return(new_expr(list(mono(vec = z$value, rank = 1L)), sp))
     as_expr(z, sp)
   }
+  check_same_space(a, b)
   A <- vecify(a); B <- vecify(b)
   terms <- list()
   for (s in A$terms) for (t in B$terms) {
@@ -123,6 +136,7 @@ dot <- function(a, b) {
 #' @export
 Ops.fe_expr <- function(e1, e2) {
   sp <- if (inherits(e1, "fe_expr")) e1$space else e2$space
+  if (!missing(e2)) check_same_space(e1, e2)
   if (missing(e2)) {
     if (.Generic == "-") return(as_expr(-1, sp) * e1)
     if (.Generic == "+") return(e1)
@@ -137,6 +151,10 @@ Ops.fe_expr <- function(e1, e2) {
         if (s$trial != "none" && t$trial != "none") stopf("A term contains the trial function twice.")
         if (s$test != "none" && t$test != "none") stopf("A term contains the test function twice.")
         if (s$rank + t$rank > 1L) stopf("Use `dot()` to multiply vector-valued expressions.")
+        if (s$contract != "none" && t$contract != "none") {
+          stopf(paste0("Products of two directional derivatives such as ",
+                       "`dot(b, grad(u)) * dot(c, grad(v))` are not supported."))
+        }
         r <- mono(trial = if (s$trial != "none") s$trial else t$trial,
                   test = if (s$test != "none") s$test else t$test,
                   coefs = c(s$coefs, t$coefs),
@@ -185,6 +203,7 @@ integrate_boundary <- function(expr, marker = "boundary") {
 
 #' @export
 Ops.fe_form <- function(e1, e2) {
+  if (!missing(e2)) check_same_space(e1, e2)
   if (.Generic == "+" && inherits(e1, "fe_form") && inherits(e2, "fe_form")) {
     return(structure(list(parts = c(e1$parts, e2$parts), space = e1$space), class = "fe_form"))
   }
@@ -276,9 +295,17 @@ assemble_form <- function(form, kind = c("bilinear", "linear")) {
 #' @param linear An `fe_form` containing only the test function.
 #' @param bcs Dirichlet conditions ([dirichlet_bc()]).
 #' @return An object of class `variational_problem`.
+#' @examples
+#' V <- fe_space(pde_mesh_rectangle(nx = 8))
+#' u <- trial_function(V); v <- test_function(V)
+#' a <- integrate_domain(dot(grad(u), grad(v)))
+#' L <- integrate_domain(1 * v)
+#' sol <- solve_pde(variational_problem(a, L, dirichlet_bc(0)))
+#' max(sol$u$values)
 #' @export
 variational_problem <- function(bilinear, linear, bcs = list()) {
   stopifnot(inherits(bilinear, "fe_form"), inherits(linear, "fe_form"))
+  check_same_space(bilinear, linear)
   bcs <- normalize_bcs(bcs)
   if (any(vapply(bcs, function(b) b$type != "dirichlet", logical(1)))) {
     stopf("Write Neumann and Robin terms as boundary integrals; only Dirichlet conditions are allowed here.")
@@ -297,7 +324,7 @@ discretize.variational_problem <- function(problem, ...) {
   b <- assemble_form(problem$L, "linear")
   dd <- dirichlet_data(V, problem$bcs)
   structure(list(space = V, A = A, b = b, dirichlet = dd,
-                 free = setdiff(seq_len(V$ndof), dd$dofs), pure_neumann = FALSE,
+                 free = setdiff(seq_len(V$ndof), dd$dofs), pure_neumann = constant_kernel(A, dd),
                  assembly_time = proc.time()[["elapsed"]] - t0),
             class = "pde_discretization")
 }

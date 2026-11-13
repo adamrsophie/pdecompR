@@ -37,27 +37,37 @@ eval_spatial <- function(f, x, y, t = NULL, name = "function") {
   n <- length(x)
   if (is.null(f)) return(numeric(n))
   if (is.numeric(f)) {
-    if (length(f) == 1L) return(rep(as.numeric(f), n))
+    if (length(f) == 1L && is.finite(f)) return(rep(as.numeric(f), n))
     stopf("`%s` must be a single number or a function of (x, y).", name)
   }
+  if (inherits(f, "fe_function")) {
+    val <- evaluate(f, x, y)
+    if (anyNA(val)) stopf("`%s` (a finite-element function) does not cover all points.", name)
+    return(val)
+  }
   if (!is.function(f)) stopf("`%s` must be a number or a function.", name)
-  nf <- length(formals(f))
-  has_dots <- "..." %in% names(formals(f))
-  val <- if (!is.null(t) && (nf >= 3L || has_dots)) f(x, y, t) else f(x, y)
+  td <- is_time_function(f)
+  if (td && is.null(t)) {
+    stopf("`%s` depends on time (third argument `t`) but the problem is stationary.", name)
+  }
+  val <- if (td) f(x, y, t) else f(x, y)
   if (!is.numeric(val)) stopf("`%s` must return numeric values.", name)
   if (length(val) == 1L) val <- rep(val, n)
   if (length(val) != n) {
     stopf("`%s` returned %d values for %d points; it must be vectorized.",
           name, length(val), n)
   }
+  if (!all(is.finite(val))) stopf("`%s` returned non-finite values (NA, NaN or Inf).", name)
   as.numeric(val)
 }
 
+# A function is time dependent when its third formal argument is named `t`;
+# extra arguments with other names (for example `amp = 5`) keep their defaults.
 is_time_function <- function(f) {
-  is.function(f) && (length(formals(f)) >= 3L || "..." %in% names(formals(f)))
+  is.function(f) && length(formals(f)) >= 3L && identical(names(formals(f))[3], "t")
 }
 
-fmt_num <- function(x, digits = 4) formatC(x, digits = digits, format = "g")
+fmt_num <- function(x, digits = 4) formatC(as.numeric(x), digits = digits, format = "g")
 
 timed <- function(expr) {
   t0 <- proc.time()[["elapsed"]]

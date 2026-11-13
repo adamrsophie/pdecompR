@@ -21,11 +21,14 @@
 #' @param u An [fe_function()], `pde_solution` or `pde_vector_solution` (from
 #'   [elasticity_problem()]; then `exact` returns two columns and `gradient` is a
 #'   list of two gradient functions, one per component).
-#' @param exact Exact solution `function(x, y)`.
+#' @param exact Exact solution `function(x, y)`, or an [fe_function()]
+#'   reference solution (for example on a finer mesh, possibly of another
+#'   degree); its gradient is then used for gradient norms.
 #' @param type Norm type.
 #' @param gradient Exact gradient `function(x, y)` returning a two-column
 #'   matrix.
-#' @param diffusion Diffusion coefficient for the energy norm.
+#' @param diffusion Diffusion coefficient for the energy norm: a number, a
+#'   function of `(x, y)` or a constant 2 by 2 matrix.
 #' @param quad_degree Quadrature exactness degree.
 #' @param elementwise Return element contributions (squared) as attribute
 #'   `elements`.
@@ -43,8 +46,17 @@ errornorm <- function(u, exact, type = c("L2", "H1_semi", "H1", "energy"), gradi
     if (type == "energy") stopf("Use \"L2\", \"H1_semi\" or \"H1\" for vector solutions.")
     return(vector_errornorm(u, exact, type, gradient))
   }
+  if (inherits(u, "pde_transient")) {
+    stopf("Use `errornorm(solution_at(sol, time), exact)` for time-dependent solutions.")
+  }
   if (inherits(u, "pde_solution")) u <- u$u
-  stopifnot(inherits(u, "fe_function"))
+  if (!inherits(u, "fe_function")) stopf("`u` must be a finite-element function or solution.")
+  if (inherits(exact, "fe_function")) {
+    # Reference solution, for example on a finer mesh.
+    ref <- exact
+    exact <- function(x, y) evaluate(ref, x, y)
+    if (is.null(gradient)) gradient <- function(x, y) as.matrix(evaluate(ref, x, y, gradient = TRUE)[, 2:3])
+  }
   V <- u$space
   if (is.null(quad_degree)) quad_degree <- 2L * V$degree + 4L
   geo <- element_geometry(V, quad_degree)
@@ -66,8 +78,15 @@ errornorm <- function(u, exact, type = c("L2", "H1_semi", "H1", "energy"), gradi
     if (nrow(g) != length(xx) || ncol(g) != 2L) {
       stopf("`gradient` must return a two-column matrix with one row per point.")
     }
-    d2 <- (matrix(g[, 1], geo$m) - uh$dx)^2 + (matrix(g[, 2], geo$m) - uh$dy)^2
-    if (type == "energy") d2 <- d2 * coef_qp(diffusion, geo, name = "diffusion")
+    ex <- matrix(g[, 1], geo$m) - uh$dx; ey <- matrix(g[, 2], geo$m) - uh$dy
+    d2 <- ex^2 + ey^2
+    if (type == "energy") {
+      d2 <- if (is.matrix(diffusion) && is.numeric(diffusion)) {
+        diffusion[1, 1] * ex^2 + (diffusion[1, 2] + diffusion[2, 1]) * ex * ey + diffusion[2, 2] * ey^2
+      } else {
+        d2 * coef_qp(diffusion, geo, name = "diffusion")
+      }
+    }
     e2 <- e2 + w(d2)
   }
   out <- sqrt(sum(e2))
@@ -119,8 +138,20 @@ fd_gradient <- function(f, h = 1e-5) {
 convergence_study <- function(problem, exact, gradient = NULL, mesh_sizes = NULL,
                               refinements = 3, norms = c("L2", "H1_semi"), ...) {
   stopifnot(inherits(problem, "pde_problem"))
+  if (inherits(problem, "variational_problem")) {
+    stopf("Convergence studies need a problem that can be posed on new meshes; variational problems cannot.")
+  }
+  if (!inherits(problem, c("elliptic_problem", "nonlinear_problem", "elasticity_problem"))) {
+    stopf("Convergence studies support stationary elliptic, nonlinear and elasticity problems.")
+  }
+  if ("energy" %in% norms && inherits(problem, "nonlinear_problem")) {
+    stopf("The energy norm is not defined for nonlinear problems; use \"L2\" or \"H1_semi\".")
+  }
   args <- problem$mesh$info$args
   if (!is.null(mesh_sizes)) {
+    if (isTRUE(problem$mesh$info$markers_edited)) {
+      stopf("The mesh has relabeled boundary markers that new meshes would lose; use `refinements`.")
+    }
     if (!identical(problem$mesh$info$generator, "rectangle")) {
       stopf("`mesh_sizes` needs a problem on a mesh from `pde_mesh_rectangle()`; use `refinements`.")
     }
@@ -163,10 +194,16 @@ print.pde_convergence <- function(x, ...) {
 #'
 #' `eta_T^2 = h_T^2 ||f - c u_h - b . grad u_h + div(k grad u_h)||_T^2`
 #' `+ 1/2 sum_{interior E in T} h_E ||[k grad u_h . n]||_E^2`
-#' `+ sum_{Neumann/Robin E in T} h_E ||g - alpha u_h - k grad u_h . n||_E^2`.
+#' `+ sum_{Neumann/Robin E in T} h_E ||g - alpha u_h - k grad u_h . n||_E^2`
+#' `+ sum_{Dirichlet E in T} h_E ||d/ds (g_D - u_h)||_E^2`.
 #'
-#' Edges with no condition are zero-flux Neumann edges; Dirichlet edges do not
-#' contribute. For P1 with constant diffusion the divergence term vanishes;
+#' Edges with no condition are zero-flux Neumann edges. An edge under any
+#' Dirichlet condition is a Dirichlet edge (as in the solver), and natural
+#' conditions on the same edge add up. The Dirichlet term measures how well
+#' the space represents the boundary data (tangential derivative by central
+#' differences). The diffusion coefficient in the flux jumps is evaluated on
+#' each side of an edge separately, so coefficients that jump across element
+#' edges are handled; finite-element coefficients are allowed. For P1 with constant diffusion the divergence term vanishes;
 #' variable scalar diffusion contributes `grad k . grad u_h`, computed with
 #' central differences of `k`. The estimator is reliable and efficient up to
 #' constants for diffusion-dominated problems (Verfurth 2013); it is not robust
@@ -177,6 +214,11 @@ print.pde_convergence <- function(x, ...) {
 #'   `total`, and the interior and edge contributions.
 #' @references Verfurth, R. (2013). *A Posteriori Error Estimation Techniques
 #'   for Finite Element Methods*. Oxford University Press.
+#' @examples
+#' mesh <- pde_mesh_rectangle(nx = 8)
+#' sol <- solve_pde(poisson_problem(mesh, source = 1, boundary = dirichlet_bc(0)))
+#' est <- estimate_error(sol)
+#' est
 #' @export
 estimate_error <- function(solution) {
   stopifnot(inherits(solution, "pde_solution"), inherits(solution$problem, "elliptic_problem"))
@@ -191,10 +233,11 @@ estimate_error <- function(solution) {
   if (!is.null(bq)) R <- R - (bq$x * uh$dx + bq$y * uh$dy)
   k <- prob$diffusion
   Kt <- if (is.matrix(k) && is.numeric(k)) k else NULL
-  if (is.function(k)) {
+  if (is.function(k) || inherits(k, "fe_function")) {
     kq <- coef_qp(k, geo, name = "diffusion")
     xx <- as.vector(geo$x); yy <- as.vector(geo$y)
-    gk <- fd_gradient(k)(xx, yy)
+    gk <- if (is.function(k)) fd_gradient(k)(xx, yy)
+          else as.matrix(evaluate(k, xx, yy, gradient = TRUE)[, 2:3])
     R <- R + matrix(gk[, 1], geo$m) * uh$dx + matrix(gk[, 2], geo$m) * uh$dy
   } else if (is.null(Kt)) {
     kq <- matrix(k, geo$m, geo$nq)
@@ -260,11 +303,16 @@ edge_residuals <- function(prob, u, Kt) {
   m <- nrow(mesh$triangles)
   gq <- quadrature_interval(u$space$degree + 2L)
   out <- numeric(m)
-  flux_k <- function(x, y, g) {
+  ctr <- cbind((P[mesh$triangles[, 1], 1] + P[mesh$triangles[, 2], 1] + P[mesh$triangles[, 3], 1]) / 3,
+               (P[mesh$triangles[, 1], 2] + P[mesh$triangles[, 2], 2] + P[mesh$triangles[, 3], 2]) / 3)
+  # The diffusion coefficient is evaluated just inside element `e`, so a
+  # coefficient that jumps across an edge uses each side's own value.
+  flux_k <- function(x, y, g, e) {
     if (!is.null(Kt)) {
       list(x = Kt[1, 1] * g$dx + Kt[1, 2] * g$dy, y = Kt[2, 1] * g$dx + Kt[2, 2] * g$dy)
     } else {
-      kv <- eval_spatial(prob$diffusion, x, y, name = "diffusion")
+      xs <- x + 1e-6 * (ctr[e, 1] - x); ys <- y + 1e-6 * (ctr[e, 2] - y)
+      kv <- eval_spatial(prob$diffusion, xs, ys, name = "diffusion")
       list(x = kv * g$dx, y = kv * g$dy)
     }
   }
@@ -279,8 +327,8 @@ edge_residuals <- function(prob, u, Kt) {
     for (k in seq_along(gq$weights)) {
       s <- gq$points[k, 1]
       x <- P[a, 1] + s * (P[b, 1] - P[a, 1]); y <- P[a, 2] + s * (P[b, 2] - P[a, 2])
-      f1 <- flux_k(x, y, grad_in_elements(u, t1, x, y))
-      f2 <- flux_k(x, y, grad_in_elements(u, t2, x, y))
+      f1 <- flux_k(x, y, grad_in_elements(u, t1, x, y), t1)
+      f2 <- flux_k(x, y, grad_in_elements(u, t2, x, y), t2)
       jump <- (f1$x - f2$x) * nx + (f1$y - f2$y) * ny
       j2 <- j2 + gq$weights[k] * len * jump^2
     }
@@ -290,13 +338,15 @@ edge_residuals <- function(prob, u, Kt) {
   # boundary edges with natural conditions
   bd <- mesh$boundary
   if (nrow(bd)) {
-    owner <- rep(0L, nrow(bd))
-    for (i in seq_along(prob$bcs)) owner[boundary_rows(mesh, prob$bcs[[i]]$marker)] <- i
-    kind <- ifelse(owner == 0L, "neumann0",
-                   vapply(prob$bcs, `[[`, character(1), "type")[pmax(owner, 1L)])
-    sel <- which(kind != "dirichlet")
+    # As in the solver: an edge under any Dirichlet condition is a Dirichlet
+    # edge; natural conditions on the same edge add up.
+    is_dir <- rep(FALSE, nrow(bd))
+    for (bc in prob$bcs) if (bc$type == "dirichlet") is_dir[boundary_rows(mesh, bc$marker)] <- TRUE
+    sel <- which(!is_dir)
     if (length(sel)) {
-      a <- bd$n1[sel]; b <- bd$n2[sel]; e <- bd$element[sel]; own <- owner[sel]
+      a <- bd$n1[sel]; b <- bd$n2[sel]; e <- bd$element[sel]
+      nat <- Filter(function(bc) bc$type != "dirichlet", prob$bcs)
+      rows <- lapply(nat, function(bc) sel %in% boundary_rows(mesh, bc$marker))
       len <- sqrt((P[b, 1] - P[a, 1])^2 + (P[b, 2] - P[a, 2])^2)
       nx <- (P[b, 2] - P[a, 2]) / len; ny <- -(P[b, 1] - P[a, 1]) / len
       r2 <- numeric(length(sel))
@@ -304,17 +354,49 @@ edge_residuals <- function(prob, u, Kt) {
         s <- gq$points[k, 1]
         x <- P[a, 1] + s * (P[b, 1] - P[a, 1]); y <- P[a, 2] + s * (P[b, 2] - P[a, 2])
         gi <- grad_in_elements(u, e, x, y)
-        fl <- flux_k(x, y, gi)
+        fl <- flux_k(x, y, gi, e)
         g <- numeric(length(sel)); al <- numeric(length(sel))
-        for (i in setdiff(unique(own), 0L)) {
-          bc <- prob$bcs[[i]]; w <- own == i
-          g[w] <- eval_spatial(bc$value, x[w], y[w], name = "flux")
-          if (bc$type == "robin") al[w] <- eval_spatial(bc$alpha, x[w], y[w], name = "alpha")
+        for (i in seq_along(nat)) {
+          bc <- nat[[i]]; w <- rows[[i]]
+          if (!any(w)) next
+          g[w] <- g[w] + eval_spatial(bc$value, x[w], y[w], name = "flux")
+          if (bc$type == "robin") al[w] <- al[w] + eval_spatial(bc$alpha, x[w], y[w], name = "alpha")
         }
         res <- g - al * gi$value - (fl$x * nx + fl$y * ny)
         r2 <- r2 + gq$weights[k] * len * res^2
       }
       out <- out + tabulate_sum(e, len * r2, m)
+    }
+    # Dirichlet edges: approximation error of the boundary data,
+    # h_E ||d/ds (g - u_h)||^2_E, so that data the space cannot represent are
+    # not reported as zero error.
+    dsel <- which(is_dir)
+    if (length(dsel)) {
+      a <- bd$n1[dsel]; b <- bd$n2[dsel]; e <- bd$element[dsel]
+      tx <- P[b, 1] - P[a, 1]; ty <- P[b, 2] - P[a, 2]
+      len <- sqrt(tx^2 + ty^2); tx <- tx / len; ty <- ty / len
+      own <- rep(0L, length(dsel))
+      for (i in seq_along(prob$bcs)) {
+        if (prob$bcs[[i]]$type == "dirichlet") own[dsel %in% boundary_rows(mesh, prob$bcs[[i]]$marker)] <- i
+      }
+      d2 <- numeric(length(dsel))
+      for (k in seq_along(gq$weights)) {
+        s <- gq$points[k, 1]
+        x <- P[a, 1] + s * tx * len; y <- P[a, 2] + s * ty * len
+        gi <- grad_in_elements(u, e, x, y)
+        dg <- numeric(length(dsel))
+        hs <- 1e-6 * len
+        for (i in unique(own)) {
+          w <- own == i
+          g <- prob$bcs[[i]]$value
+          dg[w] <- (eval_spatial(g, x[w] + hs[w] * tx[w], y[w] + hs[w] * ty[w], name = "Dirichlet value") -
+                      eval_spatial(g, x[w] - hs[w] * tx[w], y[w] - hs[w] * ty[w], name = "Dirichlet value")) /
+            (2 * hs[w])
+        }
+        res <- dg - (gi$dx * tx + gi$dy * ty)
+        d2 <- d2 + gq$weights[k] * len * res^2
+      }
+      out <- out + tabulate_sum(e, len * d2, m)
     }
   }
   out
@@ -370,6 +452,11 @@ mark_elements <- function(eta, theta = 0.5, strategy = c("doerfler", "maximum"))
 #' @param ... Passed to [solve_pde()].
 #' @return A list of class `pde_adaptive` with the final `solution`, the
 #'   final `estimate` and a `history` data frame.
+#' @examples
+#' L <- pde_domain("polygon", vertices = cbind(c(0, 1, 1, 0.5, 0.5, 0), c(0, 0, 0.5, 0.5, 1, 1)))
+#' prob <- poisson_problem(pde_mesh_polygon(L, h = 0.25), source = 1, boundary = dirichlet_bc(0))
+#' res <- adaptive_solve(prob, max_iterations = 3)
+#' res$history
 #' @export
 adaptive_solve <- function(problem, theta = 0.5, max_iterations = 8, max_dofs = 1e5,
                            tol = 0, exact = NULL, gradient = NULL, ...) {

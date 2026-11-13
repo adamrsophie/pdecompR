@@ -19,14 +19,17 @@ errornorm(
 \code{\link[=elasticity_problem]{elasticity_problem()}}; then \code{exact} returns two columns and \code{gradient} is a
 list of two gradient functions, one per component).}
 
-\item{exact}{Exact solution \verb{function(x, y)}.}
+\item{exact}{Exact solution \verb{function(x, y)}, or an \code{\link[=fe_function]{fe_function()}}
+reference solution (for example on a finer mesh, possibly of another
+degree); its gradient is then used for gradient norms.}
 
 \item{type}{Norm type.}
 
 \item{gradient}{Exact gradient \verb{function(x, y)} returning a two-column
 matrix.}
 
-\item{diffusion}{Diffusion coefficient for the energy norm.}
+\item{diffusion}{Diffusion coefficient for the energy norm: a number, a
+function of \verb{(x, y)} or a constant 2 by 2 matrix.}
 
 \item{quad_degree}{Quadrature exactness degree.}
 

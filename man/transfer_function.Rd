@@ -22,3 +22,9 @@ evaluating \code{u} at the new degrees of freedom. When \code{mesh} was produced
 \code{u}'s mesh by \code{\link[=refine_uniform]{refine_uniform()}} or \code{\link[=refine_mesh]{refine_mesh()}} and \code{u} is P1, the
 transfer is exact (new nodes are edge midpoints).
 }
+\examples{
+mesh <- pde_mesh_rectangle(nx = 2)
+u <- interpolate(function(x, y) x + y, fe_space(mesh))
+v <- transfer_function(u, refine_uniform(mesh))
+evaluate(v, 0.3, 0.4)
+}

@@ -10,10 +10,10 @@ test_that("forward, adjoint and finite-difference gradients agree", {
   pf <- function(theta) elliptic_problem(m, diffusion = function(x, y) theta[1] + theta[2] * x,
                                          reaction = theta[3],
                                          source = function(x, y) 1 + theta[2] * y,
-                                         bcs = list(dirichlet_bc(function(x, y) theta[3] * x, "left"),
+                                         bcs = list(dirichlet_bc(function(x, y) theta[3] * (1 + y), "left"),
                                                     dirichlet_bc(0, "right")))
   V <- fe_space(m)
-  obs <- pde_observations(c(0.3, 0.6, 0.5), c(0.4, 0.5, 0.8), c(0.05, 0.1, 0.02), sd = 0.1)
+  obs <- pde_observations(c(0, 0.3, 0.6, 0.5), c(0.5, 0.4, 0.5, 0.8), c(0.4, 0.05, 0.1, 0.02), sd = 0.1)
   J <- misfit_objective(V, obs)
   th <- c(1, 0.5, 0.3)
   sf <- pde_sensitivity(pf, th, objective = J, method = "forward")
@@ -37,4 +37,14 @@ test_that("misfit objectives have consistent gradients", {
   expect_equal((J(u + e)$value - J(u - e)$value) / 2e-6, g[7], tolerance = 1e-6)
   expect_error(pde_observations(1, 1:2, 1), "equal length")
   expect_error(pde_observations(1, 1, 1, sd = 0), "positive")
+})
+
+test_that("difference steps respect parameter bounds", {
+  m <- pde_mesh_rectangle(nx = 4)
+  pf <- function(theta) {
+    if (theta[1] <= 0) stop("diffusion must be positive")
+    poisson_problem(m, diffusion = theta[1], source = 1, boundary = dirichlet_bc(0))
+  }
+  s <- pde_sensitivity(pf, 1e-8, lower = 1e-8)
+  expect_equal(s$sensitivities[, 1], -s$solution$u$values / 1e-8, tolerance = 1e-4)
 })

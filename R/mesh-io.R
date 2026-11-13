@@ -59,6 +59,7 @@ read_gmsh <- function(file) {
     tags <- numeric(); xyz <- matrix(numeric(), 0, 3)
     for (b in seq_len(nblocks)) {
       bh <- num(nd[pos]); nb <- bh[4]; pos <- pos + 1L
+      if (bh[3] != 0) stopf("Parametric node blocks in Gmsh 4.1 files are not supported; save without parametric coordinates.")
       if (nb > 0) {
         tags <- c(tags, as.numeric(nd[pos:(pos + nb - 1L)]))
         xyz <- rbind(xyz, do.call(rbind, lapply(nd[(pos + nb):(pos + 2L * nb - 1L)], num)))
@@ -85,7 +86,10 @@ read_gmsh <- function(file) {
       }
     }
   }
-  if (!length(tri)) stopf("The file contains no triangles.")
+  if (!length(tri)) {
+    stopf("The file contains no linear triangles (element type 2); second-order meshes are not supported.")
+  }
+  if (any(!match(unlist(tri), tags, nomatch = 0L))) stopf("A triangle references a node that is not in the file.")
   if (other > 0L) message(sprintf("Ignored %d element(s) that are not triangles or lines.", other))
   if (diff(range(xyz[, 3])) > 0) stopf("The mesh is not planar (z varies); only 2D meshes are supported.")
   T <- do.call(rbind, tri)
@@ -132,34 +136,56 @@ gmsh4_curve_physicals <- function(ent) {
 #' Writes a mesh, finite-element function or solution in the legacy ASCII VTK
 #' unstructured-grid format, readable by ParaView and VisIt. Point data are
 #' the vertex values; for P2 functions only the vertex values are written
-#' (the triangles are linear cells).
+#' (the triangles are linear cells). A displacement solution of
+#' [elasticity_problem()] is written as a `VECTORS` array; a time-dependent
+#' solution is written at one stored time (all species for reaction-diffusion
+#' systems). Call it once per time to write a series.
 #'
-#' @param x A [pde_mesh()], [fe_function()] or `pde_solution`.
+#' @param x A [pde_mesh()], [fe_function()], `pde_solution`,
+#'   `pde_vector_solution` or `pde_transient`.
 #' @param file Output path.
-#' @param name Name of the point data array.
+#' @param name Name of the point data array (scalar data and displacements).
+#' @param time Stored time to write for a `pde_transient` (default: the last).
 #' @return The file path, invisibly.
 #' @examples
 #' f <- tempfile(fileext = ".vtk")
 #' write_vtk(pde_mesh_rectangle(nx = 2), f)
 #' @export
-write_vtk <- function(x, file, name = "u") {
-  vals <- NULL
-  if (inherits(x, "pde_solution")) x <- x$u
-  if (inherits(x, "fe_function")) {
-    mesh <- x$space$mesh; vals <- x$values[seq_len(nrow(mesh$nodes))]
-  } else if (inherits(x, "pde_mesh")) {
-    mesh <- x
-  } else stopf("`x` must be a mesh, finite-element function or solution.")
-  P <- mesh$nodes; T <- mesh$triangles
+write_vtk <- function(x, file, name = "u", time = NULL) {
+  arrays <- list()
+  vectors <- NULL
+  if (inherits(x, "pde_transient")) {
+    if (is.null(time)) time <- max(x$times)
+    sp <- if (is.list(x$values)) names(x$values) else name
+    arrays <- lapply(stats::setNames(seq_along(sp), sp), function(i) solution_at(x, time, i))
+    mesh <- x$space$mesh
+  } else if (inherits(x, "pde_vector_solution")) {
+    mesh <- x$ux$space$mesh
+    nv <- nrow(mesh$nodes)
+    vectors <- cbind(x$ux$values[seq_len(nv)], x$uy$values[seq_len(nv)])
+  } else {
+    if (inherits(x, "pde_solution")) x <- x$u
+    if (inherits(x, "fe_function")) {
+      mesh <- x$space$mesh; arrays[[name]] <- x
+    } else if (inherits(x, "pde_mesh")) {
+      mesh <- x
+    } else stopf("`x` must be a mesh, finite-element function or solution.")
+  }
+  P <- mesh$nodes; T <- mesh$triangles; nv <- nrow(P)
   out <- c("# vtk DataFile Version 3.0", "pdecompR output", "ASCII", "DATASET UNSTRUCTURED_GRID",
-           sprintf("POINTS %d double", nrow(P)),
+           sprintf("POINTS %d double", nv),
            sprintf("%.17g %.17g 0", P[, 1], P[, 2]),
            sprintf("CELLS %d %d", nrow(T), 4L * nrow(T)),
            sprintf("3 %d %d %d", T[, 1] - 1L, T[, 2] - 1L, T[, 3] - 1L),
            sprintf("CELL_TYPES %d", nrow(T)), rep("5", nrow(T)))
-  if (!is.null(vals)) {
-    out <- c(out, sprintf("POINT_DATA %d", nrow(P)), sprintf("SCALARS %s double 1", name),
-             "LOOKUP_TABLE default", sprintf("%.17g", vals))
+  if (length(arrays) || !is.null(vectors)) out <- c(out, sprintf("POINT_DATA %d", nv))
+  for (nm in names(arrays)) {
+    out <- c(out, sprintf("SCALARS %s double 1", nm), "LOOKUP_TABLE default",
+             sprintf("%.17g", arrays[[nm]]$values[seq_len(nv)]))
+  }
+  if (!is.null(vectors)) {
+    out <- c(out, sprintf("VECTORS %s double", name),
+             sprintf("%.17g %.17g 0", vectors[, 1], vectors[, 2]))
   }
   writeLines(out, file)
   invisible(file)

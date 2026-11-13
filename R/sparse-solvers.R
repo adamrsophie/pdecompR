@@ -42,6 +42,8 @@
 #' s2 <- solve_linear_system(A, b, method = "cg", tol = 1e-12)
 #' max(abs(s1$x - s2$x))
 #' s2$info$iterations
+#' @references Saad, Y. (2003). *Iterative Methods for Sparse Linear
+#'   Systems*, 2nd edition. SIAM.
 #' @export
 solve_linear_system <- function(A, b, method = c("auto", "cholesky", "lu", "cg", "bicgstab", "gmres"),
                                 tol = 1e-10, maxit = 10 * length(b),
@@ -68,6 +70,9 @@ linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgsta
   n <- nrow(A)
   if (ncol(A) != n) stopf("The system matrix must be square.")
   if (is.null(maxit)) maxit <- 10L * n
+  maxit <- check_count(maxit, "maxit", min = 1L)
+  restart <- check_count(restart, "restart", min = 1L)
+  check_number(tol, "tol", positive = TRUE)
   sym <- Matrix::isSymmetric(A, tol = 1e-12)
   base <- list(n = n, nnz = length(A@x), symmetric = sym, tol = tol)
   factor <- NULL
@@ -136,7 +141,7 @@ linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgsta
 krylov_cg <- function(A, b, x0, dinv, tol, maxit) {
   x <- if (is.null(x0)) numeric(length(b)) else as.numeric(x0)
   r <- b - as.numeric(A %*% x)
-  nb <- sqrt(sum(b^2)); if (nb == 0) return(list(x = x, iterations = 0L, converged = TRUE))
+  nb <- sqrt(sum(b^2)); if (nb == 0) return(list(x = numeric(length(b)), iterations = 0L, converged = TRUE))
   z <- dinv * r; p <- z; rz <- sum(r * z)
   for (k in seq_len(maxit)) {
     if (sqrt(sum(r^2)) <= tol * nb) return(list(x = x, iterations = k - 1L, converged = TRUE))
@@ -154,7 +159,7 @@ krylov_cg <- function(A, b, x0, dinv, tol, maxit) {
 krylov_bicgstab <- function(A, b, x0, dinv, tol, maxit) {
   x <- if (is.null(x0)) numeric(length(b)) else as.numeric(x0)
   r <- b - as.numeric(A %*% x)
-  nb <- sqrt(sum(b^2)); if (nb == 0) return(list(x = x, iterations = 0L, converged = TRUE))
+  nb <- sqrt(sum(b^2)); if (nb == 0) return(list(x = numeric(length(b)), iterations = 0L, converged = TRUE))
   rhat <- r; rho <- alpha <- omega <- 1
   v <- p <- numeric(length(b))
   for (k in seq_len(maxit)) {
@@ -165,7 +170,9 @@ krylov_bicgstab <- function(A, b, x0, dinv, tol, maxit) {
     p <- r + beta * (p - omega * v)
     ph <- dinv * p
     v <- as.numeric(A %*% ph)
-    alpha <- rho_new / sum(rhat * v)
+    rv <- sum(rhat * v)
+    if (!is.finite(rv) || rv == 0) break
+    alpha <- rho_new / rv
     s <- r - alpha * v
     if (sqrt(sum(s^2)) <= tol * nb) {
       x <- x + alpha * ph
@@ -173,19 +180,21 @@ krylov_bicgstab <- function(A, b, x0, dinv, tol, maxit) {
     }
     sh <- dinv * s
     tt <- as.numeric(A %*% sh)
-    omega <- sum(tt * s) / sum(tt * tt)
+    t2 <- sum(tt * tt)
+    if (!is.finite(t2) || t2 == 0) { x <- x + alpha * ph; r <- s; break }
+    omega <- sum(tt * s) / t2
     x <- x + alpha * ph + omega * sh
     r <- s - omega * tt
     rho <- rho_new
     if (omega == 0) break
   }
-  list(x = x, iterations = k, converged = sqrt(sum(r^2)) <= tol * nb)
+  list(x = x, iterations = k, converged = isTRUE(sqrt(sum(r^2)) <= tol * nb))
 }
 
 krylov_gmres <- function(A, b, x0, dinv, tol, maxit, restart) {
   n <- length(b)
   x <- if (is.null(x0)) numeric(n) else as.numeric(x0)
-  nb <- sqrt(sum(b^2)); if (nb == 0) return(list(x = x, iterations = 0L, converged = TRUE))
+  nb <- sqrt(sum(b^2)); if (nb == 0) return(list(x = numeric(length(b)), iterations = 0L, converged = TRUE))
   m <- min(restart, n)
   total <- 0L
   while (total < maxit) {
@@ -210,15 +219,26 @@ krylov_gmres <- function(A, b, x0, dinv, tol, maxit, restart) {
         H[i, j] <- tmp
       }
       den <- sqrt(H[j, j]^2 + H[j + 1L, j]^2)
+      if (!is.finite(den) || den == 0) break
       cs[j] <- H[j, j] / den; sn[j] <- H[j + 1L, j] / den
       H[j, j] <- den; H[j + 1L, j] <- 0
       g[j + 1L] <- -sn[j] * g[j]; g[j] <- cs[j] * g[j]
       j_used <- j
       if (abs(g[j + 1L]) <= tol * nb || total >= maxit) break
     }
+    if (j_used == 0L) break
     y <- backsolve(H[seq_len(j_used), seq_len(j_used), drop = FALSE], g[seq_len(j_used)])
     x <- x + dinv * as.numeric(V[, seq_len(j_used), drop = FALSE] %*% y)
   }
   r <- b - as.numeric(A %*% x)
-  list(x = x, iterations = total, converged = sqrt(sum(r^2)) <= tol * nb)
+  list(x = x, iterations = total, converged = isTRUE(sqrt(sum(r^2)) <= tol * nb))
+}
+
+# Warn when a linear solve did not reach its tolerance.
+warn_solver <- function(info, where = "linear solve") {
+  if (!is.null(info$status) && !info$status %in% c("solved", "converged")) {
+    warnf("The %s finished with status \"%s\" (relative residual %s).", where, info$status,
+          fmt_num(info$relative_residual))
+  }
+  invisible(info)
 }

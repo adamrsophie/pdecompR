@@ -97,7 +97,14 @@ Ill-formed expressions are rejected with a message:
 ```{r, error = TRUE}
 u * u
 grad(u) * grad(v)
+dot(c(1, 0), grad(u)) * dot(c(1, 0), grad(v))
+grad(function(x, y) 1 + x)
 ```
+
+Streamline terms such as `dot(b, grad(u)) * dot(b, grad(v))` and gradients
+of products `grad(k * u)` are not part of the language; write the stiffness
+term with a coefficient, `k * dot(grad(u), grad(v))`, instead. Trial and
+test functions must come from the same function space.
 
 Forms are assembled with the same kernels as the problem constructors, so
 both routes have identical accuracy. Nonlinear forms, vector-valued and mixed

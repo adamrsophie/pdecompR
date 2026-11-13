@@ -6,6 +6,8 @@
 \alias{pdecompR-package}
 \title{pdecompR: Partial Differential Equations and Finite-Element Computing in R}
 \description{
+\if{html}{\figure{logo.svg}{options: style='float: right' alt='logo' width='120'}}
+
 An R-native framework for defining, discretizing, solving and analyzing partial differential equations with the finite-element method. It provides two-dimensional domains, structured and polygonal triangular meshes with validation, quality measures and named boundary markers, continuous Lagrange elements of degree one and two, Gaussian quadrature, sparse assembly through 'Matrix', Dirichlet, Neumann and Robin boundary conditions, a small weak-form language, elliptic, heat, reaction-diffusion, advection-diffusion (with streamline upwind stabilization) and nonlinear diffusion solvers, a posteriori error estimation with adaptive newest vertex bisection, convergence studies, discrete forward and adjoint sensitivities, parameter estimation and distributed optimal control. The design is inspired by 'FEniCSx' \url{https://fenicsproject.org} and 'Gridap.jl' \url{https://github.com/gridap/Gridap.jl}; no Python or Julia is required.
 }
 \seealso{

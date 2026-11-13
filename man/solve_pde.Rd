@@ -9,7 +9,11 @@
 \alias{solve_pde.reaction_diffusion_problem}
 \title{Solve a PDE problem}
 \usage{
-\method{solve_pde}{elasticity_problem}(problem, method = "auto", ...)
+\method{solve_pde}{elasticity_problem}(
+  problem,
+  method = c("auto", "cholesky", "lu", "cg", "bicgstab", "gmres"),
+  ...
+)
 
 solve_pde(problem, ...)
 
@@ -19,6 +23,7 @@ solve_pde(problem, ...)
   method = c("crank-nicolson", "backward-euler"),
   output_times = NULL,
   solver = "auto",
+  startup = 2L,
   ...
 )
 
@@ -53,6 +58,12 @@ the time grid. Default: every step.}
 
 \item{solver}{Linear solver method, see \code{\link[=solve_linear_system]{solve_linear_system()}}.}
 
+\item{startup}{Number of initial backward Euler steps taken before
+Crank-Nicolson (Rannacher startup). They damp the oscillations that
+Crank-Nicolson produces for rough initial data or initial data that do
+not match the Dirichlet data; a fixed number of such steps keeps second
+order. Ignored for backward Euler.}
+
 \item{tol, maxit}{Newton tolerance on the free residual norm (relative to the
 initial residual, with an absolute floor of \code{1e-12}) and maximum number
 of Newton iterations.}
@@ -68,4 +79,13 @@ A \code{pde_solution} (stationary problems) or \code{pde_transient}
 \description{
 Generic solver entry point. Methods exist for elliptic, variational,
 parabolic, reaction-diffusion and nonlinear problems.
+}
+\examples{
+prob <- poisson_problem(pde_mesh_rectangle(nx = 8), source = 1, boundary = dirichlet_bc(0))
+sol <- solve_pde(prob)
+summary(sol)
+}
+\references{
+Rannacher, R. (1984). Finite element solution of diffusion
+problems with irregular data. \emph{Numerische Mathematik}, 43, 309-327.
 }

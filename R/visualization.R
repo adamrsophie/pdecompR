@@ -6,8 +6,10 @@
 #' * `plot.pde_mesh()` draws the triangles and colors boundary edges by
 #'   marker.
 #' * `plot.fe_function()` draws a filled plot (each triangle colored by the
-#'   mean of its vertex values) or contour lines from a regular-grid
-#'   evaluation (`type = "contour"`).
+#'   mean of its vertex values, with a color bar beside the domain; P2
+#'   functions are drawn on the four subtriangles of each element, using the
+#'   edge midpoint values) or contour lines from a regular-grid evaluation
+#'   (`type = "contour"`).
 #' * `plot.pde_solution()` plots the solution; `plot.pde_transient()` plots a
 #'   stored time; `plot.pde_convergence()` draws errors against `h` on log
 #'   scales with reference slopes; `plot_indicators()` draws element-wise
@@ -62,23 +64,35 @@ plot.fe_function <- function(x, type = c("fill", "contour"), col = grDevices::hc
   P <- msh$nodes; T <- msh$triangles
   nv <- nrow(P)
   vv <- x$values[seq_len(nv)]
+  if (type == "fill" && x$space$degree == 2L) {
+    # Split each P2 element into four triangles through its edge midpoints.
+    D <- x$space$cell_dofs
+    P <- x$space$dof_coords
+    T <- rbind(D[, c(1, 4, 6)], D[, c(4, 2, 5)], D[, c(6, 5, 3)], D[, c(4, 5, 6)])
+    vv <- x$values
+  }
   if (type == "fill") {
     tv <- (vv[T[, 1]] + vv[T[, 2]] + vv[T[, 3]]) / 3
     rng <- range(tv)
-    k <- if (diff(rng) > 0) pmin(length(col), 1L + floor((tv - rng[1]) / diff(rng) * length(col))) else rep(1L, length(tv))
-    op <- par(no.readonly = TRUE); on.exit(par(op))
-    graphics::layout(matrix(1:2, 1), widths = c(5, 1))
-    par(mar = c(4, 4, 3, 1))
-    plot(range(P[, 1]), range(P[, 2]), type = "n", asp = 1, xlab = "x", ylab = "y", main = main, ...)
+    if (diff(rng) == 0) rng <- rng + c(-0.5, 0.5) * max(abs(rng[1]), 1)
+    k <- pmin(length(col), 1L + floor((tv - rng[1]) / diff(rng) * length(col)))
+    xr <- range(P[, 1]); yr <- range(P[, 2])
+    # The color bar sits to the right of the domain inside the same plot
+    # region, so plots compose with par(mfrow = ...).
+    bw <- 0.06 * diff(xr); gap <- 0.04 * diff(xr)
+    plot(c(xr[1], xr[2] + gap + 2.5 * bw), yr, type = "n", asp = 1, xlab = "x", ylab = "y",
+         main = main, bty = "n", ...)
     px <- rbind(P[T[, 1], 1], P[T[, 2], 1], P[T[, 3], 1], NA)
     py <- rbind(P[T[, 1], 2], P[T[, 2], 2], P[T[, 3], 2], NA)
     polygon(as.vector(px), as.vector(py), col = col[k], border = if (mesh) "grey40" else col[k],
             lwd = if (mesh) 0.4 else 0.2)
-    par(mar = c(4, 0.5, 3, 3.5))
-    z <- seq(rng[1], rng[2], length.out = length(col))
-    image(1, z, matrix(z, 1), col = col, axes = FALSE, xlab = "", ylab = "")
-    axis(4, las = 1, cex.axis = 0.8)
-    box()
+    x0 <- xr[2] + gap
+    yb <- seq(yr[1], yr[2], length.out = length(col) + 1L)
+    rect(x0, yb[-length(yb)], x0 + bw, yb[-1], col = col, border = NA)
+    rect(x0, yr[1], x0 + bw, yr[2], border = "grey30")
+    at <- pretty(rng, 4); at <- at[at >= rng[1] & at <= rng[2]]
+    text(x0 + bw, yr[1] + (at - rng[1]) / diff(rng) * diff(yr), formatC(at, digits = 3, format = "g"),
+         pos = 4, cex = 0.7, xpd = NA)
   } else {
     n <- 101L
     gx <- seq(min(P[, 1]), max(P[, 1]), length.out = n)

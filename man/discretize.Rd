@@ -24,3 +24,9 @@ Builds the finite-element space and assembles the global system of a
 linear stationary problem. The result separates the numerical
 representation from the mathematical problem definition.
 }
+\examples{
+prob <- poisson_problem(pde_mesh_rectangle(nx = 4), source = 1, boundary = dirichlet_bc(0))
+disc <- discretize(prob)
+disc
+dim(disc$A)
+}

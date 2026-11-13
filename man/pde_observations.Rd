@@ -31,3 +31,9 @@ standard deviations \code{sd_i}. \code{misfit_objective()} returns the weighted
 least-squares misfit \verb{J(u) = 1/2 sum_i ((P u)_i - y_i)^2 / sd_i^2} and its
 gradient \verb{P^T W (P u - y)}, where \code{P} is the \code{\link[=evaluation_matrix]{evaluation_matrix()}}.
 }
+\examples{
+obs <- pde_observations(c(0.3, 0.7), c(0.5, 0.5), c(0.1, 0.2), sd = 0.01)
+V <- fe_space(pde_mesh_rectangle(nx = 4))
+J <- misfit_objective(V, obs)
+J(interpolate(function(x, y) x, V)$values)$value
+}

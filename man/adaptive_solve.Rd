@@ -40,3 +40,9 @@ Runs the loop solve, estimate, mark, refine for a linear elliptic problem,
 using \code{\link[=estimate_error]{estimate_error()}}, \code{\link[=mark_elements]{mark_elements()}} and newest vertex bisection
 (\code{\link[=refine_mesh]{refine_mesh()}}).
 }
+\examples{
+L <- pde_domain("polygon", vertices = cbind(c(0, 1, 1, 0.5, 0.5, 0), c(0, 0, 0.5, 0.5, 1, 1)))
+prob <- poisson_problem(pde_mesh_polygon(L, h = 0.25), source = 1, boundary = dirichlet_bc(0))
+res <- adaptive_solve(prob, max_iterations = 3)
+res$history
+}

@@ -9,7 +9,7 @@ test_that("Crank-Nicolson and backward Euler have temporal orders 2 and 1", {
     xy <- s$space$dof_coords
     max(abs(s$values[, 1] - ex(xy[, 1], xy[, 2], 1)))
   }
-  dts <- c(0.1, 0.05, 0.025)
+  dts <- c(0.05, 0.025, 0.0125)
   e_cn <- vapply(dts, err, numeric(1), method = "crank-nicolson")
   e_be <- vapply(dts, err, numeric(1), method = "backward-euler")
   r_cn <- diff(log(e_cn)) / diff(log(dts))

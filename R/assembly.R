@@ -26,7 +26,13 @@ element_geometry <- function(space, quad_degree = NULL) {
 # Evaluate a scalar coefficient at all quadrature points (m by nq matrix).
 coef_qp <- function(coef, geo, t = NULL, name = "coefficient") {
   if (is.null(coef)) return(NULL)
-  if (inherits(coef, "fe_function")) return(fe_qp(coef, geo)$value)
+  if (inherits(coef, "fe_function")) {
+    if (same_space(coef$space, geo$space)) return(fe_qp(coef, geo)$value)
+    # Another degree or another mesh: evaluate the function at the points.
+    v <- evaluate(coef, as.vector(geo$x), as.vector(geo$y))
+    if (anyNA(v)) stopf("`%s` (a finite-element function) does not cover the whole domain.", name)
+    return(matrix(v, geo$m, geo$nq))
+  }
   matrix(eval_spatial(coef, as.vector(geo$x), as.vector(geo$y), t = t, name = name),
          geo$m, geo$nq)
 }
@@ -46,6 +52,11 @@ vec_qp <- function(b, geo, t = NULL, name = "advection") {
     stopf("`%s` must return a matrix with two columns and one row per point.", name)
   }
   list(x = matrix(val[, 1], geo$m, geo$nq), y = matrix(val[, 2], geo$m, geo$nq))
+}
+
+same_space <- function(a, b) {
+  a$degree == b$degree && identical(a$mesh$nodes, b$mesh$nodes) &&
+    identical(a$mesh$triangles, b$mesh$triangles)
 }
 
 # Values and gradients of a finite-element function at quadrature points.

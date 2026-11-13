@@ -75,17 +75,25 @@ With \code{stabilization = "supg"} (P1 only) the streamline upwind
 Petrov-Galerkin terms
 \verb{sum_T tau_T int_T (b . grad u + c u - f) (b . grad v)} are added, with
 \verb{tau_T = h_T / (2 |b|) (coth(Pe) - 1 / Pe)}, \verb{Pe = |b| h_T / (2 k)},
-evaluated at the element centroid with \code{h_T} the longest edge. The method
-is consistent: the exact solution satisfies the stabilized equations.
+evaluated at the element centroid with \code{h_T} the longest edge (for a
+matrix \code{K}, \code{k} is the streamline diffusivity \verb{b'Kb / |b|^2}). For P1
+elements the diffusive part of the element residual vanishes, so the
+method is consistent when the diffusion is constant; with variable
+diffusion the term \verb{grad k . grad u_h} is omitted, which keeps the
+convergence order but is not strictly consistent.
 
-Problems without Dirichlet or Robin conditions and without reaction are
-pure Neumann problems: the solution is unique only up to a constant. The
-solver then checks the compatibility condition \verb{int f + int g = 0} and
-returns the solution with zero mean, labeled as such. The discrete check is
-\verb{|sum_i b_i| <= compatibility_tol * sum_i |b_i|} (an argument of
-\code{\link[=solve_pde]{solve_pde()}}, default \code{1e-6}), which tolerates quadrature error in
-compatible data; a Lagrange multiplier for the zero-mean constraint absorbs
-the remaining defect and is reported.
+When no Dirichlet data are imposed and constants lie in the kernel of the
+assembled operator (no reaction, no Robin term with positive \code{alpha}), the
+problem is a pure Neumann problem: the solution is unique only up to a
+constant. The solver then checks the compatibility condition (for a
+symmetric operator \verb{int f + int g = 0}) and
+returns the solution with zero mean, labeled as such. The compatibility
+defect is read from the Lagrange multiplier of the zero-mean constraint and
+compared with \verb{compatibility_tol * sum_i |b_i|} (an argument of
+\code{\link[=solve_pde]{solve_pde()}}, default \code{1e-6}). For a nonsymmetric operator (advection) the
+left null vector is not constant; there a defect above \code{h^2} gives a
+warning instead of an error, because data that are compatible for the PDE
+leave a defect of the size of the discretization error.
 }
 \examples{
 mesh <- pde_mesh_rectangle(nx = 8)
@@ -93,4 +101,9 @@ prob <- poisson_problem(mesh, source = function(x, y) 2 * pi^2 * sin(pi * x) * s
                         boundary = dirichlet_bc(0))
 sol <- solve_pde(prob)
 sol
+}
+\references{
+Brooks, A. N. and Hughes, T. J. R. (1982). Streamline
+upwind/Petrov-Galerkin formulations for convection dominated flows.
+\emph{Computer Methods in Applied Mechanics and Engineering}, 32, 199-259.
 }

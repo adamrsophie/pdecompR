@@ -32,6 +32,8 @@
 #' @param method `"forward"` (all solution sensitivities) or `"adjoint"`
 #'   (objective gradient only).
 #' @param h Relative difference step for the operator derivatives.
+#' @param lower,upper Parameter bounds. Difference steps are shortened or
+#'   made one-sided so that `problem_fun` is never called outside them.
 #' @return A list of class `pde_sensitivity` with the `solution`, the
 #'   `sensitivities` matrix (forward), and the objective `value` and
 #'   `gradient` when `objective` is given.
@@ -42,9 +44,11 @@
 #' s <- pde_sensitivity(pf, theta = 2)
 #' # exact: u = u1 / theta, so du/dtheta = -u / theta
 #' max(abs(s$sensitivities[, 1] + s$solution$u$values / 2))
+#' @references Hinze, M., Pinnau, R., Ulbrich, M. and Ulbrich, S. (2009).
+#'   *Optimization with PDE Constraints*. Springer.
 #' @export
 pde_sensitivity <- function(problem_fun, theta, mesh = NULL, objective = NULL,
-                            method = c("forward", "adjoint"), h = 1e-6) {
+                            method = c("forward", "adjoint"), h = 1e-6, lower = -Inf, upper = Inf) {
   method <- match.arg(method)
   if (method == "adjoint" && is.null(objective)) stopf("The adjoint method needs an `objective`.")
   theta <- as.numeric(theta)
@@ -55,8 +59,14 @@ pde_sensitivity <- function(problem_fun, theta, mesh = NULL, objective = NULL,
   dK <- vector("list", p); dr <- vector("list", p); dud <- vector("list", p)
   for (j in seq_len(p)) {
     hj <- h * max(1, abs(theta[j]))
-    tp <- theta; tp[j] <- tp[j] + hj
-    tm <- theta; tm[j] <- tm[j] - hj
+    lo <- rep_len(lower, p)[j]; hi <- rep_len(upper, p)[j]
+    # Shrink the step or switch to a one-sided difference to stay in bounds.
+    up <- min(hj, hi - theta[j]); dn <- min(hj, theta[j] - lo)
+    if (up <= 0 && dn <= 0) stopf("Parameter %d has no room between its bounds for a difference step.", j)
+    if (up > 0 && dn > 0) { up <- dn <- min(up, dn) } else if (up <= 0) up <- 0 else dn <- 0
+    tp <- theta; tp[j] <- tp[j] + up
+    tm <- theta; tm[j] <- tm[j] - dn
+    hj <- (up + dn) / 2
     sp <- reduced_system(call_pf(tp), solve = FALSE)
     sm <- reduced_system(call_pf(tm), solve = FALSE)
     if (!identical(sp$dofs, base$dofs) || !identical(sm$dofs, base$dofs)) {
@@ -116,11 +126,17 @@ reduced_system <- function(problem, solve = TRUE) {
     slv <- linear_solver(K)
     u <- numeric(disc$space$ndof)
     u[d] <- disc$dirichlet$values
-    u[f] <- slv$solve(r)$x
+    ts <- proc.time()[["elapsed"]]
+    sv <- slv$solve(r)
+    u[f] <- sv$x
     out$u <- u
     out$solver <- slv
+    diag <- structure(list(ndof = disc$space$ndof, free = length(f), nnz = length(disc$A@x),
+                           solver = sv$info, assembly_time = disc$assembly_time,
+                           solve_time = proc.time()[["elapsed"]] - ts),
+                      class = "pde_diagnostics")
     out$solution <- structure(list(u = fe_function(disc$space, u), space = disc$space,
-                                   problem = problem), class = "pde_solution")
+                                   problem = problem, diagnostics = diag), class = "pde_solution")
   }
   out
 }
@@ -140,10 +156,19 @@ reduced_system <- function(problem, solve = TRUE) {
 #' @return `pde_observations()` returns a data frame of class
 #'   `pde_observations`; `misfit_objective()` returns a function of the
 #'   degree-of-freedom vector.
+#' @examples
+#' obs <- pde_observations(c(0.3, 0.7), c(0.5, 0.5), c(0.1, 0.2), sd = 0.01)
+#' V <- fe_space(pde_mesh_rectangle(nx = 4))
+#' J <- misfit_objective(V, obs)
+#' J(interpolate(function(x, y) x, V)$values)$value
 #' @export
 pde_observations <- function(x, y, values, sd = 1) {
   n <- length(x)
   if (length(y) != n || length(values) != n) stopf("`x`, `y` and `values` must have equal length.")
+  if (!is.numeric(x) || !is.numeric(y) || !is.numeric(values) ||
+      any(!is.finite(c(x, y, values)))) {
+    stopf("`x`, `y` and `values` must be finite numbers.")
+  }
   sd <- rep_len(sd, n)
   if (any(!is.finite(sd) | sd <= 0)) stopf("`sd` must be positive.")
   structure(data.frame(x = x, y = y, value = values, sd = sd), class = c("pde_observations", "data.frame"))

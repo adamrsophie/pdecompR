@@ -78,8 +78,12 @@ mesh$boundary
 `pde_mesh()` builds a mesh from raw coordinates and connectivity and checks
 it thoroughly. It rejects invalid node indices, repeated nodes in an element,
 duplicate elements, zero-area triangles, unused nodes, edges shared by more
-than two triangles, overlapping elements, and boundary definitions that do
-not match the topological boundary. Clockwise elements are an error unless
+than two triangles, neighboring elements that overlap across a shared edge,
+and boundary definitions that do
+not match the topological boundary. Elements that overlap without sharing an
+edge (for example a triangle placed inside another one with its own nodes)
+are not detected; meshes from `pde_mesh_rectangle()`, `pde_mesh_polygon()`,
+refinement and Gmsh are conforming by construction. Clockwise elements are an error unless
 reorientation is requested explicitly.
 
 ```{r, error = TRUE}
@@ -154,9 +158,10 @@ plot(m, main = "Local refinement around (0.5, 0.5)")
 min(mesh_quality(m)$min_angle)
 ```
 
-Refined meshes record the parent edge of every new node in
-`info$new_nodes`, so P1 functions transfer exactly from coarse to fine
-meshes (`transfer_function()`).
+`transfer_function()` moves a function to another mesh by evaluating it at
+the new degrees of freedom. Refined meshes are nested in their parents, so
+P1 and P2 functions transfer exactly from coarse to fine meshes. Refined
+meshes also record the parent edge of every new node in `info$new_nodes`.
 
 ## Selecting boundary parts
 

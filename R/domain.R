@@ -65,10 +65,13 @@ pde_domain <- function(type = c("rectangle", "polygon"),
   nxt <- c(2:nv, 1L)
   len <- sqrt(rowSums((v[nxt, , drop = FALSE] - v)^2))
   if (any(len <= 0)) stopf("Polygon has a zero-length side.")
-  area2 <- sum(v[, 1] * v[nxt, 2] - v[nxt, 1] * v[, 2])
-  scale <- max(abs(v))^2
+  # Shoelace formula on recentered coordinates, compared with the squared
+  # extent, so the test does not depend on units or on the origin.
+  vc <- sweep(v, 2, colMeans(v))
+  area2 <- sum(vc[, 1] * vc[nxt, 2] - vc[nxt, 1] * vc[, 2])
+  scale <- max(apply(v, 2, function(z) diff(range(z))))^2
   if (nv > 3L && polygon_self_intersects(v)) stopf("Polygon boundary intersects itself.")
-  if (abs(area2) <= 1e-14 * max(scale, 1)) stopf("Polygon has zero area.")
+  if (abs(area2) <= 1e-12 * scale) stopf("Polygon has zero area.")
   if (area2 < 0) {
     message("Polygon vertices were clockwise; reordered counterclockwise.")
     v <- v[nv:1, , drop = FALSE]

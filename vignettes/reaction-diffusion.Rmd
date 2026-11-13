@@ -53,13 +53,13 @@ The Fisher-KPP equation $\partial_t u = D\Delta u + r u(1 - u)$ develops a
 traveling front with speed $2\sqrt{rD}$.
 
 ```{r}
-mesh <- pde_mesh_rectangle(c(0, 10), c(0, 1), nx = 100, ny = 4)
+mesh <- pde_mesh_rectangle(c(0, 10), c(0, 1), nx = 80, ny = 2)
 prob <- reaction_diffusion_problem(
   mesh, species = "u", diffusion = 0.1,
   reaction = function(u, x, y, t) u * (1 - u),
   initial = list(u = function(x, y) as.numeric(x < 1)),
   time = c(0, 12))
-sol <- solve_pde(prob, dt = 0.05, method = "implicit-euler", output_times = c(0, 4, 8, 12))
+sol <- solve_pde(prob, dt = 0.1, method = "implicit-euler", output_times = c(0, 4, 8, 12))
 summary(sol)
 xs <- seq(0, 10, length.out = 300)
 plot(NULL, xlim = c(0, 10), ylim = c(0, 1.05), xlab = "x", ylab = "u", main = "Fisher-KPP front")

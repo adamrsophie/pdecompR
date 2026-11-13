@@ -34,6 +34,8 @@
 #'                           source = 10, bcs = dirichlet_bc(0))
 #' sol <- solve_pde(prob)
 #' sol$newton
+#' @references Deuflhard, P. (2004). *Newton Methods for Nonlinear Problems*.
+#'   Springer.
 #' @export
 nonlinear_problem <- function(mesh, diffusion = 1, diffusion_derivative = NULL,
                               reaction = NULL, reaction_derivative = NULL, source = 0,
@@ -60,7 +62,7 @@ p_laplace_problem <- function(mesh, p, source = 0, bcs = list(), epsilon = 1e-6,
                               initial = NULL, quad_degree = NULL) {
   check_number(p, "p")
   if (p <= 1) stopf("`p` must be larger than 1.")
-  check_number(epsilon, "epsilon")
+  check_number(epsilon, "epsilon", positive = TRUE)
   prob <- nonlinear_problem(mesh, source = source, bcs = bcs, degree = degree,
                             initial = initial, quad_degree = quad_degree)
   prob$type <- "p-laplace"; prob$p <- p; prob$epsilon <- epsilon
@@ -73,6 +75,15 @@ fd_deriv <- function(f) function(u) {
 }
 
 as_fun_u <- function(k) if (is.function(k)) k else function(u) rep(k, length(u))
+
+# Evaluate a function of u at quadrature values, recycling constant results.
+eval_u <- function(f, U, name) {
+  v <- f(as.vector(U))
+  if (length(v) == 1L) v <- rep(v, length(U))
+  if (length(v) != length(U) || !is.numeric(v)) stopf("`%s` must return one value per input value.", name)
+  if (!all(is.finite(v))) stopf("`%s` returned non-finite values.", name)
+  matrix(v, nrow(U))
+}
 
 #' @rdname solve_pde
 #' @param tol,maxit Newton tolerance on the free residual norm (relative to the
@@ -98,13 +109,19 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
   if (!is.null(problem$initial)) {
     u <- initial_values(problem$initial, V)
   } else {
-    lin <- elliptic_problem(problem$mesh, diffusion = if (plap) 1 else k(0),
+    # Linearize at the mean Dirichlet value; fall back to unit diffusion when
+    # k is not positive there (for example k(u) = u^2 at u = 0).
+    u0 <- if (length(dd$values)) mean(dd$values) else 0
+    k0 <- if (plap) 1 else k(u0)
+    if (!is.finite(k0) || k0 <= 0) k0 <- 1
+    lin <- elliptic_problem(problem$mesh, diffusion = k0,
                             reaction = if (is.null(dg)) 0 else max(0, dg(0)),
                             source = if (is.null(g)) problem$source else {
                               s0 <- problem$source; g0 <- g(0)
                               function(x, y) eval_spatial(s0, x, y) - g0
                             },
-                            bcs = problem$bcs, degree = problem$degree)
+                            bcs = problem$bcs, degree = problem$degree,
+                            quad_degree = problem$quad_degree)
     u <- solve_pde(lin)$u$values
   }
   u[dd$dofs] <- dd$values
@@ -114,10 +131,10 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
       s <- q$dx^2 + q$dy^2 + problem$epsilon^2
       kq <- s^((problem$p - 2) / 2)
     } else {
-      kq <- matrix(k(as.vector(q$value)), geo$m)
+      kq <- eval_u(k, q$value, "diffusion")
     }
     flux <- list(x = kq * q$dx, y = kq * q$dy)
-    gq <- if (is.null(g)) NULL else matrix(g(as.vector(q$value)), geo$m)
+    gq <- if (is.null(g)) NULL else eval_u(g, q$value, "reaction")
     r <- global_vector(V, local_linear(geo, f = gq, g = flux)) - b_nat
     if (!is.null(nat$A)) r <- r + as.numeric(nat$A %*% u)
     if (!jacobian) return(list(r = r))
@@ -127,8 +144,8 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
                 yx = c2 * q$dy * q$dx, yy = kq + c2 * q$dy * q$dy)
       A <- local_bilinear(geo, diff = D)
     } else {
-      dkq <- matrix(dk(as.vector(q$value)), geo$m)
-      mass <- if (is.null(dg)) NULL else matrix(dg(as.vector(q$value)), geo$m)
+      dkq <- eval_u(dk, q$value, "diffusion_derivative")
+      mass <- if (is.null(dg)) NULL else eval_u(dg, q$value, "reaction_derivative")
       A <- local_bilinear(geo, mass = mass, advt = list(x = dkq * q$dx, y = dkq * q$dy), diff = kq)
     }
     J <- global_matrix(V, A)
@@ -164,7 +181,7 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
           it, fmt_num(rn), fmt_num(r0))
   }
   diag <- structure(list(ndof = V$ndof, free = length(free), nnz = length(rj$J@x),
-                         assembly_time = NA, solve_time = proc.time()[["elapsed"]] - t0,
+                         assembly_time = NA_real_, solve_time = proc.time()[["elapsed"]] - t0,
                          solver = list(method = "newton", status = if (converged) "converged" else "not converged",
                                        residual = rn, relative_residual = rn / max(r0, 1e-300),
                                        iterations = it),

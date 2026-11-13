@@ -22,17 +22,25 @@
 #' Petrov-Galerkin terms
 #' `sum_T tau_T int_T (b . grad u + c u - f) (b . grad v)` are added, with
 #' `tau_T = h_T / (2 |b|) (coth(Pe) - 1 / Pe)`, `Pe = |b| h_T / (2 k)`,
-#' evaluated at the element centroid with `h_T` the longest edge. The method
-#' is consistent: the exact solution satisfies the stabilized equations.
+#' evaluated at the element centroid with `h_T` the longest edge (for a
+#' matrix `K`, `k` is the streamline diffusivity `b'Kb / |b|^2`). For P1
+#' elements the diffusive part of the element residual vanishes, so the
+#' method is consistent when the diffusion is constant; with variable
+#' diffusion the term `grad k . grad u_h` is omitted, which keeps the
+#' convergence order but is not strictly consistent.
 #'
-#' Problems without Dirichlet or Robin conditions and without reaction are
-#' pure Neumann problems: the solution is unique only up to a constant. The
-#' solver then checks the compatibility condition `int f + int g = 0` and
-#' returns the solution with zero mean, labeled as such. The discrete check is
-#' `|sum_i b_i| <= compatibility_tol * sum_i |b_i|` (an argument of
-#' [solve_pde()], default `1e-6`), which tolerates quadrature error in
-#' compatible data; a Lagrange multiplier for the zero-mean constraint absorbs
-#' the remaining defect and is reported.
+#' When no Dirichlet data are imposed and constants lie in the kernel of the
+#' assembled operator (no reaction, no Robin term with positive `alpha`), the
+#' problem is a pure Neumann problem: the solution is unique only up to a
+#' constant. The solver then checks the compatibility condition (for a
+#' symmetric operator `int f + int g = 0`) and
+#' returns the solution with zero mean, labeled as such. The compatibility
+#' defect is read from the Lagrange multiplier of the zero-mean constraint and
+#' compared with `compatibility_tol * sum_i |b_i|` (an argument of
+#' [solve_pde()], default `1e-6`). For a nonsymmetric operator (advection) the
+#' left null vector is not constant; there a defect above `h^2` gives a
+#' warning instead of an error, because data that are compatible for the PDE
+#' leave a defect of the size of the discretization error.
 #'
 #' @param mesh A [pde_mesh()].
 #' @param diffusion Diffusion coefficient `k`.
@@ -52,6 +60,9 @@
 #'                         boundary = dirichlet_bc(0))
 #' sol <- solve_pde(prob)
 #' sol
+#' @references Brooks, A. N. and Hughes, T. J. R. (1982). Streamline
+#'   upwind/Petrov-Galerkin formulations for convection dominated flows.
+#'   *Computer Methods in Applied Mechanics and Engineering*, 32, 199-259.
 #' @export
 elliptic_problem <- function(mesh, diffusion = 1, reaction = 0, advection = NULL,
                              source = 0, bcs = list(), degree = 1,
@@ -92,8 +103,14 @@ check_coefficient <- function(v, name, allow_matrix = FALSE) {
 print.pde_problem <- function(x, ...) {
   cat("<", class(x)[1], "> on a mesh with ", nrow(x$mesh$triangles),
       " triangles, P", x$degree, "\n", sep = "")
-  if (length(x$bcs)) {
-    for (bc in x$bcs) cat("  ", bc$type, " on ", paste(bc$marker, collapse = ", "), "\n", sep = "")
+  show <- function(bcs, prefix = "") {
+    for (bc in bcs) cat("  ", prefix, bc$type, " on ", paste(bc$marker, collapse = ", "), "\n", sep = "")
+  }
+  if (inherits(x, "reaction_diffusion_problem")) {
+    for (s in x$species) show(x$bcs[[s]], paste0(s, ": "))
+    if (!length(unlist(x$bcs, recursive = FALSE))) cat("  natural (zero flux) boundary conditions everywhere\n")
+  } else if (length(x$bcs)) {
+    show(x$bcs)
   } else {
     cat("  natural (zero flux) boundary conditions everywhere\n")
   }
@@ -108,12 +125,31 @@ print.pde_problem <- function(x, ...) {
 #' @param problem A `pde_problem`.
 #' @param mesh The new [pde_mesh()].
 #' @return The updated problem.
+#' @examples
+#' prob <- poisson_problem(pde_mesh_rectangle(nx = 2), source = 1, boundary = dirichlet_bc(0))
+#' finer <- update_mesh(prob, pde_mesh_rectangle(nx = 8))
+#' finer
 #' @export
 update_mesh <- function(problem, mesh) {
   stopifnot(inherits(problem, "pde_problem"), inherits(mesh, "pde_mesh"))
-  check_bc_markers(problem$bcs, mesh)
+  if (inherits(problem, "variational_problem")) {
+    stopf(paste0("The forms of a variational problem are tied to their function space; ",
+                 "rebuild them on the new mesh instead of calling update_mesh()."))
+  }
+  if (inherits(problem, "reaction_diffusion_problem")) {
+    for (b in problem$bcs) check_bc_markers(b, mesh)
+  } else {
+    check_bc_markers(problem$bcs, mesh)
+  }
   problem$mesh <- mesh
   problem
+}
+
+# Diffusion at quadrature points plus the SUPG streamline term tau b b'.
+supg_diffusion <- function(D, tq, bq) {
+  if (!is.list(D)) D <- list(xx = D, xy = 0, yx = 0, yy = D)
+  list(xx = D$xx + tq * bq$x * bq$x, xy = D$xy + tq * bq$x * bq$y,
+       yx = D$yx + tq * bq$y * bq$x, yy = D$yy + tq * bq$y * bq$y)
 }
 
 # Element-wise SUPG parameter (P1).
@@ -123,13 +159,17 @@ supg_tau <- function(mesh, diffusion, advection, degree = 1L) {
   cy <- (P[T[, 1], 2] + P[T[, 2], 2] + P[T[, 3], 2]) / 3
   q <- mesh_quality(mesh)
   h <- q$h_max
-  if (is.numeric(advection)) {
-    bn <- rep(sqrt(sum(advection^2)), length(cx))
+  bv <- if (is.numeric(advection)) matrix(advection, length(cx), 2, byrow = TRUE)
+        else as.matrix(advection(cx, cy))
+  bn <- sqrt(rowSums(bv^2))
+  k <- if (is.matrix(diffusion) && is.numeric(diffusion)) {
+    # streamline diffusivity b'Kb / |b|^2
+    sk <- (diffusion[1, 1] * bv[, 1]^2 + (diffusion[1, 2] + diffusion[2, 1]) * bv[, 1] * bv[, 2] +
+             diffusion[2, 2] * bv[, 2]^2) / pmax(bn^2, .Machine$double.xmin)
+    ifelse(bn > 0, sk, min(diag(diffusion)))
   } else {
-    bv <- as.matrix(advection(cx, cy)); bn <- sqrt(rowSums(bv^2))
+    eval_spatial(diffusion, cx, cy, name = "diffusion")
   }
-  k <- if (is.matrix(diffusion)) rep(max(eigen(diffusion, only.values = TRUE)$values), length(cx))
-       else eval_spatial(diffusion, cx, cy, name = "diffusion")
   pe <- bn * h / (2 * degree * k)
   xi <- ifelse(pe > 1e-6, 1 / tanh(pe) - 1 / pe, pe / 3)
   ifelse(bn > 0, h / (2 * degree * pmax(bn, .Machine$double.xmin)) * xi, 0)
@@ -146,6 +186,11 @@ supg_tau <- function(mesh, diffusion, advection, degree = 1L) {
 #' @return An object of class `pde_discretization` with the space, the full
 #'   matrix `A` and load `b` (before Dirichlet elimination), the Dirichlet
 #'   degrees of freedom and values, and assembly timings.
+#' @examples
+#' prob <- poisson_problem(pde_mesh_rectangle(nx = 4), source = 1, boundary = dirichlet_bc(0))
+#' disc <- discretize(prob)
+#' disc
+#' dim(disc$A)
 #' @export
 discretize <- function(problem, ...) UseMethod("discretize")
 
@@ -168,8 +213,7 @@ discretize.elliptic_problem <- function(problem, t = NULL, ...) {
   if (problem$stabilization == "supg") {
     tau <- supg_tau(problem$mesh, problem$diffusion, problem$advection)
     tq <- matrix(tau, geo$m, geo$nq)
-    D <- list(xx = D + tq * bq$x * bq$x, xy = tq * bq$x * bq$y,
-              yx = tq * bq$y * bq$x, yy = D + tq * bq$y * bq$y)
+    D <- supg_diffusion(D, tq, bq)
     if (!is.null(cq)) advt <- list(x = tq * cq * bq$x, y = tq * cq * bq$y)
     gload <- list(x = tq * fq * bq$x, y = tq * fq * bq$y)
   }
@@ -179,10 +223,9 @@ discretize.elliptic_problem <- function(problem, t = NULL, ...) {
   if (!is.null(nat$A)) A <- A + nat$A
   b <- b + nat$b
   dd <- dirichlet_data(V, problem$bcs, t)
-  has_robin <- any(vapply(problem$bcs, function(bc) bc$type == "robin", logical(1)))
   structure(list(space = V, A = A, b = b, dirichlet = dd,
                  free = setdiff(seq_len(V$ndof), dd$dofs),
-                 pure_neumann = !length(dd$dofs) && !has_robin && is.null(cq),
+                 pure_neumann = constant_kernel(A, dd),
                  assembly_time = proc.time()[["elapsed"]] - t0),
             class = "pde_discretization")
 }
@@ -205,6 +248,10 @@ print.pde_discretization <- function(x, ...) {
 #'   controls for the others.
 #' @return A `pde_solution` (stationary problems) or `pde_transient`
 #'   (time-dependent problems).
+#' @examples
+#' prob <- poisson_problem(pde_mesh_rectangle(nx = 8), source = 1, boundary = dirichlet_bc(0))
+#' sol <- solve_pde(prob)
+#' summary(sol)
 #' @export
 solve_pde <- function(problem, ...) UseMethod("solve_pde")
 
@@ -218,6 +265,14 @@ solve_pde.elliptic_problem <- function(problem, method = "auto", ...) {
 
 # Dirichlet elimination and linear solve shared by all linear stationary
 # problems.
+# TRUE when no Dirichlet data are imposed and constants lie in the kernel of
+# the assembled operator (no reaction, no Robin term, zero-flux boundary).
+constant_kernel <- function(A, dd) {
+  if (length(dd$dofs)) return(FALSE)
+  r <- as.numeric(A %*% rep(1, nrow(A)))
+  max(abs(r)) <= 1e-10 * max(abs(A@x))
+}
+
 solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6, ...) {
   V <- disc$space
   u <- numeric(V$ndof)
@@ -228,16 +283,34 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
   t0 <- proc.time()[["elapsed"]]
   gauge <- NULL
   if (disc$pure_neumann) {
+    # Bordered system [A m; m' 0] with m the mass of the constant: it is
+    # nonsingular, and its multiplier lambda = w'b / w'm vanishes exactly when
+    # b is orthogonal to the left null vector w of A (w = 1 when A is
+    # symmetric, so the test is int f + int g = 0; with advection w is not
+    # constant). lambda * sum(m) is therefore the compatibility defect.
     one <- assemble_vector(V, 1)
-    comp <- sum(disc$b)
-    scale <- sum(abs(disc$b))
-    if (abs(comp) > compatibility_tol * max(scale, 1e-300)) {
-      stopf(paste0("Pure Neumann problem with incompatible data: ",
-                   "int f + int g = %s (relative %s). The problem has no solution."),
-            fmt_num(comp), fmt_num(comp / max(scale, 1e-300)))
-    }
     K <- rbind(cbind(A, one), c(one, 0))
     s <- solve_linear_system(K, c(disc$b, 0), method = "lu", ...)
+    comp <- s$x[V$ndof + 1L] * sum(one)
+    scale <- sum(abs(disc$b))
+    rel <- comp / max(scale, 1e-300)
+    sym <- Matrix::isSymmetric(A, tol = 1e-12)
+    tol_c <- if (sym) compatibility_tol else max(compatibility_tol, mesh_size(V$mesh)^2)
+    if (abs(rel) > tol_c) {
+      if (sym) {
+        stopf(paste0("Pure Neumann problem with incompatible data: ",
+                     "compatibility defect %s (relative %s). The problem has no solution."),
+              fmt_num(comp), fmt_num(rel))
+      }
+      # With advection the left null vector is only an approximation of the
+      # continuous one, so data that are compatible for the PDE leave a
+      # defect of the size of the discretization error; only defects above
+      # h^2 are reported.
+      warnf(paste0("Pure Neumann problem: the data violate the discrete compatibility condition ",
+                   "by %s (relative %s); the solution satisfies the equations up to a constant ",
+                   "times the multiplier. Check that the data are compatible."),
+            fmt_num(comp), fmt_num(rel))
+    }
     u <- s$x[seq_len(V$ndof)]
     gauge <- list(type = "zero mean", multiplier = s$x[V$ndof + 1L],
                   compatibility = comp)
@@ -253,6 +326,7 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
       s <- solve_linear_system(Aff, rhs, method = method, ...)
       u[free] <- s$x
       info <- s$info
+      warn_solver(info)
     }
   }
   solve_time <- proc.time()[["elapsed"]] - t0

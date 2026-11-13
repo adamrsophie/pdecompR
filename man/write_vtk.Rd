@@ -4,14 +4,17 @@
 \alias{write_vtk}
 \title{Write a VTK file}
 \usage{
-write_vtk(x, file, name = "u")
+write_vtk(x, file, name = "u", time = NULL)
 }
 \arguments{
-\item{x}{A \code{\link[=pde_mesh]{pde_mesh()}}, \code{\link[=fe_function]{fe_function()}} or \code{pde_solution}.}
+\item{x}{A \code{\link[=pde_mesh]{pde_mesh()}}, \code{\link[=fe_function]{fe_function()}}, \code{pde_solution},
+\code{pde_vector_solution} or \code{pde_transient}.}
 
 \item{file}{Output path.}
 
-\item{name}{Name of the point data array.}
+\item{name}{Name of the point data array (scalar data and displacements).}
+
+\item{time}{Stored time to write for a \code{pde_transient} (default: the last).}
 }
 \value{
 The file path, invisibly.
@@ -20,7 +23,10 @@ The file path, invisibly.
 Writes a mesh, finite-element function or solution in the legacy ASCII VTK
 unstructured-grid format, readable by ParaView and VisIt. Point data are
 the vertex values; for P2 functions only the vertex values are written
-(the triangles are linear cells).
+(the triangles are linear cells). A displacement solution of
+\code{\link[=elasticity_problem]{elasticity_problem()}} is written as a \code{VECTORS} array; a time-dependent
+solution is written at one stored time (all species for reaction-diffusion
+systems). Call it once per time to write a series.
 }
 \examples{
 f <- tempfile(fileext = ".vtk")

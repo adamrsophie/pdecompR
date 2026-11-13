@@ -171,21 +171,29 @@ discretize.elasticity_problem <- function(problem, ...) {
 
 #' @rdname solve_pde
 #' @export
-solve_pde.elasticity_problem <- function(problem, method = "auto", ...) {
+solve_pde.elasticity_problem <- function(problem, method = c("auto", "cholesky", "lu", "cg", "bicgstab", "gmres"),
+                                         ...) {
+  method <- match.arg(method)
   disc <- discretize(problem)
   V <- disc$space; n <- V$ndof
   dd <- disc$dirichlet; free <- disc$free
+  # The constraints must remove the three rigid motions: the 3 columns
+  # (1, 0), (0, 1), (-y, x) restricted to the constrained dofs need rank 3.
+  xy <- rbind(V$dof_coords, V$dof_coords)
+  comp_x <- rep(c(TRUE, FALSE), each = n)
+  Rm <- cbind(comp_x, !comp_x, ifelse(comp_x, -xy[, 2], xy[, 1]))[dd$dofs, , drop = FALSE]
+  if (!length(dd$dofs) || qr(Rm, tol = 1e-10)$rank < 3L) {
+    stopf(paste0("The elasticity problem is singular: the displacement conditions must remove ",
+                 "the rigid motions (two translations and a rotation)."))
+  }
   u <- numeric(2L * n)
   u[dd$dofs] <- dd$values
   t0 <- proc.time()[["elapsed"]]
   Aff <- disc$A[free, free, drop = FALSE]
   rhs <- disc$b[free]
   if (length(dd$dofs)) rhs <- rhs - as.numeric(disc$A[free, dd$dofs, drop = FALSE] %*% dd$values)
-  s <- tryCatch(solve_linear_system(Aff, rhs, method = method, ...), error = function(e) NULL)
-  if (is.null(s) || s$info$status %in% c("inaccurate", "failed") || !is.null(s$info$note)) {
-    stopf(paste0("The elasticity system is singular or nearly singular: the displacement ",
-                 "conditions must remove the rigid motions (two translations and a rotation)."))
-  }
+  s <- solve_linear_system(Aff, rhs, method = method, ...)
+  warn_solver(s$info)
   u[free] <- s$x
   diag <- structure(list(ndof = 2L * n, free = length(free), nnz = length(disc$A@x),
                          assembly_time = disc$assembly_time,

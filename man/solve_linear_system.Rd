@@ -82,3 +82,7 @@ s2 <- solve_linear_system(A, b, method = "cg", tol = 1e-12)
 max(abs(s1$x - s2$x))
 s2$info$iterations
 }
+\references{
+Saad, Y. (2003). \emph{Iterative Methods for Sparse Linear
+Systems}, 2nd edition. SIAM.
+}

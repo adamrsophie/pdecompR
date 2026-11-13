@@ -10,7 +10,9 @@ pde_sensitivity(
   mesh = NULL,
   objective = NULL,
   method = c("forward", "adjoint"),
-  h = 1e-06
+  h = 1e-06,
+  lower = -Inf,
+  upper = Inf
 )
 }
 \arguments{
@@ -29,6 +31,9 @@ vector returning \code{list(value = , gradient = )}, for example from
 (objective gradient only).}
 
 \item{h}{Relative difference step for the operator derivatives.}
+
+\item{lower, upper}{Parameter bounds. Difference steps are shortened or
+made one-sided so that \code{problem_fun} is never called outside them.}
 }
 \value{
 A list of class \code{pde_sensitivity} with the \code{solution}, the
@@ -65,4 +70,8 @@ pf <- function(theta) poisson_problem(mesh, diffusion = theta[1], source = 1,
 s <- pde_sensitivity(pf, theta = 2)
 # exact: u = u1 / theta, so du/dtheta = -u / theta
 max(abs(s$sensitivities[, 1] + s$solution$u$values / 2))
+}
+\references{
+Hinze, M., Pinnau, R., Ulbrich, M. and Ulbrich, S. (2009).
+\emph{Optimization with PDE Constraints}. Springer.
 }
