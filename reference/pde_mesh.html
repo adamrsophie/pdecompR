@@ -82,7 +82,8 @@ node coordinates and element connectivity.</p>
 <span>  boundary_edges <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  boundary_markers <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  fix_orientation <span class="op">=</span> <span class="cn">FALSE</span>,</span>
-<span>  regions <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  regions <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  check_overlap <span class="op">=</span> <span class="cn">TRUE</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -118,6 +119,12 @@ edges are then marked <code>"boundary"</code>.</p></dd>
 per triangle, for piecewise coefficients (<code><a href="region_coefficient.html">region_coefficient()</a></code>).
 Default: every triangle belongs to region <code>"domain"</code>.</p></dd>
 
+
+<dt id="arg-check-overlap">check_overlap<a class="anchor" aria-label="anchor" href="#arg-check-overlap"></a></dt>
+<dd><p>Check that elements do not overlap geometrically
+(see the Validation section). Turn it off for meshes that intentionally contain
+coincident nodes, such as slits or cracks with duplicated nodes.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -149,6 +156,10 @@ edges shared by more than two triangles, and boundary definitions that do
 not match the topological boundary. Clockwise triangles are rejected unless
 <code>fix_orientation = TRUE</code>, in which case they are reordered and the number of
 reordered elements is reported.</p>
+<p>With <code>check_overlap = TRUE</code> it also rejects elements that overlap without
+sharing an edge: the corner angles around every interior node must sum to
+<code>2 pi</code> (at most <code>2 pi</code> at boundary nodes) and boundary edges without a
+common node must not touch.</p>
     </div>
 
     <div class="section level2">

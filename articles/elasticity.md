@@ -155,10 +155,53 @@ for (degree in 1:2) {
 The observed orders are 2 and 1 for P1, and 3 and 2 for P2, as for
 scalar problems.
 
+## Nearly incompressible materials
+
+As \nu \to 1/2 in plane strain, \lambda \to \infty and displacement
+elements lock: the constraint \operatorname{div} u \approx 0 is too
+strong for the discrete space. `formulation = "mixed"` makes the
+pressure p = \lambda \operatorname{div} u a separate P1 unknown next to
+P2 displacements (the Taylor-Hood pair), so the term \int p\\ q /
+\lambda simply vanishes in the limit. The manufactured solution below is
+divergence free, so the exact pressure is zero for every \nu.
+
+``` r
+
+ps <- quote((x * (1 - x) * y * (1 - y))^2)
+ux_e <- D(ps, "y"); uy_e <- call("-", D(ps, "x"))
+lap <- function(e) call("+", D(D(e, "x"), "x"), D(D(e, "y"), "y"))
+lx <- lap(ux_e); ly <- lap(uy_e)
+err <- function(nu, formulation, degree) {
+  mu <- 1 / (2 * (1 + nu))
+  p <- elasticity_problem(pde_mesh_rectangle(nx = 12), nu = nu, degree = degree,
+                          formulation = formulation, bcs = displacement_bc(0),
+                          body_force = function(x, y) cbind(-mu * eval(lx), -mu * eval(ly)))
+  s <- solve_pde(p)
+  xy <- s$space$dof_coords
+  max(abs(s$ux$values - eval(ux_e, list(x = xy[, 1], y = xy[, 2]))))
+}
+nus <- c(0.3, 0.49, 0.499, 0.4999)
+data.frame(nu = nus,
+           P1 = sapply(nus, err, "displacement", 1),
+           P2 = sapply(nus, err, "displacement", 2),
+           mixed = sapply(nus, err, "mixed", 2))
+#>       nu           P1           P2        mixed
+#> 1 0.3000 0.0005634477 1.659782e-05 9.914028e-06
+#> 2 0.4900 0.0047508469 1.490800e-04 1.259066e-05
+#> 3 0.4990 0.0098961015 4.279237e-04 1.279487e-05
+#> 4 0.4999 0.0114776119 5.566561e-04 1.281591e-05
+```
+
+The displacement errors grow as \nu \to 1/2; the mixed error does not.
+The solution then has a `pressure` component, and
+[`elasticity_stress()`](https://adamrsophie.github.io/pdecompR/reference/elasticity_stress.md)
+uses it for the volumetric stress.
+[`solve_eigen()`](https://adamrsophie.github.io/pdecompR/reference/solve_eigen.md)
+and
+[`elastodynamics_problem()`](https://adamrsophie.github.io/pdecompR/reference/wave_problem.md)
+need the displacement formulation.
+
 ## Limitations
 
-- Nearly incompressible materials (\nu \to 1/2 in plane strain) lock
-  with these displacement elements; mixed displacement-pressure
-  formulations are on the roadmap.
 - Only small strains and isotropic materials are supported; E and \nu
   may vary in space.

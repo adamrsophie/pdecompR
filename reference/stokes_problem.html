@@ -129,7 +129,8 @@ in space); <code><a href="displacement_bc.html">traction_bc()</a></code> prescri
 <code>(nu grad u - p I) n</code>, and boundary parts with no condition get the
 do-nothing outflow condition (zero pseudo-traction). When the velocity is
 prescribed on the whole boundary, the pressure is fixed by a zero-mean
-gauge.</p>
+gauge and the prescribed velocity must have zero net flux through the
+boundary.</p>
 <p><code><a href="solve_pde.html">solve_pde()</a></code> solves the saddle-point system by sparse LU
 (<code>method = "lu"</code>, the default) or by right-preconditioned GMRES with the
 block-diagonal preconditioner <code>diag(A, M_p / nu)</code> (<code>method = "gmres"</code>),

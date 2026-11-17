@@ -108,6 +108,15 @@ stepping uses the theta method; see
 [`solve_pde()`](https://adamrsophie.github.io/pdecompR/reference/solve_pde.md)
 arguments `dt` and `method`.
 
+The solution diagnostics report `integral` (the integral of `u` at each
+stored time, for mass balance) and `range` (the smallest and largest
+nodal value over all time steps). These are reports, not limiters:
+nothing is clipped. A negative minimum for nonnegative data shows a
+violated discrete maximum principle. Consistent-mass Galerkin schemes
+preserve positivity only under mesh and step conditions (acute meshes
+and a time step bounded below by a multiple of `h^2`), and for P2 the
+nodal minimum is not the minimum of the function.
+
 ## Examples
 
 ``` r

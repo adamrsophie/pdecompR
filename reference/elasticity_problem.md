@@ -14,7 +14,8 @@ elasticity_problem(
   bcs = list(),
   degree = 1,
   plane = c("strain", "stress"),
-  quad_degree = NULL
+  quad_degree = NULL,
+  formulation = c("displacement", "mixed")
 )
 ```
 
@@ -56,6 +57,11 @@ elasticity_problem(
 
   Quadrature degree (default `2 * degree + 2`).
 
+- formulation:
+
+  `"displacement"` or `"mixed"` (displacement-pressure, requires
+  `degree = 2`).
+
 ## Value
 
 An object of class `elasticity_problem`;
@@ -85,6 +91,22 @@ for plane strain, or `lambda = E nu / (1 - nu^2)` for plane stress.
 Low-order elements lock for nearly incompressible materials (`nu` close
 to 1/2 in plane strain); P2 elements reduce but do not remove the
 effect.
+
+`formulation = "mixed"` removes locking with the displacement-pressure
+formulation: the pressure `p = lambda div u` becomes a separate unknown,
+`sigma = 2 mu eps(u) + p I`, and the weak form is
+`int 2 mu eps(u) : eps(v) + int p div v = int f . v + int_N g . v`,
+`int q div u - int p q / lambda = 0`, discretized with P2 displacements
+and P1 pressure (the Taylor-Hood pair, stable as `lambda` grows without
+bound). Its accuracy does not degrade as `nu` approaches 1/2. The
+solution then also has a `pressure` component. The saddle-point system
+is solved by sparse LU or by GMRES with a block-diagonal preconditioner,
+as for
+[`stokes_problem()`](https://adamrsophie.github.io/pdecompR/reference/stokes_problem.md).
+[`solve_eigen()`](https://adamrsophie.github.io/pdecompR/reference/solve_eigen.md)
+and
+[`elastodynamics_problem()`](https://adamrsophie.github.io/pdecompR/reference/wave_problem.md)
+need the displacement formulation.
 
 ## Examples
 

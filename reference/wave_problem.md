@@ -102,7 +102,8 @@ Both semidiscretizations `M a + C v + K u = F(t)` are integrated by the
 Newmark average acceleration method (`beta = 1/4`, `gamma = 1/2`):
 second order, unconditionally stable and, without damping and forcing,
 exactly conserving the discrete energy `1/2 v'Mv + 1/2 u'Ku`, which is
-reported as `diagnostics$energy`. The effective matrix is factorized
+reported as `diagnostics$energy`, with the range of nodal values over
+all steps in `diagnostics$range`. The effective matrix is factorized
 once.
 
 ## References

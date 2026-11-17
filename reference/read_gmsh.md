@@ -15,7 +15,7 @@ clockwise triangles are reoriented.
 ## Usage
 
 ``` r
-read_gmsh(file)
+read_gmsh(file, check_overlap = TRUE)
 ```
 
 ## Arguments
@@ -23,6 +23,11 @@ read_gmsh(file)
 - file:
 
   Path to a `.msh` file.
+
+- check_overlap:
+
+  Passed to
+  [`pde_mesh()`](https://adamrsophie.github.io/pdecompR/reference/pde_mesh.md).
 
 ## Value
 

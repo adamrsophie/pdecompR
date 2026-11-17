@@ -318,10 +318,12 @@ markers.</p>
 <span><span class="co">#&gt;      2      2      2      2</span></span></code></pre></div>
 <p><code><a href="../reference/write_vtk.html">write_vtk()</a></code> exports meshes and solutions to the VTK
 format for ParaView: the legacy format by default, the XML
-<code>.vtu</code> format when the file name ends in <code>.vtu</code>.
-<code><a href="../reference/write_pvd.html">write_pvd()</a></code> writes a time-dependent solution as one
-<code>.vtu</code> file per output time plus a <code>.pvd</code>
-collection that ParaView opens as an animation.</p>
+<code>.vtu</code> format when the file name ends in <code>.vtu</code>
+(raw binary by default, exact to the last bit;
+<code>format = "ascii"</code> for text). <code><a href="../reference/write_pvd.html">write_pvd()</a></code> writes
+a time-dependent solution as one <code>.vtu</code> file per output time
+plus a <code>.pvd</code> collection that ParaView opens as an
+animation.</p>
 </div>
 <div class="section level2">
 <h2 id="refinement">Refinement<a class="anchor" aria-label="anchor" href="#refinement"></a>

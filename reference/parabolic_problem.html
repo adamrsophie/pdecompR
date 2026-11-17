@@ -172,6 +172,14 @@ SUPG requires time-independent coefficients.</p>
 <p>The finite-element semidiscretization is <code>M du/dt + A u = F(t)</code> with mass
 matrix <code>M</code> and operator matrix <code>A</code> (including Robin terms). Time stepping
 uses the theta method; see <code><a href="solve_pde.html">solve_pde()</a></code> arguments <code>dt</code> and <code>method</code>.</p>
+<p>The solution diagnostics report <code>integral</code> (the integral of <code>u</code> at each
+stored time, for mass balance) and <code>range</code> (the smallest and largest
+nodal value over all time steps). These are reports, not limiters:
+nothing is clipped. A negative minimum for nonnegative data shows a
+violated discrete maximum principle. Consistent-mass Galerkin schemes
+preserve positivity only under mesh and step conditions (acute meshes
+and a time step bounded below by a multiple of <code>h^2</code>), and for P2 the
+nodal minimum is not the minimum of the function.</p>
     </div>
 
     <div class="section level2">

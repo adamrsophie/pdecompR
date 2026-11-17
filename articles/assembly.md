@@ -204,6 +204,34 @@ The multigrid preconditioner works for P1 problems on meshes produced by
 or
 [`refine_mesh()`](https://adamrsophie.github.io/pdecompR/reference/refine_uniform.md).
 
+Without a mesh hierarchy, or for P2 spaces,
+[`amg_preconditioner()`](https://adamrsophie.github.io/pdecompR/reference/amg_preconditioner.md)
+builds the hierarchy from the matrix by smoothed aggregation. On an
+unstructured L-shaped mesh with P2 elements its iteration count barely
+moves while Jacobi’s doubles with each halving of `h`:
+
+``` r
+
+L <- pde_domain("polygon", vertices = cbind(c(0, 2, 2, 1, 1, 0), c(0, 0, 1, 1, 2, 2)))
+sapply(c(0.1, 0.05, 0.025), function(h) {
+  p <- poisson_problem(pde_mesh_polygon(L, h = h), source = 1, boundary = dirichlet_bc(0), degree = 2)
+  c(h = h, jacobi = solve_pde(p, method = "cg")$diagnostics$solver$iterations,
+    amg = solve_pde(p, method = "cg", preconditioner = amg_preconditioner())$diagnostics$solver$iterations)
+})
+#> Warning: The linear solve finished with status "not converged" (relative
+#> residual 1.031e-10).
+#>         [,1]   [,2]     [,3]
+#> h        0.1   0.05    0.025
+#> jacobi 337.0 682.00 1374.000
+#> amg     32.0  35.00   37.000
+```
+
+In two dimensions the sparse Cholesky factorization is still as fast as
+AMG preconditioned CG up to about 10^5 unknowns (measured: 1.2 s each
+for 130,000 P2 unknowns, with 0.5 s of AMG setup); AMG’s advantages are
+memory, which grows linearly, and systems where a factorization is not
+available.
+
 ## Cost
 
 Assembly is linear in the number of elements, and so is the memory of
@@ -224,3 +252,19 @@ for (n in c(16, 32, 64)) {
 #> n =  32  dofs =   1089  assembly 0.00s  solve 0.00s
 #> n =  64  dofs =   4225  assembly 0.01s  solve 0.01s
 ```
+
+Where coefficients change every time step or Newton iteration, the
+matrix is reassembled on a fixed sparsity pattern: the map from element
+entries to the nonzeros is computed once, and each reassembly is one
+sparse matrix-vector product, about twelve times faster than building
+the matrix from triplets. The element integrals themselves then dominate
+(about 80 percent of a reassembly for P1 on a 128 by 128 mesh), so the
+end-to-end gain is modest: 7 percent for a heat problem with
+time-dependent diffusion and 4 percent for a quasilinear Newton solve.
+
+`benchmarks/protocol.R` in the source repository runs each case in a
+fresh R process under `/usr/bin/time` for the true peak memory, repeats
+it after a warm-up run and reports the median with the range, and
+compares P1, P2 and AMG solves at a fixed error. On the unit square P2
+reaches an L2 error of `1e-5` with 4,225 unknowns, where P1 needs more
+than 66,000.

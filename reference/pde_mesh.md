@@ -12,7 +12,8 @@ pde_mesh(
   boundary_edges = NULL,
   boundary_markers = NULL,
   fix_orientation = FALSE,
-  regions = NULL
+  regions = NULL,
+  check_overlap = TRUE
 )
 ```
 
@@ -48,6 +49,12 @@ pde_mesh(
   ([`region_coefficient()`](https://adamrsophie.github.io/pdecompR/reference/region_coefficient.md)).
   Default: every triangle belongs to region `"domain"`.
 
+- check_overlap:
+
+  Check that elements do not overlap geometrically (see the Validation
+  section). Turn it off for meshes that intentionally contain coincident
+  nodes, such as slits or cracks with duplicated nodes.
+
 ## Value
 
 An object of class `pde_mesh` with components `nodes`, `triangles`,
@@ -78,6 +85,11 @@ nodes, edges shared by more than two triangles, and boundary definitions
 that do not match the topological boundary. Clockwise triangles are
 rejected unless `fix_orientation = TRUE`, in which case they are
 reordered and the number of reordered elements is reported.
+
+With `check_overlap = TRUE` it also rejects elements that overlap
+without sharing an edge: the corner angles around every interior node
+must sum to `2 pi` (at most `2 pi` at boundary nodes) and boundary edges
+without a common node must not touch.
 
 ## Examples
 

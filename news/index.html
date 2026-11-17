@@ -74,7 +74,7 @@
 <ul><li>Rectangular and simple polygonal domains with validation.</li>
 <li>Structured triangular meshes and polygon meshes, with checks of connectivity, orientation and degeneracy, quality measures, named boundary markers and named regions (subdomains).</li>
 <li>Uniform refinement and newest vertex bisection; boundary markers and regions are inherited by refined meshes.</li>
-<li>Import of Gmsh 2.2 and 4.1 meshes (physical lines become boundary markers, physical surfaces become regions) and export to VTK, including quadratic P2 cells, displacement vectors and stress fields, in legacy and XML (<code>.vtu</code>) formats, and ParaView time series (<code><a href="../reference/write_pvd.html">write_pvd()</a></code>).</li>
+<li>Import of Gmsh 2.2 and 4.1 meshes (physical lines become boundary markers, physical surfaces become regions) and export to VTK, including quadratic P2 cells, displacement vectors and stress fields, in legacy and XML (<code>.vtu</code>, raw binary or text) formats, and ParaView time series (<code><a href="../reference/write_pvd.html">write_pvd()</a></code>).</li>
 </ul></div>
 <div class="section level3">
 <h3 id="discretization-0-1-0">Discretization<a class="anchor" aria-label="anchor" href="#discretization-0-1-0"></a></h3>
@@ -96,6 +96,12 @@
 <li>Damped wave equation and elastodynamics integrated by the Newmark average acceleration method, second order and energy conserving, with the discrete energy reported at every step.</li>
 <li>
 <code><a href="../reference/pde_mesh.html">pde_mesh()</a></code> rejects elements that overlap without sharing an edge (folded node neighborhoods or crossing boundary edges).</li>
+<li>
+<code><a href="../reference/amg_preconditioner.html">amg_preconditioner()</a></code> adds smoothed aggregation algebraic multigrid for CG, with nearly constant iteration counts on unstructured and P2 meshes where geometric multigrid does not apply.</li>
+<li>
+<code>elasticity_problem(formulation = "mixed")</code> solves nearly incompressible elasticity with P2 displacements and a P1 pressure, free of volumetric locking; <code><a href="../reference/elasticity_stress.html">elasticity_stress()</a></code> uses the pressure unknown.</li>
+<li>Every time stepper accepts a per-step <code>callback</code> and can <code>restart</code> from the final state of an earlier run (including multistep history, Newmark velocity and acceleration, the adaptive step size and startup steps), so long runs can be streamed and checkpointed.</li>
+<li>Time-dependent solvers report the range of nodal values over all steps (<code>diagnostics$range</code>) next to the integral, to expose violations of positivity or of the discrete maximum principle.</li>
 <li>Polygon domains with holes (<code>pde_domain(holes = )</code>), meshed by bridging each hole to the outer boundary before ear clipping; hole sides carry their own markers.</li>
 <li>Incompressible Stokes flow with Taylor-Hood P2-P1 elements, velocity, pseudo-traction and do-nothing outflow conditions, solved by sparse LU or by GMRES with a block-diagonal preconditioner (<code><a href="../reference/stokes_problem.html">stokes_problem()</a></code>).</li>
 <li>Eigenvalue problems for symmetric elliptic operators and elastic vibration modes by shift-and-invert subspace iteration (<code><a href="../reference/solve_eigen.html">solve_eigen()</a></code>).</li>
@@ -115,7 +121,7 @@
 <div class="section level3">
 <h3 id="inference-and-control-0-1-0">Inference and control<a class="anchor" aria-label="anchor" href="#inference-and-control-0-1-0"></a></h3>
 <ul><li>Discrete forward and adjoint sensitivities of linear elliptic problems, with finite-difference or exact operator derivatives (<code><a href="../reference/affine_derivative.html">affine_derivative()</a></code>) and Taylor remainder checks (<code><a href="../reference/taylor_test.html">taylor_test()</a></code>).</li>
-<li>Adjoint gradients of nonlinear problems (one transposed Newton Jacobian solve) and of backward Euler and Crank-Nicolson time stepping (a discrete backward sweep) through <code><a href="../reference/nonlinear_sensitivity.html">nonlinear_sensitivity()</a></code> and <code><a href="../reference/nonlinear_sensitivity.html">transient_sensitivity()</a></code>.</li>
+<li>Adjoint gradients of nonlinear problems (one transposed Newton Jacobian solve) and of backward Euler and Crank-Nicolson time stepping (a discrete backward sweep) through <code><a href="../reference/nonlinear_sensitivity.html">nonlinear_sensitivity()</a></code> and <code><a href="../reference/nonlinear_sensitivity.html">transient_sensitivity()</a></code>; the transient sweep accumulates the gradient step by step and can checkpoint the forward states.</li>
 <li>Parameter estimation with adjoint gradients, bounds (including fixed parameters), Gauss-Newton standard errors and identifiability diagnostics.</li>
 <li>Distributed optimal control with optional control bounds.</li>
 </ul></div>

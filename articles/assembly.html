@@ -272,6 +272,29 @@ stays bounded under refinement, while Jacobi’s grows like <span class="math in
 <span><span class="co">#&gt;       131       104         9</span></span></code></pre></div>
 <p>The multigrid preconditioner works for P1 problems on meshes produced
 by <code><a href="../reference/refine_uniform.html">refine_uniform()</a></code> or <code><a href="../reference/refine_uniform.html">refine_mesh()</a></code>.</p>
+<p>Without a mesh hierarchy, or for P2 spaces,
+<code><a href="../reference/amg_preconditioner.html">amg_preconditioner()</a></code> builds the hierarchy from the matrix
+by smoothed aggregation. On an unstructured L-shaped mesh with P2
+elements its iteration count barely moves while Jacobi’s doubles with
+each halving of <code>h</code>:</p>
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">L</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pde_domain.html">pde_domain</a></span><span class="op">(</span><span class="st">"polygon"</span>, vertices <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">2</span>, <span class="fl">2</span>, <span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span>, <span class="fl">1</span>, <span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.1</span>, <span class="fl">0.05</span>, <span class="fl">0.025</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">h</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/elliptic_problem.html">poisson_problem</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_polygon.html">pde_mesh_polygon</a></span><span class="op">(</span><span class="va">L</span>, h <span class="op">=</span> <span class="va">h</span><span class="op">)</span>, source <span class="op">=</span> <span class="fl">1</span>, boundary <span class="op">=</span> <span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>, degree <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>h <span class="op">=</span> <span class="va">h</span>, jacobi <span class="op">=</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="va">p</span>, method <span class="op">=</span> <span class="st">"cg"</span><span class="op">)</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">solver</span><span class="op">$</span><span class="va">iterations</span>,</span>
+<span>    amg <span class="op">=</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="va">p</span>, method <span class="op">=</span> <span class="st">"cg"</span>, preconditioner <span class="op">=</span> <span class="fu"><a href="../reference/amg_preconditioner.html">amg_preconditioner</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">solver</span><span class="op">$</span><span class="va">iterations</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Warning: The linear solve finished with status "not converged" (relative</span></span>
+<span><span class="co">#&gt; residual 1.031e-10).</span></span>
+<span><span class="co">#&gt;         [,1]   [,2]     [,3]</span></span>
+<span><span class="co">#&gt; h        0.1   0.05    0.025</span></span>
+<span><span class="co">#&gt; jacobi 337.0 682.00 1374.000</span></span>
+<span><span class="co">#&gt; amg     32.0  35.00   37.000</span></span></code></pre></div>
+<p>In two dimensions the sparse Cholesky factorization is still as fast
+as AMG preconditioned CG up to about <span class="math inline">10^5</span> unknowns (measured: 1.2 s each for
+130,000 P2 unknowns, with 0.5 s of AMG setup); AMG’s advantages are
+memory, which grows linearly, and systems where a factorization is not
+available.</p>
 </div>
 </div>
 <div class="section level2">
@@ -283,7 +306,7 @@ two-dimensional finite-element matrices costs roughly <span class="math inline">
 orderings, which keeps meshes with <span class="math inline">10^5</span>
 to <span class="math inline">10^6</span> unknowns practical on a
 workstation.</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw">for</span> <span class="op">(</span><span class="va">n</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">16</span>, <span class="fl">32</span>, <span class="fl">64</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">mesh</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="va">n</span><span class="op">)</span></span>
 <span>  <span class="va">t</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="../reference/elliptic_problem.html">poisson_problem</a></span><span class="op">(</span><span class="va">mesh</span>, source <span class="op">=</span> <span class="fl">1</span>, boundary <span class="op">=</span> <span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
@@ -293,6 +316,21 @@ workstation.</p>
 <span><span class="co">#&gt; n =  16  dofs =    289  assembly 0.00s  solve 0.00s</span></span>
 <span><span class="co">#&gt; n =  32  dofs =   1089  assembly 0.00s  solve 0.00s</span></span>
 <span><span class="co">#&gt; n =  64  dofs =   4225  assembly 0.01s  solve 0.01s</span></span></code></pre></div>
+<p>Where coefficients change every time step or Newton iteration, the
+matrix is reassembled on a fixed sparsity pattern: the map from element
+entries to the nonzeros is computed once, and each reassembly is one
+sparse matrix-vector product, about twelve times faster than building
+the matrix from triplets. The element integrals themselves then dominate
+(about 80 percent of a reassembly for P1 on a 128 by 128 mesh), so the
+end-to-end gain is modest: 7 percent for a heat problem with
+time-dependent diffusion and 4 percent for a quasilinear Newton
+solve.</p>
+<p><code>benchmarks/protocol.R</code> in the source repository runs each
+case in a fresh R process under <code>/usr/bin/time</code> for the true
+peak memory, repeats it after a warm-up run and reports the median with
+the range, and compares P1, P2 and AMG solves at a fixed error. On the
+unit square P2 reaches an L2 error of <code>1e-5</code> with 4,225
+unknowns, where P1 needs more than 66,000.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

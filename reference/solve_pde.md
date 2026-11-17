@@ -25,6 +25,8 @@ solve_pde(
   startup = 2L,
   adaptive = FALSE,
   tol = 1e-04,
+  callback = NULL,
+  restart = NULL,
   ...
 )
 
@@ -40,6 +42,8 @@ solve_pde(
   solver = "auto",
   newton_tol = 1e-10,
   newton_maxit = 25,
+  callback = NULL,
+  restart = NULL,
   ...
 )
 
@@ -47,10 +51,26 @@ solve_pde(
 solve_pde(problem, method = c("lu", "gmres"), tol = 1e-10, ...)
 
 # S3 method for class 'wave_problem'
-solve_pde(problem, dt, output_times = NULL, solver = "auto", ...)
+solve_pde(
+  problem,
+  dt,
+  output_times = NULL,
+  solver = "auto",
+  callback = NULL,
+  restart = NULL,
+  ...
+)
 
 # S3 method for class 'elastodynamics_problem'
-solve_pde(problem, dt, output_times = NULL, solver = "auto", ...)
+solve_pde(
+  problem,
+  dt,
+  output_times = NULL,
+  solver = "auto",
+  callback = NULL,
+  restart = NULL,
+  ...
+)
 ```
 
 ## Arguments
@@ -112,6 +132,25 @@ solve_pde(problem, dt, output_times = NULL, solver = "auto", ...)
   residual with an absolute floor of `1e-12`. Stokes problems: GMRES
   relative residual tolerance.
 
+- callback:
+
+  Optional `function(t, u)` called after every accepted time step with
+  the time and the full vector of nodal values (a matrix with one column
+  per species for reaction-diffusion systems; the displacement vector
+  for waves and elastodynamics). Use it to stream results to disk or to
+  monitor long runs instead of storing every step.
+
+- restart:
+
+  A time-dependent solution from an earlier call. The integration
+  continues from its final state (stored in `$state`: time, values and
+  the extra state of multistep and Newmark schemes, the adaptive step
+  size and the number of steps already taken) to `time[2]` of `problem`;
+  the initial condition of `problem` is then ignored. With the same step
+  size, a run split by restarts reproduces one uninterrupted run up to
+  rounding. Save the solution with
+  [`saveRDS()`](https://rdrr.io/r/base/readRDS.html) for checkpointing.
+
 - maxit:
 
   Maximum number of Newton iterations.
@@ -143,7 +182,7 @@ summary(sol)
 #>   matrix nonzeros: 497
 #>   solver: cholesky, status solved
 #>   linear residual: 1.55e-16 (relative 1.42e-15)
-#>   assembly 0.001 s, solve 0.001 s
+#>   assembly 0.002 s, solve 0.001 s
 #>   solution range [    0, 0.07278]
 #>   (the linear residual measures the algebraic solve, not the discretization error)
 ```

@@ -95,6 +95,8 @@ parabolic, reaction-diffusion and nonlinear problems.</p>
 <span>  startup <span class="op">=</span> <span class="fl">2L</span>,</span>
 <span>  adaptive <span class="op">=</span> <span class="cn">FALSE</span>,</span>
 <span>  tol <span class="op">=</span> <span class="fl">1e-04</span>,</span>
+<span>  callback <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  restart <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -110,6 +112,8 @@ parabolic, reaction-diffusion and nonlinear problems.</p>
 <span>  solver <span class="op">=</span> <span class="st">"auto"</span>,</span>
 <span>  newton_tol <span class="op">=</span> <span class="fl">1e-10</span>,</span>
 <span>  newton_maxit <span class="op">=</span> <span class="fl">25</span>,</span>
+<span>  callback <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  restart <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -117,10 +121,26 @@ parabolic, reaction-diffusion and nonlinear problems.</p>
 <span><span class="fu">solve_pde</span><span class="op">(</span><span class="va">problem</span>, method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"lu"</span>, <span class="st">"gmres"</span><span class="op">)</span>, tol <span class="op">=</span> <span class="fl">1e-10</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'wave_problem'</span></span>
-<span><span class="fu">solve_pde</span><span class="op">(</span><span class="va">problem</span>, <span class="va">dt</span>, output_times <span class="op">=</span> <span class="cn">NULL</span>, solver <span class="op">=</span> <span class="st">"auto"</span>, <span class="va">...</span><span class="op">)</span></span>
+<span><span class="fu">solve_pde</span><span class="op">(</span></span>
+<span>  <span class="va">problem</span>,</span>
+<span>  <span class="va">dt</span>,</span>
+<span>  output_times <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  solver <span class="op">=</span> <span class="st">"auto"</span>,</span>
+<span>  callback <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  restart <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'elastodynamics_problem'</span></span>
-<span><span class="fu">solve_pde</span><span class="op">(</span><span class="va">problem</span>, <span class="va">dt</span>, output_times <span class="op">=</span> <span class="cn">NULL</span>, solver <span class="op">=</span> <span class="st">"auto"</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">solve_pde</span><span class="op">(</span></span>
+<span>  <span class="va">problem</span>,</span>
+<span>  <span class="va">dt</span>,</span>
+<span>  output_times <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  solver <span class="op">=</span> <span class="st">"auto"</span>,</span>
+<span>  callback <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  restart <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  <span class="va">...</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -183,6 +203,25 @@ residual with an absolute floor of <code>1e-12</code>. Stokes problems: GMRES
 relative residual tolerance.</p></dd>
 
 
+<dt id="arg-callback">callback<a class="anchor" aria-label="anchor" href="#arg-callback"></a></dt>
+<dd><p>Optional <code>function(t, u)</code> called after every accepted
+time step with the time and the full vector of nodal values (a matrix
+with one column per species for reaction-diffusion systems; the
+displacement vector for waves and elastodynamics). Use it to stream
+results to disk or to monitor long runs instead of storing every step.</p></dd>
+
+
+<dt id="arg-restart">restart<a class="anchor" aria-label="anchor" href="#arg-restart"></a></dt>
+<dd><p>A time-dependent solution from an earlier call. The
+integration continues from its final state (stored in <code>$state</code>: time,
+values and the extra state of multistep and Newmark schemes, the
+adaptive step size and the number of steps already taken) to
+<code>time[2]</code> of <code>problem</code>; the initial condition of <code>problem</code> is then
+ignored. With the same step size, a run split by restarts reproduces
+one uninterrupted run up to rounding. Save the solution with
+<code><a href="https://rdrr.io/r/base/readRDS.html" class="external-link">saveRDS()</a></code> for checkpointing.</p></dd>
+
+
 <dt id="arg-maxit">maxit<a class="anchor" aria-label="anchor" href="#arg-maxit"></a></dt>
 <dd><p>Maximum number of Newton iterations.</p></dd>
 
@@ -215,7 +254,7 @@ problems with irregular data. <em>Numerische Mathematik</em>, 43, 309-327.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   matrix nonzeros: 497</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   solver: cholesky, status solved</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   linear residual: 1.55e-16 (relative 1.42e-15)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   assembly 0.001 s, solve 0.001 s</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   assembly 0.002 s, solve 0.001 s</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   solution range [    0, 0.07278]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   (the linear residual measures the algebraic solve, not the discretization error)</span>
 </code></pre></div>

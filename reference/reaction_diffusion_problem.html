@@ -151,7 +151,10 @@ on the coupled system and a backtracking line search. The reaction
 Jacobian is <code>jacobian</code> if given, otherwise computed by finite
 differences species by species (pointwise, so it is cheap and exact up
 to the difference error).</p></li>
-</ul><p>Positivity is not guaranteed by either scheme for general reactions.</p>
+</ul><p>Positivity is not guaranteed by either scheme for general reactions.
+The solution diagnostics report the smallest and largest nodal value of
+each species over all steps (<code>range</code>, a two-row matrix) and its integral
+at the stored times (<code>integral</code>); nothing is clipped.</p>
     </div>
 
     <div class="section level2">

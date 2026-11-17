@@ -56,7 +56,9 @@ linear_solver(
 
   `"jacobi"`, `"ssor"`, `"none"`, a `function(r)`, or a preconditioner
   from
-  [`multigrid_preconditioner()`](https://adamrsophie.github.io/pdecompR/reference/multigrid_preconditioner.md).
+  [`multigrid_preconditioner()`](https://adamrsophie.github.io/pdecompR/reference/multigrid_preconditioner.md)
+  or
+  [`amg_preconditioner()`](https://adamrsophie.github.io/pdecompR/reference/amg_preconditioner.md).
 
 - restart:
 

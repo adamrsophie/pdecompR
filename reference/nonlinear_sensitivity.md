@@ -21,6 +21,7 @@ transient_sensitivity(
   dt,
   method = c("backward-euler", "crank-nicolson"),
   h = 1e-06,
+  checkpoint = NULL,
   ...
 )
 ```
@@ -58,6 +59,15 @@ transient_sensitivity(
 
   Time step and scheme for transient problems.
 
+- checkpoint:
+
+  For transient problems, `NULL` to store every state of the forward
+  run, or a step interval `k`: only every `k`-th state is kept and the
+  states in between are recomputed segment by segment during the
+  backward sweep (one extra forward solve per step). With
+  `k = ceiling(sqrt(N))` for `N` steps, memory falls from `N` to about
+  `2 sqrt(N)` state vectors. The gradient is the same up to rounding.
+
 ## Value
 
 A list with `value`, `gradient`, the `solution` and the adjoint.
@@ -75,7 +85,8 @@ condition. It is the exact gradient of the discrete time-stepping scheme
 (up to the difference steps of the operator derivatives), at the cost of
 one extra solve per step, independent of the number of parameters.
 Coefficients must not depend on time and the Dirichlet data must not
-depend on `theta`.
+depend on `theta`. With `checkpoint`, only every `k`-th state is stored
+and the others are recomputed during the backward sweep.
 
 Check either gradient with Taylor remainders, as in
 [`taylor_test()`](https://adamrsophie.github.io/pdecompR/reference/taylor_test.md).

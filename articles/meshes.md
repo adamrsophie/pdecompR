@@ -249,7 +249,8 @@ table(gm$boundary$marker)
 [`write_vtk()`](https://adamrsophie.github.io/pdecompR/reference/write_vtk.md)
 exports meshes and solutions to the VTK format for ParaView: the legacy
 format by default, the XML `.vtu` format when the file name ends in
-`.vtu`.
+`.vtu` (raw binary by default, exact to the last bit; `format = "ascii"`
+for text).
 [`write_pvd()`](https://adamrsophie.github.io/pdecompR/reference/write_pvd.md)
 writes a time-dependent solution as one `.vtu` file per output time plus
 a `.pvd` collection that ParaView opens as an animation.

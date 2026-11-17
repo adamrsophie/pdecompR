@@ -163,7 +163,8 @@ multiplied by <code>load_factor(t)</code>.</p>
 Newmark average acceleration method (<code>beta = 1/4</code>, <code>gamma = 1/2</code>): second
 order, unconditionally stable and, without damping and forcing, exactly
 conserving the discrete energy <code>1/2 v'Mv + 1/2 u'Ku</code>, which is reported as
-<code>diagnostics$energy</code>. The effective matrix is factorized once.</p>
+<code>diagnostics$energy</code>, with the range of nodal values over all steps in
+<code>diagnostics$range</code>. The effective matrix is factorized once.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

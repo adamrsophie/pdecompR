@@ -7,7 +7,7 @@ their times, so ParaView opens the series as one animated data set.
 ## Usage
 
 ``` r
-write_pvd(x, file, name = "u")
+write_pvd(x, file, name = "u", format = c("binary", "ascii"))
 ```
 
 ## Arguments
@@ -25,6 +25,11 @@ write_pvd(x, file, name = "u")
 - name:
 
   Name of the point data array for single-species solutions.
+
+- format:
+
+  Encoding of the `.vtu` files, as in
+  [`write_vtk()`](https://adamrsophie.github.io/pdecompR/reference/write_vtk.md).
 
 ## Value
 

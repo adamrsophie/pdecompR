@@ -66,7 +66,8 @@ in space);
 prescribes the pseudo-traction `(nu grad u - p I) n`, and boundary parts
 with no condition get the do-nothing outflow condition (zero
 pseudo-traction). When the velocity is prescribed on the whole boundary,
-the pressure is fixed by a zero-mean gauge.
+the pressure is fixed by a zero-mean gauge and the prescribed velocity
+must have zero net flux through the boundary.
 
 [`solve_pde()`](https://adamrsophie.github.io/pdecompR/reference/solve_pde.md)
 solves the saddle-point system by sparse LU (`method = "lu"`, the

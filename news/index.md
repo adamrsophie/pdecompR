@@ -17,7 +17,8 @@ of the sparse matrix classes of ‘Matrix’.
 - Import of Gmsh 2.2 and 4.1 meshes (physical lines become boundary
   markers, physical surfaces become regions) and export to VTK,
   including quadratic P2 cells, displacement vectors and stress fields,
-  in legacy and XML (`.vtu`) formats, and ParaView time series
+  in legacy and XML (`.vtu`, raw binary or text) formats, and ParaView
+  time series
   ([`write_pvd()`](https://adamrsophie.github.io/pdecompR/reference/write_pvd.md)).
 
 ### Discretization
@@ -73,6 +74,22 @@ of the sparse matrix classes of ‘Matrix’.
 - [`pde_mesh()`](https://adamrsophie.github.io/pdecompR/reference/pde_mesh.md)
   rejects elements that overlap without sharing an edge (folded node
   neighborhoods or crossing boundary edges).
+- [`amg_preconditioner()`](https://adamrsophie.github.io/pdecompR/reference/amg_preconditioner.md)
+  adds smoothed aggregation algebraic multigrid for CG, with nearly
+  constant iteration counts on unstructured and P2 meshes where
+  geometric multigrid does not apply.
+- `elasticity_problem(formulation = "mixed")` solves nearly
+  incompressible elasticity with P2 displacements and a P1 pressure,
+  free of volumetric locking;
+  [`elasticity_stress()`](https://adamrsophie.github.io/pdecompR/reference/elasticity_stress.md)
+  uses the pressure unknown.
+- Every time stepper accepts a per-step `callback` and can `restart`
+  from the final state of an earlier run (including multistep history,
+  Newmark velocity and acceleration, the adaptive step size and startup
+  steps), so long runs can be streamed and checkpointed.
+- Time-dependent solvers report the range of nodal values over all steps
+  (`diagnostics$range`) next to the integral, to expose violations of
+  positivity or of the discrete maximum principle.
 - Polygon domains with holes (`pde_domain(holes = )`), meshed by
   bridging each hole to the outer boundary before ear clipping; hole
   sides carry their own markers.
@@ -119,7 +136,9 @@ of the sparse matrix classes of ‘Matrix’.
   (a discrete backward sweep) through
   [`nonlinear_sensitivity()`](https://adamrsophie.github.io/pdecompR/reference/nonlinear_sensitivity.md)
   and
-  [`transient_sensitivity()`](https://adamrsophie.github.io/pdecompR/reference/nonlinear_sensitivity.md).
+  [`transient_sensitivity()`](https://adamrsophie.github.io/pdecompR/reference/nonlinear_sensitivity.md);
+  the transient sweep accumulates the gradient step by step and can
+  checkpoint the forward states.
 - Parameter estimation with adjoint gradients, bounds (including fixed
   parameters), Gauss-Newton standard errors and identifiability
   diagnostics.

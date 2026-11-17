@@ -242,12 +242,52 @@ gradient function per component.</p>
 scalar problems.</p>
 </div>
 <div class="section level2">
+<h2 id="nearly-incompressible-materials">Nearly incompressible materials<a class="anchor" aria-label="anchor" href="#nearly-incompressible-materials"></a>
+</h2>
+<p>As <span class="math inline">\nu \to 1/2</span> in plane strain,
+<span class="math inline">\lambda \to \infty</span> and displacement
+elements lock: the constraint <span class="math inline">\operatorname{div} u \approx 0</span> is too strong
+for the discrete space. <code>formulation = "mixed"</code> makes the
+pressure <span class="math inline">p = \lambda \operatorname{div}
+u</span> a separate P1 unknown next to P2 displacements (the Taylor-Hood
+pair), so the term <span class="math inline">\int p\, q / \lambda</span>
+simply vanishes in the limit. The manufactured solution below is
+divergence free, so the exact pressure is zero for every <span class="math inline">\nu</span>.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">ps</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/substitute.html" class="external-link">quote</a></span><span class="op">(</span><span class="op">(</span><span class="va">x</span> <span class="op">*</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">x</span><span class="op">)</span> <span class="op">*</span> <span class="va">y</span> <span class="op">*</span> <span class="op">(</span><span class="fl">1</span> <span class="op">-</span> <span class="va">y</span><span class="op">)</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span></span>
+<span><span class="va">ux_e</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/stats/deriv.html" class="external-link">D</a></span><span class="op">(</span><span class="va">ps</span>, <span class="st">"y"</span><span class="op">)</span>; <span class="va">uy_e</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/call.html" class="external-link">call</a></span><span class="op">(</span><span class="st">"-"</span>, <span class="fu"><a href="https://rdrr.io/r/stats/deriv.html" class="external-link">D</a></span><span class="op">(</span><span class="va">ps</span>, <span class="st">"x"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">lap</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">e</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/call.html" class="external-link">call</a></span><span class="op">(</span><span class="st">"+"</span>, <span class="fu"><a href="https://rdrr.io/r/stats/deriv.html" class="external-link">D</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/deriv.html" class="external-link">D</a></span><span class="op">(</span><span class="va">e</span>, <span class="st">"x"</span><span class="op">)</span>, <span class="st">"x"</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/stats/deriv.html" class="external-link">D</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/deriv.html" class="external-link">D</a></span><span class="op">(</span><span class="va">e</span>, <span class="st">"y"</span><span class="op">)</span>, <span class="st">"y"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">lx</span> <span class="op">&lt;-</span> <span class="fu">lap</span><span class="op">(</span><span class="va">ux_e</span><span class="op">)</span>; <span class="va">ly</span> <span class="op">&lt;-</span> <span class="fu">lap</span><span class="op">(</span><span class="va">uy_e</span><span class="op">)</span></span>
+<span><span class="va">err</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">nu</span>, <span class="va">formulation</span>, <span class="va">degree</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">mu</span> <span class="op">&lt;-</span> <span class="fl">1</span> <span class="op">/</span> <span class="op">(</span><span class="fl">2</span> <span class="op">*</span> <span class="op">(</span><span class="fl">1</span> <span class="op">+</span> <span class="va">nu</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/elasticity_problem.html">elasticity_problem</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">12</span><span class="op">)</span>, nu <span class="op">=</span> <span class="va">nu</span>, degree <span class="op">=</span> <span class="va">degree</span>,</span>
+<span>                          formulation <span class="op">=</span> <span class="va">formulation</span>, bcs <span class="op">=</span> <span class="fu"><a href="../reference/displacement_bc.html">displacement_bc</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>,</span>
+<span>                          body_force <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="op">-</span><span class="va">mu</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/eval.html" class="external-link">eval</a></span><span class="op">(</span><span class="va">lx</span><span class="op">)</span>, <span class="op">-</span><span class="va">mu</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/eval.html" class="external-link">eval</a></span><span class="op">(</span><span class="va">ly</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span>  <span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="va">p</span><span class="op">)</span></span>
+<span>  <span class="va">xy</span> <span class="op">&lt;-</span> <span class="va">s</span><span class="op">$</span><span class="va">space</span><span class="op">$</span><span class="va">dof_coords</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">s</span><span class="op">$</span><span class="va">ux</span><span class="op">$</span><span class="va">values</span> <span class="op">-</span> <span class="fu"><a href="https://rdrr.io/r/base/eval.html" class="external-link">eval</a></span><span class="op">(</span><span class="va">ux_e</span>, <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>x <span class="op">=</span> <span class="va">xy</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span>, y <span class="op">=</span> <span class="va">xy</span><span class="op">[</span>, <span class="fl">2</span><span class="op">]</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span></span>
+<span><span class="va">nus</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.3</span>, <span class="fl">0.49</span>, <span class="fl">0.499</span>, <span class="fl">0.4999</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>nu <span class="op">=</span> <span class="va">nus</span>,</span>
+<span>           P1 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">nus</span>, <span class="va">err</span>, <span class="st">"displacement"</span>, <span class="fl">1</span><span class="op">)</span>,</span>
+<span>           P2 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">nus</span>, <span class="va">err</span>, <span class="st">"displacement"</span>, <span class="fl">2</span><span class="op">)</span>,</span>
+<span>           mixed <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">nus</span>, <span class="va">err</span>, <span class="st">"mixed"</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;       nu           P1           P2        mixed</span></span>
+<span><span class="co">#&gt; 1 0.3000 0.0005634477 1.659782e-05 9.914028e-06</span></span>
+<span><span class="co">#&gt; 2 0.4900 0.0047508469 1.490800e-04 1.259066e-05</span></span>
+<span><span class="co">#&gt; 3 0.4990 0.0098961015 4.279237e-04 1.279487e-05</span></span>
+<span><span class="co">#&gt; 4 0.4999 0.0114776119 5.566561e-04 1.281591e-05</span></span></code></pre></div>
+<p>The displacement errors grow as <span class="math inline">\nu \to
+1/2</span>; the mixed error does not. The solution then has a
+<code>pressure</code> component, and <code><a href="../reference/elasticity_stress.html">elasticity_stress()</a></code>
+uses it for the volumetric stress. <code><a href="../reference/solve_eigen.html">solve_eigen()</a></code> and
+<code><a href="../reference/wave_problem.html">elastodynamics_problem()</a></code> need the displacement
+formulation.</p>
+</div>
+<div class="section level2">
 <h2 id="limitations">Limitations<a class="anchor" aria-label="anchor" href="#limitations"></a>
 </h2>
 <ul>
-<li>Nearly incompressible materials (<span class="math inline">\nu \to
-1/2</span> in plane strain) lock with these displacement elements; mixed
-displacement-pressure formulations are on the roadmap.</li>
 <li>Only small strains and isotropic materials are supported; <span class="math inline">E</span> and <span class="math inline">\nu</span>
 may vary in space.</li>
 </ul>

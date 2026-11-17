@@ -90,7 +90,10 @@ Time integration (argument `method` of
   differences species by species (pointwise, so it is cheap and exact up
   to the difference error).
 
-Positivity is not guaranteed by either scheme for general reactions.
+Positivity is not guaranteed by either scheme for general reactions. The
+solution diagnostics report the smallest and largest nodal value of each
+species over all steps (`range`, a two-row matrix) and its integral at
+the stored times (`integral`); nothing is clipped.
 
 ## Examples
 

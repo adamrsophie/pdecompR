@@ -16,7 +16,14 @@ writes a whole series.
 ## Usage
 
 ``` r
-write_vtk(x, file, name = "u", time = NULL, stress = FALSE)
+write_vtk(
+  x,
+  file,
+  name = "u",
+  time = NULL,
+  stress = FALSE,
+  format = c("binary", "ascii")
+)
 ```
 
 ## Arguments
@@ -45,6 +52,10 @@ write_vtk(x, file, name = "u", time = NULL, stress = FALSE)
   For elasticity solutions, also write `sxx`, `syy`, `sxy` and
   `von_mises` (P1 solutions only, since the stresses are vertex values).
 
+- format:
+
+  Encoding of `.vtu` files: `"binary"` or `"ascii"`.
+
 ## Value
 
 The file path, invisibly.
@@ -52,7 +63,10 @@ The file path, invisibly.
 ## Details
 
 A `file` ending in `.vtu` is written in the XML VTK format instead, with
-the same content.
+the same content: by default as raw little-endian binary appended data
+(`format = "binary"`; Float64 values, Int32 connectivity, UInt32 block
+headers), which is exact and faster to write and read than text, or as
+text with `format = "ascii"`.
 
 ## Examples
 

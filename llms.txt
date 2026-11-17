@@ -196,6 +196,8 @@ GPL-3.
   : Sparse linear solvers
 - [`multigrid_preconditioner()`](https://adamrsophie.github.io/pdecompR/reference/multigrid_preconditioner.md)
   : Geometric multigrid preconditioner
+- [`amg_preconditioner()`](https://adamrsophie.github.io/pdecompR/reference/amg_preconditioner.md)
+  : Algebraic multigrid preconditioner
 
 ## Problems and solvers
 
