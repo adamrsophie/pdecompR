@@ -75,3 +75,20 @@ test_that("nonlinear and transient adjoint gradients pass Taylor and difference 
   pd <- function(th) parabolic_problem(mesh, bcs = dirichlet_bc(function(x, y, t) th * t), time = c(0, 0.2))
   expect_error(transient_sensitivity(pd, 1, ob, dt = 0.05), "must not depend on theta")
 })
+
+test_that("checkpointed transient adjoints match full storage", {
+  mesh <- pde_mesh_rectangle(nx = 4)
+  ob <- misfit_objective(fe_space(mesh), pde_observations(c(0.5, 0.3), c(0.5, 0.6), c(0.05, 0.02)))
+  pt <- function(th) parabolic_problem(mesh, diffusion = th[1], source = function(x, y, t) th[2] * sin(t) * x,
+                                       initial = function(x, y) th[3] * sin(pi * x) * sin(pi * y),
+                                       bcs = dirichlet_bc(function(x, y, t) 0.1 * t * y), time = c(0, 0.5))
+  th <- c(1, 2, 1)
+  for (me in c("backward-euler", "crank-nicolson")) {
+    g0 <- transient_sensitivity(pt, th, ob, dt = 0.05, method = me)$gradient
+    for (k in c(1, 3, 10)) {
+      r <- transient_sensitivity(pt, th, ob, dt = 0.05, method = me, checkpoint = k)
+      expect_equal(r$gradient, g0, tolerance = 1e-12)
+      expect_null(r$adjoint)
+    }
+  }
+})

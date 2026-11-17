@@ -105,7 +105,8 @@ the sparse matrix classes of 'Matrix'.
 * Adjoint gradients of nonlinear problems (one transposed Newton Jacobian
   solve) and of backward Euler and Crank-Nicolson time stepping (a
   discrete backward sweep) through `nonlinear_sensitivity()` and
-  `transient_sensitivity()`.
+  `transient_sensitivity()`; the transient sweep accumulates the gradient
+  step by step and can checkpoint the forward states.
 * Parameter estimation with adjoint gradients, bounds (including fixed
   parameters), Gauss-Newton standard errors and identifiability
   diagnostics.

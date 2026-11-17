@@ -17,7 +17,9 @@
 #' of the discrete time-stepping scheme (up to the difference steps of the
 #' operator derivatives), at the cost of one extra solve per step,
 #' independent of the number of parameters. Coefficients must not depend on
-#' time and the Dirichlet data must not depend on `theta`.
+#' time and the Dirichlet data must not depend on `theta`. With
+#' `checkpoint`, only every `k`-th state is stored and the others are
+#' recomputed during the backward sweep.
 #'
 #' Check either gradient with Taylor remainders, as in [taylor_test()].
 #'
@@ -66,37 +68,66 @@ nonlinear_sensitivity <- function(problem_fun, theta, objective, h = 1e-6, ...) 
 }
 
 #' @rdname nonlinear_sensitivity
+#' @param checkpoint For transient problems, `NULL` to store every state of
+#'   the forward run, or a step interval `k`: only every `k`-th state is
+#'   kept and the states in between are recomputed segment by segment during
+#'   the backward sweep (one extra forward solve per step). With
+#'   `k = ceiling(sqrt(N))` for `N` steps, memory falls from `N` to about
+#'   `2 sqrt(N)` state vectors. The gradient is the same up to rounding.
 #' @export
 transient_sensitivity <- function(problem_fun, theta, objective, dt,
-                                  method = c("backward-euler", "crank-nicolson"), h = 1e-6, ...) {
+                                  method = c("backward-euler", "crank-nicolson"), h = 1e-6, checkpoint = NULL, ...) {
   method <- match.arg(method)
   theta <- as.numeric(theta); check_tol(h, "h")
+  if (!is.null(checkpoint)) checkpoint <- check_count(checkpoint, "checkpoint", min = 1L)
   th_s <- if (method == "crank-nicolson") 0.5 else 1
   prob <- problem_fun(theta)
   if (!inherits(prob, "parabolic_problem")) stopf("`problem_fun` must return a parabolic_problem().")
-  sol <- solve_pde(prob, dt = dt, method = method, startup = 0L, ...)
   ops <- parabolic_operators(prob)
   if (ops$coef_time_dependent) stopf("Coefficients must not depend on time.")
   V <- ops$V
-  N <- sol$diagnostics$steps; dt <- sol$diagnostics$dt
-  grid <- prob$time[1] + (0:N) * dt
-  if (length(sol$times) != N + 1L) stopf("Internal error: all steps must be stored.")
-  U <- sol$values
-  d <- dirichlet_data(V, prob$bcs, grid[1])$dofs
+  t0 <- prob$time[1]; t1 <- prob$time[2]
+  N <- max(1L, as.integer(ceiling((t1 - t0) / dt - 1e-10))); dt <- (t1 - t0) / N
+  grid <- t0 + (0:N) * dt
+  # Forward run: all states, or only every `checkpoint`-th one.
+  if (is.null(checkpoint)) {
+    sol <- solve_pde(prob, dt = dt, method = method, startup = 0L, ...)
+    U <- sol$values
+    getU <- function(n) U[, n]
+  } else {
+    keep <- seq(1L, N + 1L, by = checkpoint)
+    ck <- matrix(0, V$ndof, length(keep)); ck[, 1] <- initial_values(prob$initial, V)
+    d0 <- dirichlet_data(V, prob$bcs, t0); if (length(d0$dofs)) ck[d0$dofs, 1] <- d0$values
+    step <- 0L
+    sol <- solve_pde(prob, dt = dt, method = method, startup = 0L, output_times = t1, ...,
+                     callback = function(t, u) {
+                       step <<- step + 1L
+                       k <- match(step + 1L, keep); if (!is.na(k)) ck[, k] <<- u
+                     })
+    seg <- NULL; seg_lo <- 0L
+    getU <- function(n) {
+      if (is.null(seg) || n < seg_lo || n > seg_lo + ncol(seg) - 1L) {
+        c0 <- keep[findInterval(n, keep)]
+        c1 <- min(c0 + checkpoint, N + 1L)
+        if (c1 == c0) { seg <<- ck[, match(c0, keep), drop = FALSE]; seg_lo <<- c0; return(seg[, 1]) }
+        pr <- prob; pr$time <- c(t0, grid[c1])
+        rs <- structure(list(state = list(kind = "parabolic", t = grid[c0], u = ck[, match(c0, keep)],
+                                          step = c0 - 1L, method = method)), class = "pde_transient")
+        sg <- solve_pde(pr, dt = dt, method = method, startup = 0L, restart = rs, ...)
+        seg <<- sg$values; seg_lo <<- c0
+      }
+      seg[, n - seg_lo + 1L]
+    }
+  }
+  uN <- sol$state$u
+  d <- dirichlet_data(V, prob$bcs, t0)$dofs
   f <- setdiff(seq_len(V$ndof), d)
   L <- ops$M + (th_s * dt) * ops$A; R <- ops$M - ((1 - th_s) * dt) * ops$A
   Lt <- linear_solver(Matrix::t(L[f, f, drop = FALSE]))
   Rff_t <- Matrix::t(R[f, f, drop = FALSE])
-  ob <- objective(U[, N + 1L])
-  # Backward sweep: L' lambda_N = g, L' lambda_n = R' lambda_{n+1}.
-  Lam <- matrix(0, length(f), N)
-  s <- Lt$solve(ob$gradient[f]); warn_solver(s$info, "adjoint solve")
-  Lam[, N] <- s$x
-  if (N > 1L) for (n in (N - 1L):1L) {
-    s <- Lt$solve(as.numeric(Rff_t %*% Lam[, n + 1L])); warn_solver(s$info, "adjoint solve")
-    Lam[, n] <- s$x
-  }
-  gr <- vapply(seq_along(theta), function(j) {
+  ob <- objective(uN)
+  # Parameter derivatives of the operator, loads and initial state.
+  der <- lapply(seq_along(theta), function(j) {
     hj <- h * max(1, abs(theta[j]))
     tp <- theta; tp[j] <- tp[j] + hj; tm <- theta; tm[j] <- tm[j] - hj
     pp <- problem_fun(tp); pm <- problem_fun(tm)
@@ -110,21 +141,35 @@ transient_sensitivity <- function(problem_fun, theta, objective, dt,
       }
     }
     op <- parabolic_operators(pp); om <- parabolic_operators(pm)
-    dA <- (op$A - om$A) / (2 * hj)
-    du0 <- (initial_values(pp$initial, V) - initial_values(pm$initial, V)) / (2 * hj)
-    dF <- function(t) (op$load(t) - om$load(t)) / (2 * hj)
-    tot <- sum(Lam[, 1] * as.numeric(R %*% c_zero(du0, d))[f])
-    dF_old <- dF(grid[1])
-    for (n in seq_len(N)) {
-      dF_new <- dF(grid[n + 1L])
-      rhs <- -((1 - th_s) * dt) * as.numeric(dA %*% U[, n]) - (th_s * dt) * as.numeric(dA %*% U[, n + 1L]) +
-        dt * (th_s * dF_new + (1 - th_s) * dF_old)
-      tot <- tot + sum(Lam[, n] * rhs[f])
-      dF_old <- dF_new
+    list(dA = (op$A - om$A) / (2 * hj),
+         du0 = c_zero((initial_values(pp$initial, V) - initial_values(pm$initial, V)) / (2 * hj), d),
+         dF = function(t) (op$load(t) - om$load(t)) / (2 * hj))
+  })
+  # Backward sweep: L' lambda_N = g, L' lambda_n = R' lambda_{n+1}; each
+  # step's contribution to every gradient entry is added as lambda_n is
+  # formed, so neither the adjoints nor (with checkpoints) the states are
+  # stored.
+  gr <- numeric(length(theta))
+  dF_next <- lapply(der, function(dj) dj$dF(grid[N + 1L]))
+  u_next <- uN
+  lam <- NULL; full_lam <- if (is.null(checkpoint)) matrix(0, length(f), N) else NULL
+  for (n in N:1L) {
+    s <- Lt$solve(if (n == N) ob$gradient[f] else as.numeric(Rff_t %*% lam))
+    warn_solver(s$info, "adjoint solve")
+    lam <- s$x
+    if (!is.null(full_lam)) full_lam[, n] <- lam
+    u_n <- getU(n)
+    for (j in seq_along(der)) {
+      dF_n <- der[[j]]$dF(grid[n])
+      rhs <- -((1 - th_s) * dt) * as.numeric(der[[j]]$dA %*% u_n) - (th_s * dt) * as.numeric(der[[j]]$dA %*% u_next) +
+        dt * (th_s * dF_next[[j]] + (1 - th_s) * dF_n)
+      gr[j] <- gr[j] + sum(lam * rhs[f])
+      dF_next[[j]] <- dF_n
     }
-    tot
-  }, numeric(1))
-  list(value = ob$value, gradient = gr, solution = sol, adjoint = Lam)
+    u_next <- u_n
+  }
+  for (j in seq_along(der)) gr[j] <- gr[j] + sum(lam * as.numeric(R %*% der[[j]]$du0)[f])
+  list(value = ob$value, gradient = gr, solution = sol, adjoint = full_lam)
 }
 
 # Zero the prescribed entries (their values do not depend on theta).

@@ -14,6 +14,7 @@ transient_sensitivity(
   dt,
   method = c("backward-euler", "crank-nicolson"),
   h = 1e-06,
+  checkpoint = NULL,
   ...
 )
 }
@@ -32,6 +33,13 @@ final state for transient problems) returning
 \item{...}{Passed to \code{\link[=solve_pde]{solve_pde()}}.}
 
 \item{dt, method}{Time step and scheme for transient problems.}
+
+\item{checkpoint}{For transient problems, \code{NULL} to store every state of
+the forward run, or a step interval \code{k}: only every \code{k}-th state is
+kept and the states in between are recomputed segment by segment during
+the backward sweep (one extra forward solve per step). With
+\code{k = ceiling(sqrt(N))} for \code{N} steps, memory falls from \code{N} to about
+\verb{2 sqrt(N)} state vectors. The gradient is the same up to rounding.}
 }
 \value{
 A list with \code{value}, \code{gradient}, the \code{solution} and the adjoint.
@@ -55,7 +63,9 @@ operator, the loads and the initial condition. It is the exact gradient
 of the discrete time-stepping scheme (up to the difference steps of the
 operator derivatives), at the cost of one extra solve per step,
 independent of the number of parameters. Coefficients must not depend on
-time and the Dirichlet data must not depend on \code{theta}.
+time and the Dirichlet data must not depend on \code{theta}. With
+\code{checkpoint}, only every \code{k}-th state is stored and the others are
+recomputed during the backward sweep.
 
 Check either gradient with Taylor remainders, as in \code{\link[=taylor_test]{taylor_test()}}.
 }
