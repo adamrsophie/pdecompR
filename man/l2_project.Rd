@@ -20,8 +20,9 @@ An \code{\link[=fe_function]{fe_function()}} on \code{space}.
 Computes the L2 projection \verb{P f} of \code{f} onto \code{space}: the finite-element
 function with \verb{int (P f) v = int f v} for every \code{v} in the space. Because
 constants belong to the space, the projection preserves the integral of
-\code{f} over the domain (and over any union of elements for P1 and P2), which
-interpolation does not.
+\code{f} over the whole domain, which interpolation does not. It does not
+preserve integrals over individual elements or unions of them: local
+conservation would need a discontinuous space or explicit constraints.
 }
 \details{
 \code{f} may be a number, a \verb{function(x, y)}, or an \code{\link[=fe_function]{fe_function()}} on any mesh

@@ -112,9 +112,14 @@ pde_domain <- function(type = c("rectangle", "polygon"),
                  hole_markers = hm), class = "pde_domain")
 }
 
-# Ray casting; points on the boundary count as outside.
+# Ray casting; points on the boundary count as outside. Coordinates are
+# taken relative to the polygon's center and diameter, so the on-boundary
+# tolerance is dimensionless and the result does not change with the length
+# unit or the origin.
 points_in_polygon <- function(p, v) {
   p <- matrix(p, ncol = 2); nv <- nrow(v); j <- c(nv, seq_len(nv - 1L))
+  ctr <- colMeans(v); D <- max(apply(v, 2, function(z) diff(range(z))))
+  v <- sweep(v, 2, ctr) / D; p <- sweep(p, 2, ctr) / D
   vapply(seq_len(nrow(p)), function(k) {
     x <- p[k, 1]; y <- p[k, 2]
     xi <- v[, 1]; yi <- v[, 2]; xj <- v[j, 1]; yj <- v[j, 2]

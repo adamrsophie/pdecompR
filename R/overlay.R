@@ -52,6 +52,7 @@ mesh_overlay <- function(a, b) {
       cells[[k]] <- c(cells[[k]], t)
     }
   }
+  area_b <- abs((bx[, 2] - bx[, 1]) * (by[, 3] - by[, 1]) - (bx[, 3] - bx[, 1]) * (by[, 2] - by[, 1])) / 2
   ax <- matrix(Pa[Ta, 1], ma); ay <- matrix(Pa[Ta, 2], ma)
   out_ea <- integer(0); out_eb <- integer(0); out_v <- list()
   for (e in seq_len(ma)) {
@@ -65,11 +66,13 @@ mesh_overlay <- function(a, b) {
       pg <- clip_convex(xa, ya, bx[t, ], by[t, ])
       nv <- length(pg$x)
       if (nv < 3L) next
-      # Fan triangulation; drop slivers of relative area below rounding.
+      # Fan triangulation; drop only slivers below rounding relative to the
+      # smaller parent, so a small real cell inside a large one is kept.
+      small <- 1e-12 * min(area_a, area_b[t])
       for (k in 2:(nv - 1L)) {
         v <- c(pg$x[1], pg$y[1], pg$x[k], pg$y[k], pg$x[k + 1L], pg$y[k + 1L])
         ar <- ((v[3] - v[1]) * (v[6] - v[2]) - (v[5] - v[1]) * (v[4] - v[2])) / 2
-        if (abs(ar) <= 1e-12 * area_a) next
+        if (abs(ar) <= small) next
         out_ea <- c(out_ea, e); out_eb <- c(out_eb, t); out_v[[length(out_v) + 1L]] <- v
       }
     }
@@ -119,8 +122,9 @@ overlay_error <- function(u, ref, type, diffusion, quad_degree) {
 #' Computes the L2 projection `P f` of `f` onto `space`: the finite-element
 #' function with `int (P f) v = int f v` for every `v` in the space. Because
 #' constants belong to the space, the projection preserves the integral of
-#' `f` over the domain (and over any union of elements for P1 and P2), which
-#' interpolation does not.
+#' `f` over the whole domain, which interpolation does not. It does not
+#' preserve integrals over individual elements or unions of them: local
+#' conservation would need a discontinuous space or explicit constraints.
 #'
 #' `f` may be a number, a `function(x, y)`, or an [fe_function()] on any mesh
 #' of the same domain. For a finite-element function on another mesh the

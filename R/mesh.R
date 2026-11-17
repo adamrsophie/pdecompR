@@ -552,6 +552,8 @@ set_boundary_marker <- function(mesh, marker, which) {
   my <- (P[bd$n1, 2] + P[bd$n2, 2]) / 2
   sel <- check_selection(which(mx, my), nrow(bd), "boundary edge")
   mesh$boundary$marker[sel] <- marker
+  # Relabeled edges are straight; their curve association is dropped.
+  if (!is.null(mesh$boundary$curve)) mesh$boundary$curve[sel] <- NA_integer_
   mesh$info$markers_edited <- TRUE
   mesh
 }
@@ -681,7 +683,9 @@ dof_components <- function(space, cc = mesh_components(space$mesh)) {
 
 # For a mesh `fine` whose triangles each lie inside one triangle of `coarse`
 # (for example after refinement), the containing triangle of each fine
-# triangle; NULL when the meshes are not nested this way.
+# triangle; NULL when the meshes are not nested this way. Containment alone
+# would accept a fine mesh of a smaller domain, so the two meshes must also
+# have the same area: then they cover the same domain.
 nested_parent <- function(fine, coarse) {
   if (identical(fine$nodes, coarse$nodes) && identical(fine$triangles, coarse$triangles)) {
     return(seq_len(nrow(fine$triangles)))
@@ -702,6 +706,8 @@ nested_parent <- function(fine, coarse) {
     tol <- 1e-10
     if (any(xi < -tol | eta < -tol | xi + eta > 1 + tol)) return(NULL)
   }
+  af <- sum(abs(tri_det(P, T))) / 2; ac <- sum(abs(tri_det(Q, C))) / 2
+  if (abs(af - ac) > 1e-9 * ac) return(NULL)
   par
 }
 
@@ -736,6 +742,28 @@ mesh_overlap_check <- function(mesh) {
     for (k in j) {
       if (segments_touch(P[b1[i], ], P[b2[i], ], P[b1[k], ], P[b2[k], ])) {
         stopf("Boundary edges (%d, %d) and (%d, %d) intersect: elements overlap.", b1[i], b2[i], b1[k], b2[k])
+      }
+    }
+  }
+  # Components whose boundaries do not cross are either disjoint or one lies
+  # inside an element of another; test one interior point per component.
+  cc <- mesh_components(mesh)
+  if (cc$n > 1L) {
+    ec <- cc$node[T[, 1]]
+    x1 <- P[T[, 1], 1]; y1 <- P[T[, 1], 2]
+    b11 <- P[T[, 2], 1] - x1; b12 <- P[T[, 3], 1] - x1
+    b21 <- P[T[, 2], 2] - y1; b22 <- P[T[, 3], 2] - y1
+    det <- b11 * b22 - b12 * b21
+    for (k in seq_len(cc$n)) {
+      e0 <- which(ec == k)[1]
+      cx <- mean(P[T[e0, ], 1]); cy <- mean(P[T[e0, ], 2])
+      o <- which(ec != k)
+      dx <- cx - x1[o]; dy <- cy - y1[o]
+      xi <- (b22[o] * dx - b12[o] * dy) / det[o]; eta <- (-b21[o] * dx + b11[o] * dy) / det[o]
+      inside <- xi > 0 & eta > 0 & xi + eta < 1
+      if (any(inside)) {
+        stopf("Elements overlap: a disconnected part of the mesh (element %d) lies inside element %d.",
+              e0, o[which(inside)[1]])
       }
     }
   }

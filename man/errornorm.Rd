@@ -65,7 +65,10 @@ domain diameter; the result is then labeled with attribute
 \code{gradient = "finite difference"}. Its accuracy depends on the smoothness of
 \code{exact} (the truncation error is of order step squared times the third
 derivative), and it is wrong near jumps of the gradient, so pass \code{gradient}
-for verification work.
+for verification work. The step does not change when the domain is
+translated; on a domain far from the origin it is raised where the
+coordinates cannot represent it, and the rounding error then grows like
+\verb{1e-16 |x|} divided by the step.
 }
 \examples{
 mesh <- pde_mesh_rectangle(nx = 8)

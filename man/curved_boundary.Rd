@@ -15,7 +15,8 @@ curved_boundary(mesh, marker, projection)
 closest points on the curve.}
 }
 \value{
-The mesh, with the curve stored in \code{curves}.
+The mesh, with the curve stored in \code{curves} and attached to the
+marked edges.
 }
 \description{
 Declares the boundary edges with marker \code{marker} as approximations of a
@@ -30,9 +31,10 @@ chords, which limits P2 to the accuracy of the polygonal domain
 }
 \details{
 The existing nodes on the marked edges must already lie on the curve. The
-projection is kept by refinement and by meshes derived from the refined
-ones; relabeling edges with \code{\link[=set_boundary_marker]{set_boundary_marker()}} to a new marker drops
-the curve for them. Because refined meshes no longer cover the same
+curve is attached to those edges (column \code{curve} of \code{mesh$boundary}, an
+index into \code{mesh$curves}) and passed to their children by refinement;
+relabeling edges with \code{\link[=set_boundary_marker]{set_boundary_marker()}} makes them straight again,
+whatever marker the curve was declared with. Because refined meshes no longer cover the same
 domain as their parents, \code{\link[=errornorm]{errornorm()}} against a finite-element reference
 from another mesh of the sequence and \code{\link[=l2_project]{l2_project()}} between them stop
 with an error; compare with exact functions instead. Multigrid

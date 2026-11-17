@@ -18,7 +18,10 @@
 #' `gradient = "finite difference"`. Its accuracy depends on the smoothness of
 #' `exact` (the truncation error is of order step squared times the third
 #' derivative), and it is wrong near jumps of the gradient, so pass `gradient`
-#' for verification work.
+#' for verification work. The step does not change when the domain is
+#' translated; on a domain far from the origin it is raised where the
+#' coordinates cannot represent it, and the rounding error then grows like
+#' `1e-16 |x|` divided by the step.
 #'
 #' @param u An [fe_function()], `pde_solution` or `pde_vector_solution` (from
 #'   [elasticity_problem()]; then `exact` returns two columns and `gradient` is a
@@ -116,7 +119,7 @@ errornorm <- function(u, exact, type = c("L2", "H1_semi", "H1", "energy"), gradi
     ex <- matrix(g[, 1], geo$m) - uh$dx; ey <- matrix(g[, 2], geo$m) - uh$dy
     d2 <- ex^2 + ey^2
     if (type == "energy") {
-      d2 <- if (!is.null(tensor_at(diffusion, 0, 0))) {
+      d2 <- if (inherits(diffusion, "pde_tensor") || (is.matrix(diffusion) && is.numeric(diffusion))) {
         energy_density(diffusion, ex, ey, geo$x, geo$y)
       } else {
         d2 * coef_qp(diffusion, geo, name = "diffusion")
@@ -131,13 +134,18 @@ errornorm <- function(u, exact, type = c("L2", "H1_semi", "H1", "energy"), gradi
   out
 }
 
-# Central-difference gradient; the step is h times max(scale, |x|), so pass
-# the length scale of the domain to keep it unit independent.
+# Central-difference gradient with step h * scale, where scale is the
+# diameter of the domain: the step follows the size of the domain, not the
+# distance from the origin, so translating the domain does not change it.
+# The step is raised where coordinates are so large that it is not
+# representable, and the divisor is the step actually taken in floating
+# point.
 fd_gradient <- function(f, h = 1e-5, scale = 1) {
   function(x, y) {
-    hx <- h * pmax(scale, abs(x)); hy <- h * pmax(scale, abs(y))
-    cbind((f(x + hx, y) - f(x - hx, y)) / (2 * hx),
-          (f(x, y + hy) - f(x, y - hy)) / (2 * hy))
+    st <- function(v) pmax(h * scale, 1e3 * .Machine$double.eps * abs(v))
+    hx <- st(x); hy <- st(y)
+    xp <- x + hx; xm <- x - hx; yp <- y + hy; ym <- y - hy
+    cbind((f(xp, y) - f(xm, y)) / (xp - xm), (f(x, yp) - f(x, ym)) / (yp - ym))
   }
 }
 

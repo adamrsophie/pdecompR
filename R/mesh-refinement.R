@@ -45,11 +45,11 @@ refine_uniform <- function(mesh) {
   bm <- n + bd$edge
   be <- rbind(cbind(bd$n1, bm), cbind(bm, bd$n2))
   out <- pde_mesh(nodes, tris, be, c(bd$marker, bd$marker), check_overlap = FALSE)
+  out <- carry_curves(out, mesh, be, c(bd$curve, bd$curve))
   parent <- rep(seq_len(nrow(T)), 4L)
   out$regions <- mesh_regions(mesh)[parent]
   out$info <- refined_info(mesh, E, nvb = FALSE, parent)
   out$info$projected_nodes <- pr$moved
-  out$curves <- mesh$curves
   out
 }
 
@@ -107,12 +107,13 @@ refine_mesh <- function(mesh, marked) {
               cbind(bmid, bd$n2)[split, , drop = FALSE])
   bmk <- c(bd$marker[!split], bd$marker[split], bd$marker[split])
   out <- pde_mesh(nodes, tris, be, bmk, check_overlap = FALSE)
+  cur <- bd$curve
+  if (!is.null(cur)) out <- carry_curves(out, mesh, be, c(cur[!split], cur[split], cur[split]))
   parent <- c(which(!r), which(A_plain), which(A_split), which(A_split),
               which(B_plain), which(B_split), which(B_split))
   out$regions <- mesh_regions(mesh)[parent]
   out$info <- refined_info(mesh, E[emark, , drop = FALSE], nvb = TRUE, parent)
   out$info$projected_nodes <- pr$moved
-  out$curves <- mesh$curves
   out
 }
 
@@ -162,6 +163,19 @@ nvb_initial_labeling <- function(mesh) {
   out <- pde_mesh(P, T2, cbind(bd$n1, bd$n2), bd$marker, regions = mesh_regions(mesh))
   out$info <- mesh$info
   out$info$nvb <- TRUE
+  out <- carry_curves(out, mesh, cbind(bd$n1, bd$n2), bd$curve)
+  out
+}
+
+# Curves are attached to boundary edges (`boundary$curve`, an index into
+# `mesh$curves`). Copy them to the boundary edges `be` of a mesh derived from
+# `mesh`, where `cur` holds the curve of each row of `be`.
+carry_curves <- function(out, mesh, be, cur) {
+  if (is.null(mesh$curves) || is.null(cur)) return(out)
+  n <- nrow(out$nodes)
+  pos <- match(edge_key(be[, 1], be[, 2], n), edge_key(out$boundary$n1, out$boundary$n2, n))
+  out$boundary$curve <- NA_integer_
+  out$boundary$curve[pos] <- cur
   out$curves <- mesh$curves
   out
 }
@@ -169,13 +183,14 @@ nvb_initial_labeling <- function(mesh) {
 # Move the new nodes `ids` (one per boundary edge of `mesh`, NA or 0 when
 # the edge is not split) of curved boundary edges onto their curve.
 project_curved <- function(nodes, mesh, ids) {
-  cv <- mesh$curves
+  cur <- mesh$boundary$curve
   moved <- integer(0)
-  for (mk in names(cv)) {
-    k <- ids[boundary_rows(mesh, mk)]
+  if (is.null(cur)) return(list(nodes = nodes, moved = moved))
+  for (cv in sort(unique(cur[!is.na(cur)]))) {
+    k <- ids[which(cur == cv)]
     k <- k[!is.na(k) & k > 0L]
     if (!length(k)) next
-    nodes[k, ] <- eval_projection(cv[[mk]], nodes[k, 1], nodes[k, 2], mk)
+    nodes[k, ] <- eval_projection(mesh$curves[[cv]], nodes[k, 1], nodes[k, 2], names(mesh$curves)[cv])
     moved <- c(moved, k)
   }
   list(nodes = nodes, moved = sort(moved))
@@ -202,9 +217,10 @@ eval_projection <- function(f, x, y, marker) {
 #' (isoparametric elements are not provided).
 #'
 #' The existing nodes on the marked edges must already lie on the curve. The
-#' projection is kept by refinement and by meshes derived from the refined
-#' ones; relabeling edges with [set_boundary_marker()] to a new marker drops
-#' the curve for them. Because refined meshes no longer cover the same
+#' curve is attached to those edges (column `curve` of `mesh$boundary`, an
+#' index into `mesh$curves`) and passed to their children by refinement;
+#' relabeling edges with [set_boundary_marker()] makes them straight again,
+#' whatever marker the curve was declared with. Because refined meshes no longer cover the same
 #' domain as their parents, [errornorm()] against a finite-element reference
 #' from another mesh of the sequence and [l2_project()] between them stop
 #' with an error; compare with exact functions instead. Multigrid
@@ -217,7 +233,8 @@ eval_projection <- function(f, x, y, marker) {
 #' @param marker Boundary marker of the curved edges.
 #' @param projection `function(x, y)` returning a two-column matrix of the
 #'   closest points on the curve.
-#' @return The mesh, with the curve stored in `curves`.
+#' @return The mesh, with the curve stored in `curves` and attached to the
+#'   marked edges.
 #' @examples
 #' n <- 16
 #' circle <- cbind(cos(2 * pi * (1:n) / n), sin(2 * pi * (1:n) / n))
@@ -230,7 +247,9 @@ curved_boundary <- function(mesh, marker, projection) {
   stopifnot(inherits(mesh, "pde_mesh"))
   check_name(marker, "marker")
   if (!is.function(projection)) stopf("`projection` must be a function(x, y).")
-  nd <- boundary_nodes(mesh, marker)
+  rows <- boundary_rows(mesh, marker)
+  bd <- mesh$boundary
+  nd <- sort(unique(c(bd$n1[rows], bd$n2[rows])))
   P <- mesh$nodes[nd, , drop = FALSE]
   q <- eval_projection(projection, P[, 1], P[, 2], marker)
   h <- min(mesh_edge_lengths(mesh))
@@ -238,6 +257,8 @@ curved_boundary <- function(mesh, marker, projection) {
     stopf("The nodes on boundary \"%s\" do not lie on the curve (largest distance %s).", marker,
           fmt_num(max(sqrt(rowSums((q - P)^2)))))
   }
-  mesh$curves[[marker]] <- projection
+  mesh$curves <- c(mesh$curves, stats::setNames(list(projection), marker))
+  if (is.null(bd$curve)) mesh$boundary$curve <- NA_integer_
+  mesh$boundary$curve[rows] <- length(mesh$curves)
   mesh
 }

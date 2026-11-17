@@ -65,7 +65,7 @@ test_that("refinement on curved boundaries restores the P1 convergence rate", {
   expect_gt(min(log2(e[-4] / e[-1])), 1.9)
   r <- sqrt(rowSums(m$nodes[boundary_nodes(m), ]^2))
   expect_equal(r, rep(1, length(r)), tolerance = 1e-14)
-  expect_true(is.function(m$curves$boundary))
+  expect_true(is.function(m$curves$boundary)); expect_true(all(m$boundary$curve == 1L))
   b <- refine_mesh(ms[[2]], 1:3)
   expect_equal(sqrt(rowSums(b$nodes[boundary_nodes(b), ]^2)), rep(1, length(boundary_nodes(b))), tolerance = 1e-14)
   s <- solve_pde(poisson_problem(ms[[5]], source = 4, boundary = dirichlet_bc(0)), method = "cg",
