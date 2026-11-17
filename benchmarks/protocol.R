@@ -5,9 +5,12 @@
 #
 # Every case runs in a fresh R process started under /usr/bin/time, which
 # reports the true peak resident set size of that process (`-l` on macOS,
-# `-v` on Linux). Inside the process the case runs once to warm up (loading,
-# byte compilation, first allocations) and then `repeats` more times
-# serially; the median and the range of those repeats are reported.
+# `-v` on Linux). Inside the process the case runs twice to warm up
+# (loading, byte compilation, first allocations; one run was not enough,
+# the first timed repeat was then about 0.27 s slow) and then `repeats`
+# more times serially; the median and the range of those repeats are
+# reported. The peak RSS includes about 290 MB of R and pkgload::load_all()
+# before any solve.
 # Methods are compared at a fixed error: for each target, the coarsest mesh
 # of each method that reaches it is used. Results go to
 # benchmarks/results/protocol.csv with the session information.
@@ -39,7 +42,7 @@ if (length(args) && args[1] == "--worker") {
     c(total = t1 - t0, local = tl - ta, sparse = tg - tl, assembly = s$diagnostics$assembly_time,
       solve = s$diagnostics$solve_time, error = as.numeric(errornorm(s, u, "L2")), ndof = s$space$ndof)
   }
-  invisible(run())
+  invisible(run()); invisible(run())
   r <- sapply(seq_len(reps), function(i) run())
   out <- c(apply(r[c("total", "local", "sparse", "assembly", "solve"), , drop = FALSE], 1, stats::median),
            total_min = min(r["total", ]), total_max = max(r["total", ]), error = unname(r["error", 1]), ndof = unname(r["ndof", 1]))

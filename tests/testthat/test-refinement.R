@@ -75,3 +75,20 @@ test_that("refinement on curved boundaries restores the P1 convergence rate", {
   expect_error(curved_boundary(pde_mesh_rectangle(c(1, 2), c(1, 2)), "boundary", proj), "do not lie on the curve")
   expect_error(curved_boundary(ms[[1]], "boundary", function(x, y) x), "two-column")
 })
+
+test_that("curved holes keep valid meshes and the P1 rate", {
+  n <- 16; t <- 2 * pi * (1:n) / n
+  dom <- pde_domain("polygon", vertices = cbind(cos(t), sin(t)), markers = "outer",
+                    holes = list(0.5 * cbind(cos(rev(t)), sin(rev(t)))), hole_markers = "inner")
+  proj <- function(r) function(x, y) r * cbind(x, y) / sqrt(x^2 + y^2)
+  m <- curved_boundary(curved_boundary(pde_mesh_polygon(dom), "outer", proj(1)), "inner", proj(0.5))
+  u <- function(x, y) x^2 + y^2
+  e <- numeric(0)
+  for (k in 1:3) {
+    m <- refine_uniform(m)
+    e[k] <- errornorm(solve_pde(poisson_problem(m, source = -4, boundary = dirichlet_bc(u))), u, "L2")
+  }
+  expect_gt(min(log2(e[-3] / e[-1])), 1.9)
+  expect_gt(min(mesh_quality(m)$min_angle), 15)
+  expect_error(transfer_function(interpolate(u, fe_space(m)), refine_uniform(refine_uniform(m))), "not covered")
+})

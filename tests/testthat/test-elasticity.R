@@ -95,3 +95,27 @@ test_that("the mixed formulation does not lock as nu approaches 1/2", {
   expect_error(solve_eigen(ep), "displacement formulation")
   expect_error(elastodynamics_problem(ep), "displacement formulation")
 })
+
+test_that("the mixed formulation reproduces compressible solutions and their pressure", {
+  lam <- 1.5; mu <- 1
+  E <- mu * (3 * lam + 2 * mu) / (lam + mu); nu <- lam / (2 * (lam + mu))
+  exact <- function(x, y) cbind(sin(pi * x) * sin(pi * y), x * y * (1 - x) * (1 - y))
+  divu <- function(x, y) pi * cos(pi * x) * sin(pi * y) + x * (1 - x) * (1 - 2 * y)
+  force <- function(x, y) {
+    uxx <- -pi^2 * sin(pi * x) * sin(pi * y); uxy <- pi^2 * cos(pi * x) * cos(pi * y)
+    vxx <- -2 * y * (1 - y); vyy <- -2 * x * (1 - x); vxy <- (1 - 2 * x) * (1 - 2 * y)
+    cbind(-(mu * 2 * uxx + (lam + mu) * (uxx + vxy)), -(mu * (vxx + vyy) + (lam + mu) * (uxy + vyy)))
+  }
+  mk <- function(fm, nx) elasticity_problem(pde_mesh_rectangle(nx = nx), E = E, nu = nu, body_force = force,
+                                            bcs = displacement_bc(exact), degree = 2, formulation = fm)
+  a <- solve_pde(mk("mixed", 16)); b <- solve_pde(mk("displacement", 16))
+  ea <- errornorm(a, exact, "L2"); eb <- errornorm(b, exact, "L2")
+  expect_lt(ea, 1e-4); expect_lt(abs(ea / eb - 1), 0.5)
+  pe <- function(s) { Q <- s$pressure$space; max(abs(s$pressure$values - lam * divu(Q$dof_coords[, 1], Q$dof_coords[, 2]))) }
+  p16 <- pe(a); p32 <- pe(solve_pde(mk("mixed", 32)))
+  expect_lt(p16, 0.05 * lam * pi); expect_gt(p16 / p32, 3)
+  sa <- elasticity_stress(a); sb <- elasticity_stress(b)
+  expect_lt(max(abs(sa$sxx - sb$sxx)), 0.05 * max(abs(sb$sxx)))
+  expect_error(solve_pde(elasticity_problem(pde_mesh_rectangle(nx = 2), nu = 0, degree = 2, formulation = "mixed",
+                                            bcs = displacement_bc(0))), "nu > 0")
+})

@@ -36,8 +36,10 @@ the curve for them. Because refined meshes no longer cover the same
 domain as their parents, \code{\link[=errornorm]{errornorm()}} against a finite-element reference
 from another mesh of the sequence and \code{\link[=l2_project]{l2_project()}} between them stop
 with an error; compare with exact functions instead. Multigrid
-prolongation and \code{\link[=transfer_function]{transfer_function()}} use the chord average at
-projected nodes.
+prolongation and the one-step P1 path of \code{\link[=transfer_function]{transfer_function()}} use the
+chord average at projected nodes; other transfers between meshes of a
+curved sequence (P2, or across several refinements) stop with an error
+because the projected nodes lie outside the coarser mesh.
 }
 \examples{
 n <- 16

@@ -121,9 +121,12 @@ integration continues from its final state (stored in \verb{$state}: time,
 values and the extra state of multistep and Newmark schemes, the
 adaptive step size and the number of steps already taken) to
 \code{time[2]} of \code{problem}; the initial condition of \code{problem} is then
-ignored. With the same step size, a run split by restarts reproduces
-one uninterrupted run up to rounding. Save the solution with
-\code{\link[=saveRDS]{saveRDS()}} for checkpointing.}
+ignored. With a fixed step size, a run split by restarts reproduces
+one uninterrupted run up to rounding. Adaptive SDIRK2 resumes with the
+stored next step size; it matches an uninterrupted run that also stops
+at the restart time (include it in \code{output_times}), and otherwise
+differs by about the error tolerance because the step sequences
+differ. Save the solution with \code{\link[=saveRDS]{saveRDS()}} for checkpointing.}
 
 \item{maxit}{Maximum number of Newton iterations.}
 

@@ -24,7 +24,7 @@
 #' elements lock for nearly incompressible materials (`nu` close to 1/2 in
 #' plane strain); P2 elements reduce but do not remove the effect.
 #'
-#' `formulation = "mixed"` removes locking with the displacement-pressure
+#' `formulation = "mixed"` (for `nu > 0`) removes locking with the displacement-pressure
 #' formulation: the pressure `p = lambda div u` becomes a separate unknown,
 #' `sigma = 2 mu eps(u) + p I`, and the weak form is
 #' `int 2 mu eps(u) : eps(v) + int p div v = int f . v + int_N g . v`,
@@ -164,6 +164,7 @@ discretize.elasticity_problem <- function(problem, ...) {
   if (mixed) {
     # Pressure p = lambda div u: the lambda term leaves the displacement
     # block and enters as -int p q / lambda.
+    if (any(lm$lambda <= 0)) stopf("The mixed formulation needs `nu > 0` (a positive Lame parameter lambda).")
     Q <- fe_space(problem$mesh, 1); gq <- element_geometry(Q, qd)
     mixed_blocks <- list(Q = Q, B = -divergence_coupling(V, Q, geo, gq),
                          C = -global_matrix(Q, local_bilinear(gq, mass = 1 / lm$lambda)),

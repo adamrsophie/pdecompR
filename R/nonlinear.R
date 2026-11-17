@@ -181,7 +181,7 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
 nonlinear_system <- function(problem) {
   V <- fe_space(problem$mesh, problem$degree)
   geo <- element_geometry(V, problem$quad_degree)
-  plan <- assembly_plan(V)
+  plan <- NULL
   fq <- coef_qp(problem$source, geo, name = "source")
   nat <- natural_bc_terms(V, problem$bcs)
   b_nat <- global_vector(V, local_linear(geo, f = fq)) + nat$b
@@ -216,6 +216,7 @@ nonlinear_system <- function(problem) {
       mass <- if (is.null(dg)) NULL else eval_u(dg, q$value, "reaction_derivative")
       A <- local_bilinear(geo, mass = mass, advt = list(x = dkq * q$dx, y = dkq * q$dy), diff = kq)
     }
+    if (is.null(plan)) plan <<- assembly_plan(V)
     J <- plan(A)
     if (!is.null(nat$A)) J <- J + nat$A
     list(r = r, J = J)

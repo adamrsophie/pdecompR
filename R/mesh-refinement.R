@@ -208,8 +208,10 @@ eval_projection <- function(f, x, y, marker) {
 #' domain as their parents, [errornorm()] against a finite-element reference
 #' from another mesh of the sequence and [l2_project()] between them stop
 #' with an error; compare with exact functions instead. Multigrid
-#' prolongation and [transfer_function()] use the chord average at
-#' projected nodes.
+#' prolongation and the one-step P1 path of [transfer_function()] use the
+#' chord average at projected nodes; other transfers between meshes of a
+#' curved sequence (P2, or across several refinements) stop with an error
+#' because the projected nodes lie outside the coarser mesh.
 #'
 #' @param mesh A [pde_mesh()].
 #' @param marker Boundary marker of the curved edges.

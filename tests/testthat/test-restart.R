@@ -24,6 +24,10 @@ test_that("split parabolic runs reproduce one run for every stepper", {
   n <- 0; times <- numeric(0)
   invisible(solve_pde(mk(1), dt = 0.1, callback = function(t, u) { n <<- n + 1; times <<- c(times, t) }))
   expect_equal(n, 10); expect_equal(times[10], 1)
+  ta <- numeric(0)
+  ad2 <- solve_pde(mk(1), dt = 0.05, method = "sdirk2", adaptive = TRUE, tol = 1e-4,
+                   callback = function(t, u) ta <<- c(ta, t))
+  expect_length(ta, ad2$diagnostics$steps); expect_equal(ta[length(ta)], 1); expect_true(all(diff(ta) > 0))
   expect_error(solve_pde(mk(1), dt = 0.1, restart = solve_pde(mk(1), dt = 0.1)), "restart time")
   expect_error(solve_pde(mk(1), dt = 0.1, callback = 1), "callback")
 })

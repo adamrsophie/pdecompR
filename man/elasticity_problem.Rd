@@ -67,7 +67,7 @@ plane strain, or \verb{lambda = E nu / (1 - nu^2)} for plane stress. Low-order
 elements lock for nearly incompressible materials (\code{nu} close to 1/2 in
 plane strain); P2 elements reduce but do not remove the effect.
 
-\code{formulation = "mixed"} removes locking with the displacement-pressure
+\code{formulation = "mixed"} (for \code{nu > 0}) removes locking with the displacement-pressure
 formulation: the pressure \verb{p = lambda div u} becomes a separate unknown,
 \verb{sigma = 2 mu eps(u) + p I}, and the weak form is
 \verb{int 2 mu eps(u) : eps(v) + int p div v = int f . v + int_N g . v},
