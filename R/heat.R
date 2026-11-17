@@ -152,41 +152,57 @@ parabolic_operators <- function(problem) {
 #'   Crank-Nicolson produces for rough initial data or initial data that do
 #'   not match the Dirichlet data; a fixed number of such steps keeps second
 #'   order. Ignored for backward Euler.
+#' @param callback Optional `function(t, u)` called after every accepted
+#'   time step with the time and the full vector of nodal values (a matrix
+#'   with one column per species for reaction-diffusion systems; the
+#'   displacement vector for waves and elastodynamics). Use it to stream
+#'   results to disk or to monitor long runs instead of storing every step.
+#' @param restart A time-dependent solution from an earlier call. The
+#'   integration continues from its final state (stored in `$state`: time,
+#'   values and the extra state of multistep and Newmark schemes, the
+#'   adaptive step size and the number of steps already taken) to
+#'   `time[2]` of `problem`; the initial condition of `problem` is then
+#'   ignored. With the same step size, a run split by restarts reproduces
+#'   one uninterrupted run up to rounding. Save the solution with
+#'   [saveRDS()] for checkpointing.
 #' @references Rannacher, R. (1984). Finite element solution of diffusion
 #'   problems with irregular data. *Numerische Mathematik*, 43, 309-327.
 #' @export
 solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson", "backward-euler", "bdf2", "sdirk2"),
                                         output_times = NULL, solver = "auto", startup = 2L,
-                                        adaptive = FALSE, tol = 1e-4, ...) {
+                                        adaptive = FALSE, tol = 1e-4, callback = NULL, restart = NULL, ...) {
   method <- match.arg(method)
   check_number(dt, "dt", positive = TRUE)
+  check_callback(callback)
+  st0 <- restart_state(restart, problem, "parabolic")
   if (!is.logical(adaptive) || length(adaptive) != 1L || is.na(adaptive)) stopf("`adaptive` must be TRUE or FALSE.")
   if (adaptive && method != "sdirk2") stopf("Adaptive time stepping is available for method = \"sdirk2\".")
   if (method %in% c("bdf2", "sdirk2")) {
-    return(solve_parabolic_multistage(problem, dt, method, output_times, solver, adaptive, tol, ...))
+    return(solve_parabolic_multistage(problem, dt, method, output_times, solver, adaptive, tol, callback, st0, ...))
   }
   startup <- check_count(startup, "startup", min = 0L)
   theta <- if (method == "crank-nicolson") 0.5 else 1
   if (theta == 1) startup <- 0L
   ops <- parabolic_operators(problem)
   V <- ops$V
-  t0 <- problem$time[1]; t1 <- problem$time[2]
+  t0 <- if (is.null(st0)) problem$time[1] else st0$t; t1 <- problem$time[2]
   N <- max(1L, as.integer(ceiling((t1 - t0) / dt - 1e-10)))
   dt <- (t1 - t0) / N
-  startup <- min(startup, N)
+  done <- if (is.null(st0)) 0L else st0$step
+  startup <- min(max(0L, startup - done), N)
   grid <- t0 + (0:N) * dt
   out_idx <- output_index(output_times, grid, dt)
   dd0 <- dirichlet_data(V, problem$bcs, t0)
   bdofs <- dd0$dofs
   free <- setdiff(seq_len(V$ndof), bdofs)
-  u <- initial_values(problem$initial, V)
+  u <- if (is.null(st0)) initial_values(problem$initial, V) else restart_values(st0, V$ndof)
   if (length(bdofs)) u[bdofs] <- dd0$values
   L <- ops$M + (theta * dt) * ops$A
   R <- ops$M - ((1 - theta) * dt) * ops$A
   ts <- proc.time()[["elapsed"]]
   slv <- linear_solver(L[free, free, drop = FALSE], solver, ...)
   Lfd <- L[free, bdofs, drop = FALSE]
-  A_old <- ops$A
+  A_old <- if (ops$coef_time_dependent) ops$A_at(t0) else ops$A
   if (startup > 0L && !ops$coef_time_dependent) {
     Lbe <- ops$M + dt * ops$A
     slv_be <- linear_solver(Lbe[free, free, drop = FALSE], solver, ...)
@@ -226,6 +242,7 @@ solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson"
     max_rel <- max(max_rel, s$info$relative_residual)
     if (!s$info$status %in% c("solved", "converged")) bad <- s$info
     rng <- range(rng, u)
+    if (!is.null(callback)) callback(tn, u)
     F_old <- F_new
     if (k_out <= length(out_idx) && out_idx[k_out] == n + 1L) {
       U[, k_out] <- u; k_out <- k_out + 1L
@@ -239,8 +256,34 @@ solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson"
                          assembly_time = ops$assembly_time,
                          solve_time = proc.time()[["elapsed"]] - ts),
                     class = "pde_diagnostics")
-  structure(list(times = grid[out_idx], values = U, space = V, problem = problem,
-                 diagnostics = diag), class = "pde_transient")
+  structure(list(times = grid[out_idx], values = U, space = V, problem = problem, diagnostics = diag,
+                 state = list(kind = "parabolic", t = t1, u = u, step = done + N, method = method)),
+            class = "pde_transient")
+}
+
+check_callback <- function(callback) {
+  if (!is.null(callback) && !is.function(callback)) stopf("`callback` must be a function(t, u) or NULL.")
+}
+
+# Final state of an earlier run to continue from, validated against the
+# problem it is applied to.
+restart_state <- function(restart, problem, kind) {
+  if (is.null(restart)) return(NULL)
+  if (!inherits(restart, "pde_transient") || is.null(restart$state)) {
+    stopf("`restart` must be a time-dependent solution returned by solve_pde().")
+  }
+  s <- restart$state
+  if (!identical(s$kind, kind)) stopf("`restart` comes from a different kind of problem (%s).", s$kind)
+  t0 <- problem$time[1]; t1 <- problem$time[2]; eps <- 1e-12 * max(1, abs(t0), abs(t1))
+  if (s$t < t0 - eps || s$t >= t1 - eps) {
+    stopf("The restart time %s must lie in [%s, %s).", fmt_num(s$t), fmt_num(t0), fmt_num(t1))
+  }
+  s
+}
+
+restart_values <- function(s, n) {
+  if (NROW(s$u) != n) stopf("`restart` has %d values per field, but the problem has %d degrees of freedom.", NROW(s$u), n)
+  s$u
 }
 
 output_index <- function(output_times, grid, dt) {
@@ -330,19 +373,22 @@ summary.pde_transient <- function(object, ...) {
 # Dirichlet data g(t). Stage equations are written for the stage values U_i
 # with their prescribed boundary values, as in the theta scheme, so no time
 # derivative of the Dirichlet data is needed.
-solve_parabolic_multistage <- function(problem, dt, method, output_times, solver, adaptive, tol, ...) {
+solve_parabolic_multistage <- function(problem, dt, method, output_times, solver, adaptive, tol, callback = NULL,
+                                       st0 = NULL, ...) {
   check_tol(tol, "tol")
   ops <- parabolic_operators(problem)
   if (ops$coef_time_dependent) {
     stopf("Method \"%s\" requires coefficients that do not depend on time; use crank-nicolson.", method)
   }
   V <- ops$V; M <- ops$M; A <- ops$A
-  t0 <- problem$time[1]; t1 <- problem$time[2]
+  t0 <- if (is.null(st0)) problem$time[1] else st0$t; t1 <- problem$time[2]
   dd0 <- dirichlet_data(V, problem$bcs, t0)
   bdofs <- dd0$dofs
   free <- setdiff(seq_len(V$ndof), bdofs)
-  u <- initial_values(problem$initial, V)
+  u <- if (is.null(st0)) initial_values(problem$initial, V) else restart_values(st0, V$ndof)
   if (length(bdofs)) u[bdofs] <- dd0$values
+  done <- if (is.null(st0)) 0L else st0$step
+  u_old <- NULL; h_next <- NULL
   load <- function(t) if (ops$time_dependent) ops$load(t) else F0
   F0 <- ops$load(t0)
   gd <- function(t) if (length(bdofs)) dirichlet_data(V, problem$bcs, t)$values else numeric()
@@ -392,7 +438,10 @@ solve_parabolic_multistage <- function(problem, dt, method, output_times, solver
     U <- matrix(NA_real_, V$ndof, length(out_idx))
     k_out <- 1L
     if (out_idx[1] == 1L) { U[, 1] <- u; k_out <- 2L }
-    u_old <- NULL
+    # Continue BDF2 from the previous state when the step size is unchanged.
+    if (method == "bdf2" && !is.null(st0$u_old) && !is.null(st0$dt) && abs(st0$dt - dt) <= 1e-12 * dt) {
+      u_old <- st0$u_old
+    }
     for (n in seq_len(N)) {
       tn <- grid[n + 1L]
       u_new <- if (method == "sdirk2") sdirk(u, grid[n], dt)$u
@@ -400,6 +449,7 @@ solve_parabolic_multistage <- function(problem, dt, method, output_times, solver
                else stage_solve(1.5, dt, as.numeric(M %*% (2 * u - 0.5 * u_old)) + dt * load(tn), gd(tn), u)
       u_old <- u; u <- u_new
       rng <- range(rng, u)
+      if (!is.null(callback)) callback(tn, u)
       if (k_out <= length(out_idx) && out_idx[k_out] == n + 1L) { U[, k_out] <- u; k_out <- k_out + 1L }
     }
     times <- grid[out_idx]; steps <- N; rejected <- 0L; dts <- rep(dt, N)
@@ -412,7 +462,7 @@ solve_parabolic_multistage <- function(problem, dt, method, output_times, solver
       sort(unique(output_times))
     }
     stops <- sort(unique(c(outs, t1)))
-    tt <- t0; h <- min(dt, t1 - t0)
+    tt <- t0; h <- min(if (is.null(st0$h)) dt else st0$h, t1 - t0)
     times <- t0; vals <- list(u); dts <- numeric(0); rejected <- 0L
     hmin <- 1e-12 * max(1, abs(t1 - t0))
     while (tt < t1 - hmin) {
@@ -425,6 +475,7 @@ solve_parabolic_multistage <- function(problem, dt, method, output_times, solver
       if (err <= tol) {
         tt <- if (abs(tt + hs - nxt) <= hmin) nxt else tt + hs
         u <- st$u; dts <- c(dts, hs); rng <- range(rng, u)
+        if (!is.null(callback)) callback(tt, u)
         if (is.null(outs) || any(abs(outs - tt) <= hmin)) { times <- c(times, tt); vals[[length(vals) + 1L]] <- u }
         # Keep the step (and its factorization) unless it should shrink or
         # grow by more than 25 percent.
@@ -437,6 +488,7 @@ solve_parabolic_multistage <- function(problem, dt, method, output_times, solver
     }
     keep <- if (is.null(outs)) rep(TRUE, length(times)) else vapply(times, function(t) any(abs(outs - t) <= hmin), logical(1))
     times <- times[keep]; U <- do.call(cbind, vals[keep]); steps <- length(dts)
+    h_next <- h
   }
   if (!is.null(bad)) warn_solver(bad, "linear solve of at least one time step")
   diag <- structure(list(ndof = V$ndof, free = length(free), steps = steps,
@@ -446,6 +498,8 @@ solve_parabolic_multistage <- function(problem, dt, method, output_times, solver
                          range = rng, max_relative_residual = max_rel, assembly_time = ops$assembly_time,
                          solve_time = proc.time()[["elapsed"]] - ts),
                     class = "pde_diagnostics")
-  structure(list(times = times, values = U, space = V, problem = problem, diagnostics = diag),
+  state <- list(kind = "parabolic", t = t1, u = u, step = done + steps, method = method,
+                u_old = if (method == "bdf2") u_old, dt = if (!adaptive) dt, h = h_next)
+  structure(list(times = times, values = U, space = V, problem = problem, diagnostics = diag, state = state),
             class = "pde_transient")
 }

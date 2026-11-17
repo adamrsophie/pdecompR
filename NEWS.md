@@ -59,6 +59,10 @@ the sparse matrix classes of 'Matrix'.
   the discrete energy reported at every step.
 * `pde_mesh()` rejects elements that overlap without sharing an edge
   (folded node neighborhoods or crossing boundary edges).
+* Every time stepper accepts a per-step `callback` and can `restart` from
+  the final state of an earlier run (including multistep history, Newmark
+  velocity and acceleration, the adaptive step size and startup steps), so
+  long runs can be streamed and checkpointed.
 * Time-dependent solvers report the range of nodal values over all steps
   (`diagnostics$range`) next to the integral, to expose violations of
   positivity or of the discrete maximum principle.

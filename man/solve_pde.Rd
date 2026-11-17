@@ -29,6 +29,8 @@ solve_pde(problem, ...)
   startup = 2L,
   adaptive = FALSE,
   tol = 1e-04,
+  callback = NULL,
+  restart = NULL,
   ...
 )
 
@@ -42,14 +44,32 @@ solve_pde(problem, ...)
   solver = "auto",
   newton_tol = 1e-10,
   newton_maxit = 25,
+  callback = NULL,
+  restart = NULL,
   ...
 )
 
 \method{solve_pde}{stokes_problem}(problem, method = c("lu", "gmres"), tol = 1e-10, ...)
 
-\method{solve_pde}{wave_problem}(problem, dt, output_times = NULL, solver = "auto", ...)
+\method{solve_pde}{wave_problem}(
+  problem,
+  dt,
+  output_times = NULL,
+  solver = "auto",
+  callback = NULL,
+  restart = NULL,
+  ...
+)
 
-\method{solve_pde}{elastodynamics_problem}(problem, dt, output_times = NULL, solver = "auto", ...)
+\method{solve_pde}{elastodynamics_problem}(
+  problem,
+  dt,
+  output_times = NULL,
+  solver = "auto",
+  callback = NULL,
+  restart = NULL,
+  ...
+)
 }
 \arguments{
 \item{problem}{A \code{pde_problem}.}
@@ -89,6 +109,21 @@ for adaptive stepping, relative to \verb{max(1, ||u||)}. Nonlinear problems:
 Newton tolerance on the free residual norm, relative to the initial
 residual with an absolute floor of \code{1e-12}. Stokes problems: GMRES
 relative residual tolerance.}
+
+\item{callback}{Optional \verb{function(t, u)} called after every accepted
+time step with the time and the full vector of nodal values (a matrix
+with one column per species for reaction-diffusion systems; the
+displacement vector for waves and elastodynamics). Use it to stream
+results to disk or to monitor long runs instead of storing every step.}
+
+\item{restart}{A time-dependent solution from an earlier call. The
+integration continues from its final state (stored in \verb{$state}: time,
+values and the extra state of multistep and Newmark schemes, the
+adaptive step size and the number of steps already taken) to
+\code{time[2]} of \code{problem}; the initial condition of \code{problem} is then
+ignored. With the same step size, a run split by restarts reproduces
+one uninterrupted run up to rounding. Save the solution with
+\code{\link[=saveRDS]{saveRDS()}} for checkpointing.}
 
 \item{maxit}{Maximum number of Newton iterations.}
 

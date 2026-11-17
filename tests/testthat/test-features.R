@@ -116,7 +116,7 @@ test_that("VTU and PVD output", {
   p <- heat_problem(pde_mesh_rectangle(nx = 2), initial = function(x, y) x * y, bcs = dirichlet_bc(0), time = c(0, 0.1))
   s <- solve_pde(p, dt = 0.05)
   d <- tempfile(); dir.create(d)
-  write_pvd(s, file.path(d, "a.pvd"))
+  write_pvd(s, file.path(d, "a.pvd"), format = "ascii")
   expect_setequal(list.files(d), c("a.pvd", sprintf("a_%04d.vtu", 1:3)))
   x <- readLines(file.path(d, "a_0001.vtu"))
   expect_true(any(grepl('NumberOfPoints="9" NumberOfCells="8"', x, fixed = TRUE)))

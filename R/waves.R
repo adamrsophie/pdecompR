@@ -77,24 +77,33 @@ elastodynamics_problem <- function(elasticity, density = 1, damping = 0, initial
 
 #' @rdname solve_pde
 #' @export
-solve_pde.wave_problem <- function(problem, dt, output_times = NULL, solver = "auto", ...) {
+solve_pde.wave_problem <- function(problem, dt, output_times = NULL, solver = "auto", callback = NULL,
+                                   restart = NULL, ...) {
+  check_callback(callback)
+  st0 <- restart_state(restart, problem, "wave")
   ops <- parabolic_operators(problem)
   V <- ops$V
   dd <- function(t) dirichlet_data(V, problem$bcs, t)
   bdofs <- dd(problem$time[1])$dofs
   F0 <- ops$load(problem$time[1])
   load <- if (ops$time_dependent) ops$load else function(t) F0
+  u0 <- if (is.null(st0)) initial_values(problem$initial, V) else restart_values(st0, V$ndof)
+  v0 <- if (is.null(st0)) initial_values(problem$velocity, V) else st0$v
   out <- newmark(ops$M, problem$damping * ops$M, ops$A, load, bdofs,
-                 function(t) dd(t)$values, initial_values(problem$initial, V),
-                 initial_values(problem$velocity, V), problem$time, dt, output_times, solver, ...)
+                 function(t) dd(t)$values, u0, v0, c(if (is.null(st0)) problem$time[1] else st0$t, problem$time[2]),
+                 dt, output_times, solver, callback = callback, a0 = st0$a, ...)
   out$diagnostics$assembly_time <- ops$assembly_time
   structure(list(times = out$times, values = out$U, velocity = out$Vel, space = V, problem = problem,
-                 diagnostics = out$diagnostics), class = "pde_transient")
+                 diagnostics = out$diagnostics, state = c(list(kind = "wave"), out$state)),
+            class = "pde_transient")
 }
 
 #' @rdname solve_pde
 #' @export
-solve_pde.elastodynamics_problem <- function(problem, dt, output_times = NULL, solver = "auto", ...) {
+solve_pde.elastodynamics_problem <- function(problem, dt, output_times = NULL, solver = "auto", callback = NULL,
+                                             restart = NULL, ...) {
+  check_callback(callback)
+  st0 <- restart_state(restart, problem, "elastodynamics")
   disc <- discretize(problem$elasticity)
   V <- disc$space; n <- V$ndof
   M1 <- problem$density * assemble_matrix(V, "mass")
@@ -106,19 +115,23 @@ solve_pde.elastodynamics_problem <- function(problem, dt, output_times = NULL, s
     c(g[, 1], g[, 2])
   }
   vals <- disc$dirichlet$values
+  u0 <- if (is.null(st0)) vec0(problem$initial) else restart_values(st0, 2L * n)
+  v0 <- if (is.null(st0)) vec0(problem$velocity) else st0$v
   out <- newmark(M, problem$damping * M, disc$A, function(t) problem$load_factor(t) * disc$b,
-                 disc$dirichlet$dofs, function(t) vals, vec0(problem$initial), vec0(problem$velocity),
-                 problem$time, dt, output_times, solver, ...)
+                 disc$dirichlet$dofs, function(t) vals, u0, v0,
+                 c(if (is.null(st0)) problem$time[1] else st0$t, problem$time[2]), dt, output_times, solver,
+                 callback = callback, a0 = st0$a, ...)
   out$diagnostics$assembly_time <- disc$assembly_time
   split <- function(U) list(ux = U[seq_len(n), , drop = FALSE], uy = U[n + seq_len(n), , drop = FALSE])
   structure(list(times = out$times, values = split(out$U), velocity = split(out$Vel), space = V,
-                 problem = problem, diagnostics = out$diagnostics), class = "pde_transient")
+                 problem = problem, diagnostics = out$diagnostics, state = c(list(kind = "elastodynamics"), out$state)),
+            class = "pde_transient")
 }
 
 # Newmark average acceleration for M a + C v + K u = F(t) with prescribed
 # values g(t) on `bdofs`. Boundary accelerations and velocities follow from
 # the Newmark relations applied to the prescribed displacements.
-newmark <- function(M, C, K, load, bdofs, g, u, v, time, dt, output_times, solver, ...) {
+newmark <- function(M, C, K, load, bdofs, g, u, v, time, dt, output_times, solver, callback = NULL, a0 = NULL, ...) {
   check_number(dt, "dt", positive = TRUE)
   beta <- 0.25; gam <- 0.5
   t0 <- time[1]; t1 <- time[2]
@@ -134,12 +147,16 @@ newmark <- function(M, C, K, load, bdofs, g, u, v, time, dt, output_times, solve
   note <- function(s) { max_rel <<- max(max_rel, s$info$relative_residual); if (!solve_ok(s$info)) bad <<- s$info }
   # Consistent initial acceleration on the free rows; on prescribed rows the
   # one-sided second difference of the data.
-  a <- numeric(n)
-  if (length(bdofs)) a[bdofs] <- (g(t0 + 2 * dt) - 2 * g(t0 + dt) + g(t0)) / dt^2
-  r0 <- load(t0) - as.numeric(C %*% v) - as.numeric(K %*% u) - as.numeric(M[, bdofs, drop = FALSE] %*% a[bdofs])
-  sM <- linear_solver(M[free, free, drop = FALSE], solver, ...)
-  s0 <- sM$solve(r0[free]); note(s0)
-  a[free] <- s0$x
+  if (!is.null(a0)) {
+    a <- a0   # restart: the acceleration of the previous run
+  } else {
+    a <- numeric(n)
+    if (length(bdofs)) a[bdofs] <- (g(t0 + 2 * dt) - 2 * g(t0 + dt) + g(t0)) / dt^2
+    r0 <- load(t0) - as.numeric(C %*% v) - as.numeric(K %*% u) - as.numeric(M[, bdofs, drop = FALSE] %*% a[bdofs])
+    sM <- linear_solver(M[free, free, drop = FALSE], solver, ...)
+    s0 <- sM$solve(r0[free]); note(s0)
+    a[free] <- s0$x
+  }
   c0 <- 1 / (beta * dt^2); c1 <- gam / (beta * dt)
   Keff <- c0 * M + c1 * C + K
   slv <- linear_solver(Keff[free, free, drop = FALSE], solver, ...)
@@ -161,6 +178,7 @@ newmark <- function(M, C, K, load, bdofs, g, u, v, time, dt, output_times, solve
     an <- c0 * (un - u - dt * v) - (1 / (2 * beta) - 1) * a
     v <- v + dt * ((1 - gam) * a + gam * an)
     u <- un; a <- an; rng <- range(rng, u)
+    if (!is.null(callback)) callback(tn, u)
     E[k + 1L] <- energy(u, v)
     if (k_out <= length(out_idx) && out_idx[k_out] == k + 1L) { U[, k_out] <- u; Vel[, k_out] <- v; k_out <- k_out + 1L }
   }
@@ -169,5 +187,5 @@ newmark <- function(M, C, K, load, bdofs, g, u, v, time, dt, output_times, solve
                          solver = slv$info, energy = E, range = rng, max_relative_residual = max_rel,
                          solve_time = proc.time()[["elapsed"]] - ts),
                     class = "pde_diagnostics")
-  list(times = grid[out_idx], U = U, Vel = Vel, diagnostics = diag)
+  list(times = grid[out_idx], U = U, Vel = Vel, diagnostics = diag, state = list(t = t1, u = u, v = v, a = a, step = N))
 }

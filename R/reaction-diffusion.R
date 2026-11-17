@@ -113,8 +113,11 @@ reaction_diffusion_problem <- function(mesh, species = "u", diffusion = 1, react
 #' @export
 solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-euler", "implicit-euler"),
                                                  output_times = NULL, solver = "auto",
-                                                 newton_tol = 1e-10, newton_maxit = 25, ...) {
+                                                 newton_tol = 1e-10, newton_maxit = 25, callback = NULL,
+                                                 restart = NULL, ...) {
   method <- match.arg(method)
+  check_callback(callback)
+  st0 <- restart_state(restart, problem, "reaction-diffusion")
   check_number(dt, "dt", positive = TRUE)
   check_tol(newton_tol, "newton_tol"); newton_maxit <- check_count(newton_maxit, "newton_maxit")
   ta <- proc.time()[["elapsed"]]
@@ -137,7 +140,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
     if (!is.null(nat$A)) K[[s]] <- K[[s]] + nat$A
   }
   assembly_time <- proc.time()[["elapsed"]] - ta
-  t0 <- problem$time[1]; t1 <- problem$time[2]
+  t0 <- if (is.null(st0)) problem$time[1] else st0$t; t1 <- problem$time[2]
   N <- max(1L, as.integer(ceiling((t1 - t0) / dt - 1e-10)))
   dt <- (t1 - t0) / N
   grid <- t0 + (0:N) * dt
@@ -145,6 +148,10 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
   xy <- V$dof_coords
   U <- vapply(sp, function(s) initial_values(problem$initial[[s]], V), numeric(n))
   U <- matrix(U, n, ns, dimnames = list(NULL, sp))
+  if (!is.null(st0)) {
+    if (!identical(dim(st0$u), dim(U))) stopf("`restart` has a different number of values or species than the problem.")
+    U[] <- st0$u
+  }
   dir <- lapply(sp, function(s) dirichlet_data(V, problem$bcs[[s]], t0))
   names(dir) <- sp
   for (s in sp) if (length(dir[[s]]$dofs)) U[dir[[s]]$dofs, s] <- dir[[s]]$values
@@ -200,6 +207,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
         if (length(dd$dofs)) Unew[dd$dofs, s] <- dd$values
       }
       U <- Unew; rng <- track(U)
+      if (!is.null(callback)) callback(tn, U)
       if (k_out <= length(out_idx) && out_idx[k_out] == k + 1L) {
         for (s in sp) store[[s]][, k_out] <- U[, s]; k_out <- k_out + 1L
       }
@@ -277,6 +285,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
       newton_its <- c(newton_its, it)
       newton_res <- c(newton_res, gn / max(g0, 1e-300))
       U <- Z; rng <- track(U)
+      if (!is.null(callback)) callback(tn, U)
       if (k_out <= length(out_idx) && out_idx[k_out] == k + 1L) {
         for (s in sp) store[[s]][, k_out] <- U[, s]; k_out <- k_out + 1L
       }
@@ -295,6 +304,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
                          assembly_time = assembly_time,
                          solve_time = proc.time()[["elapsed"]] - ts),
                     class = "pde_diagnostics")
-  structure(list(times = grid[out_idx], values = store, space = V, problem = problem,
-                 diagnostics = diag), class = "pde_transient")
+  structure(list(times = grid[out_idx], values = store, space = V, problem = problem, diagnostics = diag,
+                 state = list(kind = "reaction-diffusion", t = t1, u = U, step = N, method = method)),
+            class = "pde_transient")
 }
