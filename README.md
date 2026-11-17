@@ -77,21 +77,21 @@ solve_pde(variational_problem(a, L, dirichlet_bc(0)))
 
 | Area | Functionality |
 |------|---------------|
-| Geometry and meshes | rectangles and simple polygons; structured meshes (three diagonal patterns); polygon meshes (ear clipping, Delaunay flips, refinement); validation of connectivity, orientation, degeneracy and boundary markers; quality measures; subdomain regions with piecewise coefficients; Gmsh 2.2 and 4.1 import (physical lines and surfaces); VTK export (P1 and quadratic P2 cells, vectors, stresses) |
-| Finite elements | continuous Lagrange P1 and P2 on triangles, scalar and vector valued; interpolation, point evaluation, observation matrices |
+| Geometry and meshes | rectangles and simple polygons, with holes; structured meshes (three diagonal patterns); polygon meshes (ear clipping, Delaunay flips, refinement); validation of connectivity, orientation, degeneracy, geometric overlap and boundary markers; quality measures; subdomain regions with piecewise coefficients; Gmsh 2.2 and 4.1 import (physical lines and surfaces); VTK export (legacy and XML `.vtu`, P1 and quadratic P2 cells, vectors, stresses) and `.pvd` time series |
+| Finite elements | continuous Lagrange P1 and P2 on triangles, scalar and vector valued; interpolation, conservative L2 projection between unrelated meshes, point evaluation, observation matrices |
 | Quadrature | Gauss-Legendre on intervals; triangle rules exact to any degree |
-| Assembly | sparse triplet assembly of stiffness, mass, advection and boundary matrices, load vectors, constant tensor diffusion |
-| Boundary conditions | Dirichlet (by elimination, keeps SPD), Neumann, Robin; pure Neumann problems with compatibility check and zero-mean gauge |
-| Linear solvers | sparse Cholesky and LU; preconditioned CG, BiCGSTAB and GMRES; residual diagnostics |
-| PDE classes | elliptic (diffusion, advection, reaction), linear elasticity (vector P1/P2, plane strain and stress, stress and von Mises output), SUPG stabilization, heat and parabolic problems (backward Euler, Crank-Nicolson, time-dependent coefficients, mass diagnostics), reaction-diffusion systems (IMEX, Newton), quasilinear diffusion, semilinear reaction, p-Laplacian |
+| Assembly | sparse triplet assembly of stiffness, mass, advection and boundary matrices, load vectors, variable tensor diffusion; reference-element kernels for elementwise constant coefficients |
+| Boundary conditions | Dirichlet (by elimination, keeps SPD), Neumann, Robin, periodic; pure Neumann problems with compatibility check and a zero-mean gauge on each connected component |
+| Linear solvers | sparse Cholesky and LU with symmetric scaling; CG, BiCGSTAB and GMRES with Jacobi, SSOR, geometric multigrid or user preconditioners; block right-hand sides; residual diagnostics |
+| PDE classes | elliptic (diffusion, advection, reaction), linear elasticity (vector P1/P2, plane strain and stress, stress and von Mises output), SUPG stabilization, heat and parabolic problems (backward Euler, Crank-Nicolson, BDF2, adaptive SDIRK2, time-dependent coefficients, mass diagnostics), damped waves and elastodynamics (energy-conserving Newmark), eigenvalue problems, Stokes flow (Taylor-Hood P2-P1 with a block preconditioner), reaction-diffusion systems (IMEX, Newton), quasilinear diffusion, semilinear reaction, p-Laplacian |
 | Weak forms | `trial_function()`, `test_function()`, `grad()`, `dot()`, `integrate_domain()`, `integrate_boundary()` |
 | Verification | L2, H1 and energy errors, convergence studies with observed orders, symbolic manufactured solutions through symcompR, a reference benchmark suite |
 | Adaptivity | residual error estimator, Doerfler marking, newest vertex bisection, adaptive loop |
-| Inference | discrete forward and adjoint sensitivities, parameter estimation with adjoint gradients, distributed optimal control |
+| Inference | discrete forward and adjoint sensitivities (linear, nonlinear and time-dependent), analytic affine derivatives, Taylor remainder tests, parameter estimation with adjoint gradients and identifiability diagnostics, distributed optimal control |
 
-Not available yet: three-dimensional and one-dimensional meshes, holes,
-mixed elements (Stokes), discontinuous Galerkin methods, nonlinear weak forms,
-adjoints for nonlinear and transient problems, and parallel or GPU backends.
+Not available: three-dimensional and one-dimensional meshes, curved
+boundaries, discontinuous Galerkin methods, nonlinear weak forms, and
+parallel or GPU backends.
 
 ## Validation
 

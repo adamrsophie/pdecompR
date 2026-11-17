@@ -410,7 +410,9 @@ solve_parabolic_multistage <- function(problem, dt, method, output_times, solver
         tt <- if (abs(tt + hs - nxt) <= hmin) nxt else tt + hs
         u <- st$u; dts <- c(dts, hs)
         if (is.null(outs) || any(abs(outs - tt) <= hmin)) { times <- c(times, tt); vals[[length(vals) + 1L]] <- u }
-        h <- hs * fac
+        # Keep the step (and its factorization) unless it should shrink or
+        # grow by more than 25 percent.
+        if (fac < 1 || fac > 1.25) h <- hs * fac
       } else {
         rejected <- rejected + 1L
         h <- hs * fac

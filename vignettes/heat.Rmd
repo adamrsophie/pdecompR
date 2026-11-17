@@ -106,6 +106,42 @@ data.frame(dt = dts, err, rate_BE = c(NA, diff(log(err[, 1])) / diff(log(dts))),
            rate_CN = c(NA, diff(log(err[, 2])) / diff(log(dts))))
 ```
 
+## Higher-order and adaptive time stepping
+
+Two more schemes are available. `method = "bdf2"` is the two-step backward
+differentiation formula: second order, L-stable and as cheap as backward
+Euler (one solve per step with a fixed matrix, the first step taken by
+backward Euler). `method = "sdirk2"` is the two-stage, L-stable singly
+diagonally implicit Runge-Kutta method of Alexander with
+$\gamma = 1 - 1/\sqrt 2$; both stages share one matrix.
+
+```{r}
+err2 <- sapply(c("bdf2", "sdirk2"), function(m) sapply(dts, function(dt) {
+  s <- solve_pde(p, dt = dt, method = m, output_times = 1)
+  max(abs(s$values[, 1] - ex(s$space$dof_coords[, 1], s$space$dof_coords[, 2], 1)))
+}))
+data.frame(dt = dts, err2, rate_BDF2 = c(NA, diff(log(err2[, 1])) / diff(log(dts))),
+           rate_SDIRK2 = c(NA, diff(log(err2[, 2])) / diff(log(dts))))
+```
+
+With `adaptive = TRUE`, SDIRK2 controls the step size. The stage values
+give an embedded first-order solution, and the difference, measured in the
+mass norm relative to the solution, is the local error estimate. Steps are
+accepted when the estimate is below `tol` and the next step size follows the
+usual controller with a safety factor. `dt` is then the initial step.
+
+```{r}
+s <- solve_pde(p, dt = 0.1, method = "sdirk2", adaptive = TRUE, tol = 1e-5, output_times = 1)
+d <- s$diagnostics
+c(steps = d$steps, rejected = d$rejected_steps, factorizations = d$factorizations,
+  error = max(abs(s$values[, 1] - ex(s$space$dof_coords[, 1], s$space$dof_coords[, 2], 1))))
+```
+
+Adaptive stepping keeps the step size while the controller asks for less
+than a 25 percent change, so the stage matrix is refactorized only a few
+times, as the diagnostics report. Coefficients that depend on time are not
+supported by the multistage methods.
+
 ## Time-dependent sources and boundary data
 
 Sources and boundary values can depend on time. Here a hot spot moves along
@@ -138,4 +174,5 @@ range(colSums(w * s$values))
 `parabolic_problem()` adds advection and reaction,
 $\partial_t u - \nabla\cdot(k\nabla u) + b\cdot\nabla u + cu = f$, with
 optional SUPG stabilization (consistent: the time derivative is included in
-the stabilized residual). See the advection-diffusion article.
+the stabilized residual). See the advection-diffusion article. Second-order
+equations in time (waves and elastodynamics) have their own article.

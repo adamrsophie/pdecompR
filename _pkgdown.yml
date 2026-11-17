@@ -37,6 +37,9 @@ articles:
   - advection-diffusion
   - nonlinear
   - elasticity
+  - waves
+  - stokes
+  - eigenvalues
 - title: Adaptivity, sensitivities and inverse problems
   navbar: Adaptivity and inverse problems
   contents:
