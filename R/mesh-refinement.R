@@ -17,7 +17,9 @@
 #' two edges with the parent's marker. The returned mesh records the parent
 #' edge of each new node in `info$new_nodes` (a two-column matrix of node
 #' indices), which makes exact transfer of P1 functions possible, see
-#' [transfer_function()].
+#' [transfer_function()]. On boundary parts declared curved with
+#' [curved_boundary()], new boundary nodes are projected onto the curve
+#' instead of staying at the chord midpoint.
 #'
 #' @param mesh A [pde_mesh()].
 #' @param marked Logical vector over elements, or integer element indices.
@@ -34,6 +36,8 @@ refine_uniform <- function(mesh) {
   E <- mesh$edges
   mid <- (mesh$nodes[E[, 1], , drop = FALSE] + mesh$nodes[E[, 2], , drop = FALSE]) / 2
   nodes <- rbind(mesh$nodes, mid)
+  pr <- project_curved(nodes, mesh, n + mesh$boundary$edge)
+  nodes <- pr$nodes
   m12 <- n + EE[, 1]; m23 <- n + EE[, 2]; m31 <- n + EE[, 3]
   tris <- rbind(cbind(T[, 1], m12, m31), cbind(m12, T[, 2], m23),
                 cbind(m31, m23, T[, 3]), cbind(m12, m23, m31))
@@ -44,6 +48,8 @@ refine_uniform <- function(mesh) {
   parent <- rep(seq_len(nrow(T)), 4L)
   out$regions <- mesh_regions(mesh)[parent]
   out$info <- refined_info(mesh, E, nvb = FALSE, parent)
+  out$info$projected_nodes <- pr$moved
+  out$curves <- mesh$curves
   out
 }
 
@@ -94,6 +100,8 @@ refine_mesh <- function(mesh, marked) {
   bd <- mesh$boundary
   split <- emark[bd$edge]
   bmid <- new_id[bd$edge]
+  pr <- project_curved(nodes, mesh, bmid)
+  nodes <- pr$nodes
   be <- rbind(cbind(bd$n1, bd$n2)[!split, , drop = FALSE],
               cbind(bd$n1, bmid)[split, , drop = FALSE],
               cbind(bmid, bd$n2)[split, , drop = FALSE])
@@ -103,6 +111,8 @@ refine_mesh <- function(mesh, marked) {
               which(B_plain), which(B_split), which(B_split))
   out$regions <- mesh_regions(mesh)[parent]
   out$info <- refined_info(mesh, E[emark, , drop = FALSE], nvb = TRUE, parent)
+  out$info$projected_nodes <- pr$moved
+  out$curves <- mesh$curves
   out
 }
 
@@ -117,7 +127,11 @@ refinement_edges <- function(coarse, fine) {
   key <- function(a, b) paste(pmin(a, b), pmax(a, b))
   if (!all(key(E[, 1], E[, 2]) %in% key(coarse$edges[, 1], coarse$edges[, 2]))) return(NULL)
   mid <- (P0[E[, 1], , drop = FALSE] + P0[E[, 2], , drop = FALSE]) / 2
-  if (max(abs(mid - fine$nodes[-seq_len(n0), , drop = FALSE]), 0) > 1e-12 * max(1, abs(P0))) return(NULL)
+  # Nodes projected onto curved boundaries are exempt from the midpoint test.
+  chk <- setdiff(seq_len(nrow(E)), inf$projected_nodes - n0)
+  if (max(abs(mid[chk, , drop = FALSE] - fine$nodes[n0 + chk, , drop = FALSE]), 0) > 1e-12 * max(1, abs(P0))) {
+    return(NULL)
+  }
   E
 }
 
@@ -148,5 +162,80 @@ nvb_initial_labeling <- function(mesh) {
   out <- pde_mesh(P, T2, cbind(bd$n1, bd$n2), bd$marker, regions = mesh_regions(mesh))
   out$info <- mesh$info
   out$info$nvb <- TRUE
+  out$curves <- mesh$curves
   out
+}
+
+# Move the new nodes `ids` (one per boundary edge of `mesh`, NA or 0 when
+# the edge is not split) of curved boundary edges onto their curve.
+project_curved <- function(nodes, mesh, ids) {
+  cv <- mesh$curves
+  moved <- integer(0)
+  for (mk in names(cv)) {
+    k <- ids[boundary_rows(mesh, mk)]
+    k <- k[!is.na(k) & k > 0L]
+    if (!length(k)) next
+    nodes[k, ] <- eval_projection(cv[[mk]], nodes[k, 1], nodes[k, 2], mk)
+    moved <- c(moved, k)
+  }
+  list(nodes = nodes, moved = sort(moved))
+}
+
+eval_projection <- function(f, x, y, marker) {
+  p <- f(x, y)
+  if (!is.matrix(p) || !is.numeric(p) || nrow(p) != length(x) || ncol(p) != 2L || any(!is.finite(p))) {
+    stopf("The projection of curved boundary \"%s\" must return a finite two-column matrix with one row per point.", marker)
+  }
+  p
+}
+
+#' Curved boundaries
+#'
+#' Declares the boundary edges with marker `marker` as approximations of a
+#' curve, given by its closest point `projection(x, y)`. Later calls of
+#' [refine_uniform()] and [refine_mesh()] then place new boundary nodes on
+#' the curve instead of at chord midpoints, so the polygonal domain
+#' converges to the curved one and P1 elements keep their second-order L2
+#' accuracy (a mesh that keeps the coarse chords stalls at the geometric
+#' error). The elements stay straight-sided: P2 edge nodes lie on the
+#' chords, which limits P2 to the accuracy of the polygonal domain
+#' (isoparametric elements are not provided).
+#'
+#' The existing nodes on the marked edges must already lie on the curve. The
+#' projection is kept by refinement and by meshes derived from the refined
+#' ones; relabeling edges with [set_boundary_marker()] to a new marker drops
+#' the curve for them. Because refined meshes no longer cover the same
+#' domain as their parents, [errornorm()] against a finite-element reference
+#' from another mesh of the sequence and [l2_project()] between them stop
+#' with an error; compare with exact functions instead. Multigrid
+#' prolongation and [transfer_function()] use the chord average at
+#' projected nodes.
+#'
+#' @param mesh A [pde_mesh()].
+#' @param marker Boundary marker of the curved edges.
+#' @param projection `function(x, y)` returning a two-column matrix of the
+#'   closest points on the curve.
+#' @return The mesh, with the curve stored in `curves`.
+#' @examples
+#' n <- 16
+#' circle <- cbind(cos(2 * pi * (1:n) / n), sin(2 * pi * (1:n) / n))
+#' disk <- curved_boundary(pde_mesh_polygon(circle), "boundary",
+#'                         function(x, y) cbind(x, y) / sqrt(x^2 + y^2))
+#' fine <- refine_uniform(refine_uniform(disk))
+#' range(sqrt(rowSums(fine$nodes[boundary_nodes(fine), ]^2)))
+#' @export
+curved_boundary <- function(mesh, marker, projection) {
+  stopifnot(inherits(mesh, "pde_mesh"))
+  check_name(marker, "marker")
+  if (!is.function(projection)) stopf("`projection` must be a function(x, y).")
+  nd <- boundary_nodes(mesh, marker)
+  P <- mesh$nodes[nd, , drop = FALSE]
+  q <- eval_projection(projection, P[, 1], P[, 2], marker)
+  h <- min(mesh_edge_lengths(mesh))
+  if (max(abs(q - P)) > 1e-8 * max(h, 1e-300)) {
+    stopf("The nodes on boundary \"%s\" do not lie on the curve (largest distance %s).", marker,
+          fmt_num(max(sqrt(rowSums((q - P)^2)))))
+  }
+  mesh$curves[[marker]] <- projection
+  mesh
 }

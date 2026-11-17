@@ -61,6 +61,7 @@ reference:
   - region_coefficient
   - tensor_coefficient
   - refine_uniform
+  - curved_boundary
   - read_gmsh
   - write_vtk
   - write_pvd

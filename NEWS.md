@@ -59,6 +59,10 @@ the sparse matrix classes of 'Matrix'.
   the discrete energy reported at every step.
 * `pde_mesh()` rejects elements that overlap without sharing an edge
   (folded node neighborhoods or crossing boundary edges).
+* `curved_boundary()` declares boundary parts as curves; refinement then
+  places new boundary nodes on the curve, which restores second-order P1
+  convergence on curved domains. Elements stay straight sided, so P2 is
+  limited by the polygonal geometry (H1 rate 1.5).
 * `amg_preconditioner()` adds smoothed aggregation algebraic multigrid for
   CG, with nearly constant iteration counts on unstructured and P2 meshes
   where geometric multigrid does not apply.

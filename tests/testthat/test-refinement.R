@@ -50,3 +50,28 @@ test_that("refinement records parent elements and inherits regions through them"
     expect_equal(mesh_regions(ch), mesh_regions(pa)[ch$info$parent_elements])
   }
 })
+
+test_that("refinement on curved boundaries restores the P1 convergence rate", {
+  n <- 12
+  circle <- cbind(cos(2 * pi * (1:n) / n), sin(2 * pi * (1:n) / n))
+  proj <- function(x, y) cbind(x, y) / sqrt(x^2 + y^2)
+  m <- curved_boundary(pde_mesh_polygon(circle), "boundary", proj)
+  u <- function(x, y) 1 - x^2 - y^2
+  e <- numeric(0); ms <- list(m)
+  for (k in 1:4) {
+    m <- refine_uniform(m); ms[[k + 1]] <- m
+    e[k] <- errornorm(solve_pde(poisson_problem(m, source = 4, boundary = dirichlet_bc(0))), u, "L2")
+  }
+  expect_gt(min(log2(e[-4] / e[-1])), 1.9)
+  r <- sqrt(rowSums(m$nodes[boundary_nodes(m), ]^2))
+  expect_equal(r, rep(1, length(r)), tolerance = 1e-14)
+  expect_true(is.function(m$curves$boundary))
+  b <- refine_mesh(ms[[2]], 1:3)
+  expect_equal(sqrt(rowSums(b$nodes[boundary_nodes(b), ]^2)), rep(1, length(boundary_nodes(b))), tolerance = 1e-14)
+  s <- solve_pde(poisson_problem(ms[[5]], source = 4, boundary = dirichlet_bc(0)), method = "cg",
+                 preconditioner = multigrid_preconditioner(ms))
+  expect_lt(s$diagnostics$solver$iterations, 30)
+  expect_length(transfer_function(interpolate(u, fe_space(ms[[3]])), ms[[4]])$values, nrow(ms[[4]]$nodes))
+  expect_error(curved_boundary(pde_mesh_rectangle(c(1, 2), c(1, 2)), "boundary", proj), "do not lie on the curve")
+  expect_error(curved_boundary(ms[[1]], "boundary", function(x, y) x), "two-column")
+})

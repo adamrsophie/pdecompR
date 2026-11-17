@@ -36,7 +36,9 @@ Both functions preserve boundary markers: a bisected boundary edge yields
 two edges with the parent's marker. The returned mesh records the parent
 edge of each new node in \code{info$new_nodes} (a two-column matrix of node
 indices), which makes exact transfer of P1 functions possible, see
-\code{\link[=transfer_function]{transfer_function()}}.
+\code{\link[=transfer_function]{transfer_function()}}. On boundary parts declared curved with
+\code{\link[=curved_boundary]{curved_boundary()}}, new boundary nodes are projected onto the curve
+instead of staying at the chord midpoint.
 }
 \examples{
 mesh <- pde_mesh_rectangle(nx = 2)
