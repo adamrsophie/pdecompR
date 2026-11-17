@@ -88,6 +88,7 @@ reference:
   - elasticity_problem
   - elasticity_stress
   - wave_problem
+  - solve_eigen
   - displacement_bc
   - trial_function
   - variational_problem

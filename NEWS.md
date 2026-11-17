@@ -54,6 +54,9 @@ the sparse matrix classes of 'Matrix'.
 * Damped wave equation and elastodynamics integrated by the Newmark
   average acceleration method, second order and energy conserving, with
   the discrete energy reported at every step.
+* Eigenvalue problems for symmetric elliptic operators and elastic
+  vibration modes by shift-and-invert subspace iteration
+  (`solve_eigen()`).
 
 ## Solvers
 
