@@ -91,6 +91,8 @@
 <li>Quasilinear diffusion, semilinear reaction and p-Laplace problems solved by damped Newton iteration.</li>
 <li>Linear elasticity in plane strain and plane stress with displacement, roller and traction conditions, and strain, stress and von Mises output.</li>
 <li>Damped wave equation and elastodynamics integrated by the Newmark average acceleration method, second order and energy conserving, with the discrete energy reported at every step.</li>
+<li>Polygon domains with holes (<code>pde_domain(holes = )</code>), meshed by bridging each hole to the outer boundary before ear clipping; hole sides carry their own markers.</li>
+<li>Incompressible Stokes flow with Taylor-Hood P2-P1 elements, velocity, pseudo-traction and do-nothing outflow conditions, solved by sparse LU or by GMRES with a block-diagonal preconditioner (<code><a href="../reference/stokes_problem.html">stokes_problem()</a></code>).</li>
 <li>Eigenvalue problems for symmetric elliptic operators and elastic vibration modes by shift-and-invert subspace iteration (<code><a href="../reference/solve_eigen.html">solve_eigen()</a></code>).</li>
 </ul></div>
 <div class="section level3">
@@ -108,6 +110,7 @@
 <div class="section level3">
 <h3 id="inference-and-control-0-1-0">Inference and control<a class="anchor" aria-label="anchor" href="#inference-and-control-0-1-0"></a></h3>
 <ul><li>Discrete forward and adjoint sensitivities of linear elliptic problems, with finite-difference or exact operator derivatives (<code><a href="../reference/affine_derivative.html">affine_derivative()</a></code>) and Taylor remainder checks (<code><a href="../reference/taylor_test.html">taylor_test()</a></code>).</li>
+<li>Adjoint gradients of nonlinear problems (one transposed Newton Jacobian solve) and of backward Euler and Crank-Nicolson time stepping (a discrete backward sweep) through <code><a href="../reference/nonlinear_sensitivity.html">nonlinear_sensitivity()</a></code> and <code><a href="../reference/nonlinear_sensitivity.html">transient_sensitivity()</a></code>.</li>
 <li>Parameter estimation with adjoint gradients, bounds (including fixed parameters), Gauss-Newton standard errors and identifiability diagnostics.</li>
 <li>Distributed optimal control with optional control bounds.</li>
 </ul></div>

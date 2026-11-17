@@ -104,6 +104,9 @@
   : Wave equation and elastodynamics
 - [`solve_eigen()`](https://adamrsophie.github.io/pdecompR/reference/solve_eigen.md)
   : Eigenvalue problems
+- [`stokes_problem()`](https://adamrsophie.github.io/pdecompR/reference/stokes_problem.md)
+  [`velocity_bc()`](https://adamrsophie.github.io/pdecompR/reference/stokes_problem.md)
+  : Stokes flow with Taylor-Hood elements
 - [`displacement_bc()`](https://adamrsophie.github.io/pdecompR/reference/displacement_bc.md)
   [`traction_bc()`](https://adamrsophie.github.io/pdecompR/reference/displacement_bc.md)
   : Boundary conditions for linear elasticity
@@ -149,6 +152,9 @@
   : Exact derivatives of an affine problem family
 - [`taylor_test()`](https://adamrsophie.github.io/pdecompR/reference/taylor_test.md)
   : Taylor remainder test of an objective gradient
+- [`nonlinear_sensitivity()`](https://adamrsophie.github.io/pdecompR/reference/nonlinear_sensitivity.md)
+  [`transient_sensitivity()`](https://adamrsophie.github.io/pdecompR/reference/nonlinear_sensitivity.md)
+  : Adjoint gradients for nonlinear and time-dependent problems
 - [`pde_observations()`](https://adamrsophie.github.io/pdecompR/reference/pde_observations.md)
   [`misfit_objective()`](https://adamrsophie.github.io/pdecompR/reference/pde_observations.md)
   : Point observations and data misfit

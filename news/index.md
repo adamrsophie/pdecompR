@@ -70,6 +70,13 @@ of the sparse matrix classes of ‘Matrix’.
 - Damped wave equation and elastodynamics integrated by the Newmark
   average acceleration method, second order and energy conserving, with
   the discrete energy reported at every step.
+- Polygon domains with holes (`pde_domain(holes = )`), meshed by
+  bridging each hole to the outer boundary before ear clipping; hole
+  sides carry their own markers.
+- Incompressible Stokes flow with Taylor-Hood P2-P1 elements, velocity,
+  pseudo-traction and do-nothing outflow conditions, solved by sparse LU
+  or by GMRES with a block-diagonal preconditioner
+  ([`stokes_problem()`](https://adamrsophie.github.io/pdecompR/reference/stokes_problem.md)).
 - Eigenvalue problems for symmetric elliptic operators and elastic
   vibration modes by shift-and-invert subspace iteration
   ([`solve_eigen()`](https://adamrsophie.github.io/pdecompR/reference/solve_eigen.md)).
@@ -104,6 +111,12 @@ of the sparse matrix classes of ‘Matrix’.
   ([`affine_derivative()`](https://adamrsophie.github.io/pdecompR/reference/affine_derivative.md))
   and Taylor remainder checks
   ([`taylor_test()`](https://adamrsophie.github.io/pdecompR/reference/taylor_test.md)).
+- Adjoint gradients of nonlinear problems (one transposed Newton
+  Jacobian solve) and of backward Euler and Crank-Nicolson time stepping
+  (a discrete backward sweep) through
+  [`nonlinear_sensitivity()`](https://adamrsophie.github.io/pdecompR/reference/nonlinear_sensitivity.md)
+  and
+  [`transient_sensitivity()`](https://adamrsophie.github.io/pdecompR/reference/nonlinear_sensitivity.md).
 - Parameter estimation with adjoint gradients, bounds (including fixed
   parameters), Gauss-Newton standard errors and identifiability
   diagnostics.

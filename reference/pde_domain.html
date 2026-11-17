@@ -84,7 +84,9 @@ three-dimensional domains are planned but not yet available.</p>
 <span>  x <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
 <span>  y <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>,</span>
 <span>  vertices <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  markers <span class="op">=</span> <span class="st">"boundary"</span></span>
+<span>  markers <span class="op">=</span> <span class="st">"boundary"</span>,</span>
+<span>  holes <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  hole_markers <span class="op">=</span> <span class="st">"hole"</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -111,6 +113,17 @@ three-dimensional domains are planned but not yet available.</p>
 <dt id="arg-markers">markers<a class="anchor" aria-label="anchor" href="#arg-markers"></a></dt>
 <dd><p>For polygons, a character vector naming each side, or a
 single name used for every side.</p></dd>
+
+
+<dt id="arg-holes">holes<a class="anchor" aria-label="anchor" href="#arg-holes"></a></dt>
+<dd><p>For polygons, an optional list of vertex matrices, each a
+simple polygon strictly inside the outer polygon; holes must not touch
+each other or the outer boundary.</p></dd>
+
+
+<dt id="arg-hole-markers">hole_markers<a class="anchor" aria-label="anchor" href="#arg-hole-markers"></a></dt>
+<dd><p>Marker of the sides of each hole: one name for all
+holes or one per hole.</p></dd>
 
 </dl></div>
     <div class="section level2">

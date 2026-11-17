@@ -43,6 +43,9 @@ solve_pde(
   ...
 )
 
+# S3 method for class 'stokes_problem'
+solve_pde(problem, method = c("lu", "gmres"), tol = 1e-10, ...)
+
 # S3 method for class 'wave_problem'
 solve_pde(problem, dt, output_times = NULL, solver = "auto", ...)
 

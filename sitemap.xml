@@ -51,6 +51,7 @@
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/mesh_size.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/multigrid_preconditioner.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/nonlinear_problem.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/reference/nonlinear_sensitivity.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/optimal_control.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/parabolic_problem.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/pde_domain.html</loc></url>
@@ -72,6 +73,7 @@
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/solve_eigen.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/solve_linear_system.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/solve_pde.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/reference/stokes_problem.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/taylor_test.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/tensor_coefficient.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/transfer_function.html</loc></url>

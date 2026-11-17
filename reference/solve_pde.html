@@ -62,7 +62,7 @@ parabolic, reaction-diffusion and nonlinear problems."><meta property="og:image"
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>Solve a PDE problem</h1>
-      <small class="dont-index">Source: <a href="https://github.com/adamrsophie/pdecompR/blob/main/R/elasticity.R" class="external-link"><code>R/elasticity.R</code></a>, <a href="https://github.com/adamrsophie/pdecompR/blob/main/R/elliptic.R" class="external-link"><code>R/elliptic.R</code></a>, <a href="https://github.com/adamrsophie/pdecompR/blob/main/R/heat.R" class="external-link"><code>R/heat.R</code></a>, and 3 more</small>
+      <small class="dont-index">Source: <a href="https://github.com/adamrsophie/pdecompR/blob/main/R/elasticity.R" class="external-link"><code>R/elasticity.R</code></a>, <a href="https://github.com/adamrsophie/pdecompR/blob/main/R/elliptic.R" class="external-link"><code>R/elliptic.R</code></a>, <a href="https://github.com/adamrsophie/pdecompR/blob/main/R/heat.R" class="external-link"><code>R/heat.R</code></a>, and 4 more</small>
       <div class="d-none name"><code>solve_pde.Rd</code></div>
     </div>
 
@@ -109,6 +109,9 @@ parabolic, reaction-diffusion and nonlinear problems.</p>
 <span>  newton_maxit <span class="op">=</span> <span class="fl">25</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class 'stokes_problem'</span></span>
+<span><span class="fu">solve_pde</span><span class="op">(</span><span class="va">problem</span>, method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"lu"</span>, <span class="st">"gmres"</span><span class="op">)</span>, tol <span class="op">=</span> <span class="fl">1e-10</span>, <span class="va">...</span><span class="op">)</span></span>
 <span></span>
 <span><span class="co"># S3 method for class 'wave_problem'</span></span>
 <span><span class="fu">solve_pde</span><span class="op">(</span><span class="va">problem</span>, <span class="va">dt</span>, output_times <span class="op">=</span> <span class="cn">NULL</span>, solver <span class="op">=</span> <span class="st">"auto"</span>, <span class="va">...</span><span class="op">)</span></span>
