@@ -103,6 +103,21 @@ refine_mesh <- function(mesh, marked) {
   out
 }
 
+# Parent edges of the new nodes when `fine` is one refinement of `coarse`
+# (same leading nodes, new nodes at midpoints of edges of `coarse`), else
+# NULL.
+refinement_edges <- function(coarse, fine) {
+  inf <- fine$info; P0 <- coarse$nodes; n0 <- nrow(P0)
+  E <- inf$new_nodes
+  if (is.null(E) || !identical(inf$parent_nodes, n0) || nrow(fine$nodes) != n0 + nrow(E)) return(NULL)
+  if (max(abs(fine$nodes[seq_len(n0), , drop = FALSE] - P0), 0) != 0) return(NULL)
+  key <- function(a, b) paste(pmin(a, b), pmax(a, b))
+  if (!all(key(E[, 1], E[, 2]) %in% key(coarse$edges[, 1], coarse$edges[, 2]))) return(NULL)
+  mid <- (P0[E[, 1], , drop = FALSE] + P0[E[, 2], , drop = FALSE]) / 2
+  if (max(abs(mid - fine$nodes[-seq_len(n0), , drop = FALSE]), 0) > 1e-12 * max(1, abs(P0))) return(NULL)
+  E
+}
+
 refined_info <- function(mesh, parent_edges, nvb) {
   info <- mesh$info
   info$generator <- "refined"

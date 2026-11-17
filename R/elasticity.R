@@ -150,8 +150,17 @@ discretize.elasticity_problem <- function(problem, ...) {
     if (a == b) { D$xx <- D$xx + lm$mu; D$yy <- D$yy + lm$mu }
     D
   }
-  blk <- function(b, a) global_matrix(V, local_bilinear(geo, diff = tens(b, a)))
-  A <- rbind(cbind(blk(1, 1), blk(1, 2)), cbind(blk(2, 1), blk(2, 2)))
+  # One triplet assembly for all four blocks (no block concatenation).
+  D <- V$cell_dofs; nl <- ncol(D)
+  I <- J <- X <- vector("list", 4L); k <- 0L
+  for (bb in 1:2) for (aa in 1:2) {
+    k <- k + 1L
+    I[[k]] <- (bb - 1L) * n + D[, rep(seq_len(nl), times = nl)]
+    J[[k]] <- (aa - 1L) * n + D[, rep(seq_len(nl), each = nl)]
+    X[[k]] <- local_bilinear(geo, diff = tens(bb, aa))
+  }
+  A <- Matrix::sparseMatrix(i = unlist(lapply(I, as.vector)), j = unlist(lapply(J, as.vector)),
+                            x = unlist(lapply(X, as.vector)), dims = c(2L * n, 2L * n))
   fq <- vec_qp(problem$body_force, geo, name = "body_force")
   b <- c(global_vector(V, local_linear(geo, f = fq$x)), global_vector(V, local_linear(geo, f = fq$y)))
   vals <- numeric(2L * n)

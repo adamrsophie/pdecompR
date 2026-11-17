@@ -306,6 +306,7 @@ multigrid_preconditioner <- function(meshes, smoothing = 2L) {
   nf <- nrow(meshes[[length(meshes)]]$nodes)
   structure(list(setup = function(A, free = NULL) {
     n <- nrow(A)
+    if (!is.null(free) && max(free) > nf) stopf("The multigrid preconditioner supports P1 spaces only.")
     Pl <- P
     top <- length(Pl)
     if (is.null(free)) {
@@ -342,16 +343,8 @@ multigrid_preconditioner <- function(meshes, smoothing = 2L) {
 
 # P1 prolongation from `coarse` to `fine` = one refinement of `coarse`.
 refinement_prolongation <- function(coarse, fine) {
-  inf <- fine$info; P0 <- coarse$nodes; n0 <- nrow(P0)
-  ok <- !is.null(inf$new_nodes) && identical(inf$parent_nodes, n0) &&
-    nrow(fine$nodes) == n0 + nrow(inf$new_nodes) &&
-    max(abs(fine$nodes[seq_len(n0), , drop = FALSE] - P0), 0) == 0
-  if (ok) {
-    E <- inf$new_nodes
-    mid <- (P0[E[, 1], , drop = FALSE] + P0[E[, 2], , drop = FALSE]) / 2
-    ok <- max(abs(mid - fine$nodes[-seq_len(n0), , drop = FALSE]), 0) <= 1e-12 * max(1, abs(P0))
-  }
-  if (!ok) stopf("Each mesh must come from the previous one by one refine_uniform() or refine_mesh() step.")
+  E <- refinement_edges(coarse, fine); n0 <- nrow(coarse$nodes)
+  if (is.null(E)) stopf("Each mesh must come from the previous one by one refine_uniform() or refine_mesh() step.")
   ne <- nrow(E)
   Matrix::sparseMatrix(i = c(seq_len(n0), n0 + rep(seq_len(ne), 2)), j = c(seq_len(n0), E[, 1], E[, 2]),
                        x = c(rep(1, n0), rep(0.5, 2 * ne)), dims = c(n0 + ne, n0))

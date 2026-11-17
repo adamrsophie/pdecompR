@@ -383,3 +383,28 @@ test_that("preconditioners, multigrid and block right-hand sides", {
   expect_lt(max(abs(s$x - d$x)), 1e-9)
   expect_error(solve_linear_system(A, B[, 1], method = "cg", preconditioner = function(r) NA), "invalid")
 })
+
+test_that("refinement shortcuts check the parent edges", {
+  a <- pde_mesh_rectangle(nx = 4, pattern = "left")
+  r <- refine_uniform(pde_mesh_rectangle(nx = 4))
+  u <- interpolate(function(x, y) x * y, fe_space(a))
+  expect_equal(transfer_function(u, r)$values, evaluate(u, fe_space(r)$dof_coords), tolerance = 1e-14)
+  expect_error(multigrid_preconditioner(list(a, r)), "one refine")
+  ms <- list(pde_mesh_rectangle(nx = 2)); ms[[2]] <- refine_uniform(ms[[1]])
+  p2 <- poisson_problem(ms[[2]], source = 1, boundary = dirichlet_bc(0), degree = 2)
+  expect_error(solve_pde(p2, method = "cg", preconditioner = multigrid_preconditioner(ms)), "P1")
+})
+
+test_that("estimate_parameters uses exact derivatives with fixed parameters", {
+  mesh <- pde_mesh_rectangle(nx = 6)
+  pf <- function(th) poisson_problem(mesh, diffusion = th[1], source = th[2], boundary = dirichlet_bc(0))
+  xo <- c(0.3, 0.5, 0.7); yo <- c(0.5, 0.4, 0.6)
+  obs <- pde_observations(xo, yo, evaluate(solve_pde(pf(c(0.6, 2)))$u, xo, yo), sd = 0.01)
+  dv <- affine_derivative(pf, c(1, 1))
+  args <- list(pf, c(1, 2), obs, lower = c(0.1, 2), upper = c(10, 2))
+  e1 <- do.call(estimate_parameters, args)
+  e2 <- do.call(estimate_parameters, c(args, list(derivative = dv)))
+  expect_equal(e2$estimate, c(0.6, 2), tolerance = 1e-5)
+  expect_equal(e2$estimate, e1$estimate, tolerance = 1e-6)
+  expect_equal(e2$fixed, c(FALSE, TRUE))
+})

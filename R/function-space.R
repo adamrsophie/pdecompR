@@ -184,9 +184,9 @@ physical_gradients <- function(mesh, e, G) {
 
 # Locate points in the mesh. Returns the element and reference coordinates.
 # ponytail: uniform bucket grid; a k-d tree would help strongly graded meshes.
-locate_points <- function(mesh, x, y, tol = 1e-10) {
+build_search_index <- function(mesh) {
   P <- mesh$nodes; T <- mesh$triangles
-  np <- length(x); m <- nrow(T)
+  m <- nrow(T)
   xmin <- min(P[, 1]); xmax <- max(P[, 1]); ymin <- min(P[, 2]); ymax <- max(P[, 2])
   nb <- max(1L, ceiling(sqrt(m / 2)))
   wx <- (xmax - xmin) / nb; wy <- (ymax - ymin) / nb
@@ -208,6 +208,29 @@ locate_points <- function(mesh, x, y, tol = 1e-10) {
   el <- el[o]; bid <- bid[o]
   start <- match(seq_len(nb * nb), bid)
   num <- tabulate(bid, nbins = nb * nb)
+  list(nodes = P, triangles = T, xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax, nb = nb,
+       wx = wx, wy = wy, slack = slack, el = el, start = start, num = num)
+}
+
+# Bucket index of the most recently searched meshes, keyed by their nodes
+# and triangles only (markers and regions do not affect point location).
+search_cache <- new.env(parent = emptyenv())
+search_index <- function(mesh) {
+  for (ix in search_cache$items) {
+    if (identical(ix$triangles, mesh$triangles) && identical(ix$nodes, mesh$nodes)) return(ix)
+  }
+  ix <- build_search_index(mesh)
+  search_cache$items <- c(list(ix), utils::head(search_cache$items, 3L))
+  ix
+}
+
+locate_points <- function(mesh, x, y, tol = 1e-10) {
+  ix <- search_index(mesh)
+  P <- ix$nodes; T <- ix$triangles; np <- length(x)
+  xmin <- ix$xmin; xmax <- ix$xmax; ymin <- ix$ymin; ymax <- ix$ymax
+  nb <- ix$nb; wx <- ix$wx; wy <- ix$wy; slack <- ix$slack
+  el <- ix$el; start <- ix$start; num <- ix$num
+  bin <- function(v, lo, w) pmin(nb - 1L, pmax(0L, floor((v - lo) / w)))
   inside <- x >= xmin - slack & x <= xmax + slack & y >= ymin - slack & y <= ymax + slack
   pb <- rep(NA_integer_, np)
   pb[inside] <- bin(x[inside], xmin, wx) + bin(y[inside], ymin, wy) * nb + 1L
@@ -253,16 +276,8 @@ transfer_function <- function(u, mesh, degree = u$space$degree) {
   V <- fe_space(mesh, degree)
   # One refinement step of u's mesh: P1 values at new nodes are the averages
   # of the two parent edge endpoints (exact, and no point location).
-  inf <- mesh$info; P0 <- u$space$mesh$nodes
-  if (degree == 1L && u$space$degree == 1L && !is.null(inf$new_nodes) &&
-      identical(inf$parent_nodes, nrow(P0)) && nrow(mesh$nodes) == nrow(P0) + nrow(inf$new_nodes) &&
-      isTRUE(all.equal(mesh$nodes[seq_len(nrow(P0)), , drop = FALSE], P0, tolerance = 0, check.attributes = FALSE))) {
-    E <- inf$new_nodes
-    mid <- (P0[E[, 1], , drop = FALSE] + P0[E[, 2], , drop = FALSE]) / 2
-    if (max(abs(mid - mesh$nodes[-seq_len(nrow(P0)), , drop = FALSE]), 0) <= 1e-12 * max(1, abs(P0))) {
-      return(fe_function(V, c(u$values, (u$values[E[, 1]] + u$values[E[, 2]]) / 2), name = u$name))
-    }
-  }
+  E <- if (degree == 1L && u$space$degree == 1L) refinement_edges(u$space$mesh, mesh) else NULL
+  if (!is.null(E)) return(fe_function(V, c(u$values, (u$values[E[, 1]] + u$values[E[, 2]]) / 2), name = u$name))
   vals <- evaluate(u, V$dof_coords)
   if (anyNA(vals)) stopf("The target mesh is not covered by the source mesh.")
   fe_function(V, vals, name = u$name)

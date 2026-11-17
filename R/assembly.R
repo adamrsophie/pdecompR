@@ -100,7 +100,7 @@ local_bilinear <- function(geo, mass = NULL, adv = NULL, advt = NULL, diff = NUL
   # factorizes exactly into (per-element metric) x (reference integral), so
   # the result equals the quadrature result up to rounding at a fraction of
   # the cost. Other terms go through the quadrature loop below.
-  pec <- function(a) is.matrix(a) && all(a == a[, 1])
+  pec <- function(a) is.matrix(a) && isTRUE(all(a == a[, 1]))
   if (!is.null(geo$gxi)) {
     w <- geo$w; det <- geo$det; ph <- geo$phi
     ref <- function(a, b) crossprod(a, w * b)
@@ -161,7 +161,7 @@ local_bilinear <- function(geo, mass = NULL, adv = NULL, advt = NULL, diff = NUL
 local_linear <- function(geo, f = NULL, g = NULL) {
   m <- geo$m; nl <- geo$nloc
   b <- matrix(0, m, nl)
-  if (!is.null(f) && is.null(g) && all(f == f[, 1])) {
+  if (!is.null(f) && is.null(g) && isTRUE(all(f == f[, 1]))) {
     return((geo$det * f[, 1]) %o% colSums(geo$w * geo$phi))
   }
   for (k in seq_len(geo$nq)) {
