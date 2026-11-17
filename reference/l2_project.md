@@ -3,8 +3,10 @@
 Computes the L2 projection `P f` of `f` onto `space`: the finite-element
 function with `int (P f) v = int f v` for every `v` in the space.
 Because constants belong to the space, the projection preserves the
-integral of `f` over the domain (and over any union of elements for P1
-and P2), which interpolation does not.
+integral of `f` over the whole domain, which interpolation does not. It
+does not preserve integrals over individual elements or unions of them:
+local conservation would need a discontinuous space or explicit
+constraints.
 
 ## Usage
 

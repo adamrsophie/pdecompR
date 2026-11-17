@@ -59,7 +59,7 @@ summary(sol)
 #>   degrees of freedom: 625  ( 529  free)
 #>   linear solver: cholesky  max relative residual: 8.27e-16 
 #>   integral of the solution, first and last stored time: 0.4041 to 0.1501 
-#>   assembly 0.024 s, time stepping 0.044 s
+#>   assembly 0.022 s, time stepping 0.04 s
 
 exact_end <- function(x, y) exp(-2 * pi^2 * kappa * 0.1) * u0(x, y)
 errornorm(solution_at(sol, 0.1), exact_end, "L2")

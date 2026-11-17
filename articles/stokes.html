@@ -117,9 +117,12 @@ continuous P1: the Taylor-Hood pair. Velocity conditions come from
 <code><a href="../reference/stokes_problem.html">velocity_bc()</a></code>, on any components.
 <code><a href="../reference/displacement_bc.html">traction_bc()</a></code> prescribes the pseudo-traction <span class="math inline">(\nu\nabla\mathbf u - pI)\mathbf n</span>, and
 boundary parts without a condition get the do-nothing outflow condition
-(zero pseudo-traction). When the velocity is prescribed on the whole
-boundary, the pressure is determined only up to a constant and is fixed
-by a zero-mean gauge.</p>
+(zero pseudo-traction). When the normal velocity is prescribed on the
+whole boundary (both components, or only the normal one with tangential
+slip on axis-aligned walls), the pressure is determined only up to a
+constant and is fixed by a zero-mean gauge. The test is made on the
+constrained divergence operator, separately for each connected part of
+the mesh.</p>
 </div>
 <div class="section level2">
 <h2 id="convergence">Convergence<a class="anchor" aria-label="anchor" href="#convergence"></a>

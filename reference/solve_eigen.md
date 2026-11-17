@@ -7,7 +7,9 @@ an
 prescribed degrees of freedom; Neumann and Robin terms enter `K`) or an
 [`elasticity_problem()`](https://adamrsophie.github.io/pdecompR/reference/elasticity_problem.md)
 (vibration modes, with `M` the mass matrix of unit density), nearest to
-the shift `sigma`.
+the shift `sigma`. Periodic conditions reduce both matrices as in
+[`solve_pde()`](https://adamrsophie.github.io/pdecompR/reference/solve_pde.md),
+and the returned eigenvectors satisfy them.
 
 ## Usage
 

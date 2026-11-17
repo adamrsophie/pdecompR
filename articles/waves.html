@@ -140,7 +140,7 @@ x</span>, and any remaining error comes from time stepping.</p>
 <span><span class="co">#&gt; 4 0.0125 0.002259093 1.997343</span></span>
 <span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="va">p</span>, dt <span class="op">=</span> <span class="fl">0.05</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/diff.html" class="external-link">diff</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="va">s</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">energy</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="va">s</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">energy</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span></span>
-<span><span class="co">#&gt; [1] 8.913074e-15</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 7.486982e-15</span></span></code></pre></div>
 <p>The relative energy drift is at rounding level.</p>
 <p>Damping removes energy:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">

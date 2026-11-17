@@ -74,16 +74,16 @@
 <ul><li>Rectangular and simple polygonal domains with validation.</li>
 <li>Structured triangular meshes and polygon meshes, with checks of connectivity, orientation and degeneracy, quality measures, named boundary markers and named regions (subdomains).</li>
 <li>Uniform refinement and newest vertex bisection; boundary markers and regions are inherited by refined meshes.</li>
-<li>Import of Gmsh 2.2 and 4.1 meshes (physical lines become boundary markers, physical surfaces become regions) and export to VTK, including quadratic P2 cells, displacement vectors and stress fields, in legacy and XML (<code>.vtu</code>, raw binary or text) formats, and ParaView time series (<code><a href="../reference/write_pvd.html">write_pvd()</a></code>).</li>
+<li>Import of Gmsh 2.2 and 4.1 meshes (physical lines become boundary markers, physical surfaces become regions) and export to VTK, including quadratic P2 cells, displacement vectors and stress fields, in legacy and XML (<code>.vtu</code>, raw binary or text) formats, and ParaView time series (<code><a href="../reference/write_pvd.html">write_pvd()</a></code>); field and file names are XML escaped.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="discretization-0-1-0">Discretization<a class="anchor" aria-label="anchor" href="#discretization-0-1-0"></a></h3>
 <ul><li>Continuous Lagrange P1 and P2 elements on triangles, scalar and vector valued, with Gaussian quadrature on intervals and triangles.</li>
 <li>Sparse assembly of stiffness, mass, advection and boundary operators and load vectors. Terms with coefficients that are constant on each element are assembled from reference-element matrices, exactly and without a quadrature loop.</li>
 <li>Coefficients given as numbers, functions of <code>(x, y)</code> or <code>(x, y, t)</code>, finite-element functions, constant or spatially varying symmetric tensors (<code><a href="../reference/tensor_coefficient.html">tensor_coefficient()</a></code>) or piecewise values by region (<code><a href="../reference/region_coefficient.html">region_coefficient()</a></code>).</li>
-<li>Interpolation, exact transfer to refined meshes, and conservative L2 projection between any two meshes of a domain (<code><a href="../reference/l2_project.html">l2_project()</a></code>).</li>
-<li>Dirichlet, Neumann and Robin conditions; pure Neumann problems with a compatibility check and a zero-mean gauge on each connected component.</li>
-<li>Periodic conditions for elliptic problems (<code><a href="../reference/periodic_bc.html">periodic_bc()</a></code>), by elimination of the identified degrees of freedom, including fully periodic problems with a zero-mean gauge.</li>
+<li>Interpolation, exact transfer to refined meshes, and L2 projection between any two meshes of the same domain (<code><a href="../reference/l2_project.html">l2_project()</a></code>), which preserves the integral over the whole domain. Meshes of different domains (for example a subdomain, or a refined curved boundary) are rejected.</li>
+<li>Dirichlet, Neumann and Robin conditions; pure Neumann problems with a compatibility check and a zero-mean gauge on each connected component. Data whose discrete compatibility defect exceeds 1 percent are rejected on every mesh; the gauge reports whether the original problem was solved.</li>
+<li>Periodic conditions for elliptic problems (<code><a href="../reference/periodic_bc.html">periodic_bc()</a></code>), by elimination of the identified degrees of freedom, including fully periodic problems with a zero-mean gauge. Matching is one to one in coordinates relative to the boundary spacing, so it does not depend on units or origin; prescribed values must agree within each periodic class. The same constraint is applied by <code><a href="../reference/solve_eigen.html">solve_eigen()</a></code>, <code><a href="../reference/pde_sensitivity.html">pde_sensitivity()</a></code>, <code><a href="../reference/estimate_parameters.html">estimate_parameters()</a></code> and <code><a href="../reference/optimal_control.html">optimal_control()</a></code>.</li>
 <li>A weak-form language (<code><a href="../reference/trial_function.html">trial_function()</a></code>, <code><a href="../reference/trial_function.html">test_function()</a></code>, <code><a href="../reference/trial_function.html">grad()</a></code>, <code><a href="../reference/trial_function.html">dot()</a></code>, <code><a href="../reference/trial_function.html">integrate_domain()</a></code>, <code><a href="../reference/trial_function.html">integrate_boundary()</a></code>) for linear scalar problems.</li>
 </ul></div>
 <div class="section level3">
@@ -91,31 +91,32 @@
 <ul><li>Elliptic problems with diffusion, advection and reaction, with optional SUPG stabilization.</li>
 <li>Heat and general linear parabolic problems with backward Euler, Crank-Nicolson (Rannacher startup), BDF2 and L-stable SDIRK2, adaptive SDIRK2 stepping with an embedded error estimate, time-dependent data and coefficients, and mass diagnostics.</li>
 <li>Reaction-diffusion systems with IMEX and fully implicit Newton time stepping.</li>
-<li>Quasilinear diffusion, semilinear reaction and p-Laplace problems solved by damped Newton iteration.</li>
+<li>Quasilinear diffusion, semilinear reaction and p-Laplace problems solved by damped Newton iteration. Without Dirichlet data, a converged state that stays a solution when shifted by a constant is reported as not unique.</li>
 <li>Linear elasticity in plane strain and plane stress with displacement, roller and traction conditions, and strain, stress and von Mises output.</li>
 <li>Damped wave equation and elastodynamics integrated by the Newmark average acceleration method, second order and energy conserving, with the discrete energy reported at every step.</li>
 <li>
-<code><a href="../reference/pde_mesh.html">pde_mesh()</a></code> rejects elements that overlap without sharing an edge (folded node neighborhoods or crossing boundary edges).</li>
+<code><a href="../reference/pde_mesh.html">pde_mesh()</a></code> rejects elements that overlap without sharing an edge (folded node neighborhoods, crossing boundary edges, or a disconnected part lying inside another element).</li>
 <li>
 <code><a href="../reference/curved_boundary.html">curved_boundary()</a></code> declares boundary parts as curves; refinement then places new boundary nodes on the curve, which restores second-order P1 convergence on curved domains. Elements stay straight sided, so P2 is limited by the polygonal geometry (H1 rate 1.5).</li>
 <li>
 <code><a href="../reference/amg_preconditioner.html">amg_preconditioner()</a></code> adds smoothed aggregation algebraic multigrid for CG, with nearly constant iteration counts on unstructured and P2 meshes where geometric multigrid does not apply.</li>
 <li>
 <code>elasticity_problem(formulation = "mixed")</code> solves nearly incompressible elasticity with P2 displacements and a P1 pressure, free of volumetric locking; <code><a href="../reference/elasticity_stress.html">elasticity_stress()</a></code> uses the pressure unknown.</li>
-<li>Every time stepper accepts a per-step <code>callback</code> and can <code>restart</code> from the final state of an earlier run (including multistep history, Newmark velocity and acceleration, the adaptive step size and startup steps), so long runs can be streamed and checkpointed.</li>
+<li>Every time stepper accepts a per-step <code>callback</code> and can <code>restart</code> from the final state of an earlier run (including multistep history, Newmark velocity and acceleration, the adaptive step size and startup steps), so long runs can be streamed and checkpointed. The state records its finite-element space, and restarts on another mesh, degree or numbering are rejected; reaction-diffusion species are matched by name.</li>
+<li>Time tolerances are relative to the time interval, so short intervals in small time units are integrated and intervals too short to represent are rejected. Newmark startup never evaluates boundary data after the first step.</li>
 <li>Time-dependent solvers report the range of nodal values over all steps (<code>diagnostics$range</code>) next to the integral, to expose violations of positivity or of the discrete maximum principle.</li>
 <li>Polygon domains with holes (<code>pde_domain(holes = )</code>), meshed by bridging each hole to the outer boundary before ear clipping; hole sides carry their own markers.</li>
-<li>Incompressible Stokes flow with Taylor-Hood P2-P1 elements, velocity, pseudo-traction and do-nothing outflow conditions, solved by sparse LU or by GMRES with a block-diagonal preconditioner (<code><a href="../reference/stokes_problem.html">stokes_problem()</a></code>).</li>
+<li>Incompressible Stokes flow with Taylor-Hood P2-P1 elements, velocity, pseudo-traction and do-nothing outflow conditions, solved by sparse LU or by GMRES with a block-diagonal preconditioner (<code><a href="../reference/stokes_problem.html">stokes_problem()</a></code>). The pressure gauge is found from the constrained divergence operator, so walls with only the normal velocity prescribed are gauged too.</li>
 <li>Eigenvalue problems for symmetric elliptic operators and elastic vibration modes by shift-and-invert subspace iteration (<code><a href="../reference/solve_eigen.html">solve_eigen()</a></code>).</li>
 </ul></div>
 <div class="section level3">
 <h3 id="solvers-0-1-0">Solvers<a class="anchor" aria-label="anchor" href="#solvers-0-1-0"></a></h3>
 <ul><li>Sparse Cholesky and LU with symmetric equilibration, and preconditioned conjugate gradients, BiCGSTAB and GMRES, with residual and conditioning diagnostics and an explicit status for every solve. Several right-hand sides are solved with one factorization, and time stepping warm starts iterative solvers.</li>
-<li>Jacobi, symmetric Gauss-Seidel (SSOR) and user-supplied preconditioners, and a geometric multigrid V-cycle on nested meshes (<code><a href="../reference/multigrid_preconditioner.html">multigrid_preconditioner()</a></code>) with mesh-independent iteration counts.</li>
+<li>Jacobi, symmetric Gauss-Seidel (SSOR) and user-supplied preconditioners, and a geometric multigrid V-cycle on nested meshes (<code><a href="../reference/multigrid_preconditioner.html">multigrid_preconditioner()</a></code>) with mesh-independent iteration counts; coarse levels inherit the homogeneous Dirichlet constraints. Algebraic multigrid is invariant to scaling of the system.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="verification-and-adaptivity-0-1-0">Verification and adaptivity<a class="anchor" aria-label="anchor" href="#verification-and-adaptivity-0-1-0"></a></h3>
-<ul><li>L2, H1 and energy error norms against exact or finite-element reference solutions on nested or unrelated meshes (integrated on the mesh overlay), and convergence studies with observed orders.</li>
+<ul><li>L2, H1 and energy error norms against exact or finite-element reference solutions on nested or unrelated meshes of the same domain (integrated on the mesh overlay, which keeps arbitrarily small cells), and convergence studies with observed orders. The finite-difference gradient used when no exact gradient is given does not change when the domain is translated.</li>
 <li>Symbolic manufactured solutions through the optional ‘symcompR’ package.</li>
 <li>A residual a posteriori error estimator, Doerfler marking and an adaptive solve loop.</li>
 <li>A benchmark suite of ten reference problems in <code>benchmarks/</code>.</li>
@@ -123,8 +124,8 @@
 <div class="section level3">
 <h3 id="inference-and-control-0-1-0">Inference and control<a class="anchor" aria-label="anchor" href="#inference-and-control-0-1-0"></a></h3>
 <ul><li>Discrete forward and adjoint sensitivities of linear elliptic problems, with finite-difference or exact operator derivatives (<code><a href="../reference/affine_derivative.html">affine_derivative()</a></code>) and Taylor remainder checks (<code><a href="../reference/taylor_test.html">taylor_test()</a></code>).</li>
-<li>Adjoint gradients of nonlinear problems (one transposed Newton Jacobian solve) and of backward Euler and Crank-Nicolson time stepping (a discrete backward sweep) through <code><a href="../reference/nonlinear_sensitivity.html">nonlinear_sensitivity()</a></code> and <code><a href="../reference/nonlinear_sensitivity.html">transient_sensitivity()</a></code>; the transient sweep accumulates the gradient step by step and can checkpoint the forward states.</li>
-<li>Parameter estimation with adjoint gradients, bounds (including fixed parameters), Gauss-Newton standard errors and identifiability diagnostics.</li>
+<li>Adjoint gradients of nonlinear problems (one transposed Newton Jacobian solve) and of backward Euler and Crank-Nicolson time stepping (a discrete backward sweep) through <code><a href="../reference/nonlinear_sensitivity.html">nonlinear_sensitivity()</a></code> and <code><a href="../reference/nonlinear_sensitivity.html">transient_sensitivity()</a></code>; the transient sweep accumulates the gradient step by step, includes the derivative of the SUPG mass matrix, and can checkpoint the forward states.</li>
+<li>Parameter estimation with adjoint gradients, bounds (including fixed parameters), Gauss-Newton standard errors and identifiability diagnostics: the rank of the observation sensitivities against the number of free parameters, and the null space of unidentified directions.</li>
 <li>Distributed optimal control with optional control bounds.</li>
 </ul></div>
 </div>

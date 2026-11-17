@@ -65,9 +65,11 @@ in space);
 [`traction_bc()`](https://adamrsophie.github.io/pdecompR/reference/displacement_bc.md)
 prescribes the pseudo-traction `(nu grad u - p I) n`, and boundary parts
 with no condition get the do-nothing outflow condition (zero
-pseudo-traction). When the velocity is prescribed on the whole boundary,
-the pressure is fixed by a zero-mean gauge and the prescribed velocity
-must have zero net flux through the boundary.
+pseudo-traction). When the normal velocity is prescribed on the whole
+boundary of a connected part of the mesh (both components, or only the
+normal one on walls aligned with the axes, with tangential slip), the
+pressure there is fixed by a zero-mean gauge and the prescribed velocity
+must have zero net flux through that boundary.
 
 [`solve_pde()`](https://adamrsophie.github.io/pdecompR/reference/solve_pde.md)
 solves the saddle-point system by sparse LU (`method = "lu"`, the

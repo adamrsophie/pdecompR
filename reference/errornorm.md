@@ -89,7 +89,10 @@ the domain diameter; the result is then labeled with attribute
 `gradient = "finite difference"`. Its accuracy depends on the smoothness
 of `exact` (the truncation error is of order step squared times the
 third derivative), and it is wrong near jumps of the gradient, so pass
-`gradient` for verification work.
+`gradient` for verification work. The step does not change when the
+domain is translated; on a domain far from the origin it is raised where
+the coordinates cannot represent it, and the rounding error then grows
+like `1e-16 |x|` divided by the step.
 
 ## Examples
 

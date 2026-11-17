@@ -115,7 +115,7 @@ summary(s)
 #>   solver: lu, status solved
 #>   linear residual: 6.41e-12 (relative 1.63e-11)
 #>   pure Neumann: zero-mean gauge, compatibility defect -1.57e-10
-#>   assembly 0.006 s, solve 0.008 s
+#>   assembly 0.003 s, solve 0.008 s
 #>   solution range [-0.9937, 1.003]
 #>   (the linear residual measures the algebraic solve, not the discretization error)
 ```
@@ -126,7 +126,7 @@ Incompatible data are an error, not an arbitrary answer:
 
 solve_pde(poisson_problem(m, source = 1))
 #> Error:
-#> ! Pure Neumann problem with incompatible data: compatibility defect     1 (relative     1). The problem has no solution.
+#> ! Pure Neumann problem with incompatible data: compatibility defect     1 (relative     1). The discrete problem has no solution.
 ```
 
 Balancing the source with an outflow makes the problem solvable:
@@ -188,7 +188,7 @@ errornorm(s, u2)
 
 solve_pde(elliptic_problem(pde_mesh_rectangle(nx = 4), source = 1, bcs = both))
 #> Error:
-#> ! Pure Neumann problem with incompatible data: compatibility defect     1 (relative     1). The problem has no solution.
+#> ! Pure Neumann problem with incompatible data: compatibility defect     1 (relative     1). The discrete problem has no solution.
 ```
 
 Periodic conditions are supported for elliptic problems. Time-dependent,

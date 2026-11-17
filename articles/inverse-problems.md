@@ -182,9 +182,9 @@ est
 #>   estimate std_error
 #> 1  0.48965 0.0025551
 #> 2  1.50242 0.0072236
-#>   objective 7.105, gradient norm 2.203e-05, forward solves 13
+#>   objective 7.105, gradient norm 2.228e-05, forward solves 13
 #>   standard errors: measurement noise only (Gauss-Newton linearization)
-#>   identifiability: sensitivity condition number 9.21
+#>   identifiability: rank 2 of 2 free parameters, condition number 9.21
 #>   discretization check: predictions change by up to 0.000883 (4.415 sd) on a refined mesh
 ```
 

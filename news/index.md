@@ -19,7 +19,8 @@ of the sparse matrix classes of ‘Matrix’.
   including quadratic P2 cells, displacement vectors and stress fields,
   in legacy and XML (`.vtu`, raw binary or text) formats, and ParaView
   time series
-  ([`write_pvd()`](https://adamrsophie.github.io/pdecompR/reference/write_pvd.md)).
+  ([`write_pvd()`](https://adamrsophie.github.io/pdecompR/reference/write_pvd.md));
+  field and file names are XML escaped.
 
 ### Discretization
 
@@ -35,15 +36,29 @@ of the sparse matrix classes of ‘Matrix’.
   ([`tensor_coefficient()`](https://adamrsophie.github.io/pdecompR/reference/tensor_coefficient.md))
   or piecewise values by region
   ([`region_coefficient()`](https://adamrsophie.github.io/pdecompR/reference/region_coefficient.md)).
-- Interpolation, exact transfer to refined meshes, and conservative L2
-  projection between any two meshes of a domain
-  ([`l2_project()`](https://adamrsophie.github.io/pdecompR/reference/l2_project.md)).
+- Interpolation, exact transfer to refined meshes, and L2 projection
+  between any two meshes of the same domain
+  ([`l2_project()`](https://adamrsophie.github.io/pdecompR/reference/l2_project.md)),
+  which preserves the integral over the whole domain. Meshes of
+  different domains (for example a subdomain, or a refined curved
+  boundary) are rejected.
 - Dirichlet, Neumann and Robin conditions; pure Neumann problems with a
   compatibility check and a zero-mean gauge on each connected component.
+  Data whose discrete compatibility defect exceeds 1 percent are
+  rejected on every mesh; the gauge reports whether the original problem
+  was solved.
 - Periodic conditions for elliptic problems
   ([`periodic_bc()`](https://adamrsophie.github.io/pdecompR/reference/periodic_bc.md)),
   by elimination of the identified degrees of freedom, including fully
-  periodic problems with a zero-mean gauge.
+  periodic problems with a zero-mean gauge. Matching is one to one in
+  coordinates relative to the boundary spacing, so it does not depend on
+  units or origin; prescribed values must agree within each periodic
+  class. The same constraint is applied by
+  [`solve_eigen()`](https://adamrsophie.github.io/pdecompR/reference/solve_eigen.md),
+  [`pde_sensitivity()`](https://adamrsophie.github.io/pdecompR/reference/pde_sensitivity.md),
+  [`estimate_parameters()`](https://adamrsophie.github.io/pdecompR/reference/estimate_parameters.md)
+  and
+  [`optimal_control()`](https://adamrsophie.github.io/pdecompR/reference/optimal_control.md).
 - A weak-form language
   ([`trial_function()`](https://adamrsophie.github.io/pdecompR/reference/trial_function.md),
   [`test_function()`](https://adamrsophie.github.io/pdecompR/reference/trial_function.md),
@@ -64,7 +79,9 @@ of the sparse matrix classes of ‘Matrix’.
 - Reaction-diffusion systems with IMEX and fully implicit Newton time
   stepping.
 - Quasilinear diffusion, semilinear reaction and p-Laplace problems
-  solved by damped Newton iteration.
+  solved by damped Newton iteration. Without Dirichlet data, a converged
+  state that stays a solution when shifted by a constant is reported as
+  not unique.
 - Linear elasticity in plane strain and plane stress with displacement,
   roller and traction conditions, and strain, stress and von Mises
   output.
@@ -73,7 +90,8 @@ of the sparse matrix classes of ‘Matrix’.
   the discrete energy reported at every step.
 - [`pde_mesh()`](https://adamrsophie.github.io/pdecompR/reference/pde_mesh.md)
   rejects elements that overlap without sharing an edge (folded node
-  neighborhoods or crossing boundary edges).
+  neighborhoods, crossing boundary edges, or a disconnected part lying
+  inside another element).
 - [`curved_boundary()`](https://adamrsophie.github.io/pdecompR/reference/curved_boundary.md)
   declares boundary parts as curves; refinement then places new boundary
   nodes on the curve, which restores second-order P1 convergence on
@@ -91,7 +109,14 @@ of the sparse matrix classes of ‘Matrix’.
 - Every time stepper accepts a per-step `callback` and can `restart`
   from the final state of an earlier run (including multistep history,
   Newmark velocity and acceleration, the adaptive step size and startup
-  steps), so long runs can be streamed and checkpointed.
+  steps), so long runs can be streamed and checkpointed. The state
+  records its finite-element space, and restarts on another mesh, degree
+  or numbering are rejected; reaction-diffusion species are matched by
+  name.
+- Time tolerances are relative to the time interval, so short intervals
+  in small time units are integrated and intervals too short to
+  represent are rejected. Newmark startup never evaluates boundary data
+  after the first step.
 - Time-dependent solvers report the range of nodal values over all steps
   (`diagnostics$range`) next to the integral, to expose violations of
   positivity or of the discrete maximum principle.
@@ -102,6 +127,8 @@ of the sparse matrix classes of ‘Matrix’.
   pseudo-traction and do-nothing outflow conditions, solved by sparse LU
   or by GMRES with a block-diagonal preconditioner
   ([`stokes_problem()`](https://adamrsophie.github.io/pdecompR/reference/stokes_problem.md)).
+  The pressure gauge is found from the constrained divergence operator,
+  so walls with only the normal velocity prescribed are gauged too.
 - Eigenvalue problems for symmetric elliptic operators and elastic
   vibration modes by shift-and-invert subspace iteration
   ([`solve_eigen()`](https://adamrsophie.github.io/pdecompR/reference/solve_eigen.md)).
@@ -116,13 +143,18 @@ of the sparse matrix classes of ‘Matrix’.
 - Jacobi, symmetric Gauss-Seidel (SSOR) and user-supplied
   preconditioners, and a geometric multigrid V-cycle on nested meshes
   ([`multigrid_preconditioner()`](https://adamrsophie.github.io/pdecompR/reference/multigrid_preconditioner.md))
-  with mesh-independent iteration counts.
+  with mesh-independent iteration counts; coarse levels inherit the
+  homogeneous Dirichlet constraints. Algebraic multigrid is invariant to
+  scaling of the system.
 
 ### Verification and adaptivity
 
 - L2, H1 and energy error norms against exact or finite-element
-  reference solutions on nested or unrelated meshes (integrated on the
-  mesh overlay), and convergence studies with observed orders.
+  reference solutions on nested or unrelated meshes of the same domain
+  (integrated on the mesh overlay, which keeps arbitrarily small cells),
+  and convergence studies with observed orders. The finite-difference
+  gradient used when no exact gradient is given does not change when the
+  domain is translated.
 - Symbolic manufactured solutions through the optional ‘symcompR’
   package.
 - A residual a posteriori error estimator, Doerfler marking and an
@@ -142,9 +174,12 @@ of the sparse matrix classes of ‘Matrix’.
   [`nonlinear_sensitivity()`](https://adamrsophie.github.io/pdecompR/reference/nonlinear_sensitivity.md)
   and
   [`transient_sensitivity()`](https://adamrsophie.github.io/pdecompR/reference/nonlinear_sensitivity.md);
-  the transient sweep accumulates the gradient step by step and can
-  checkpoint the forward states.
+  the transient sweep accumulates the gradient step by step, includes
+  the derivative of the SUPG mass matrix, and can checkpoint the forward
+  states.
 - Parameter estimation with adjoint gradients, bounds (including fixed
   parameters), Gauss-Newton standard errors and identifiability
-  diagnostics.
+  diagnostics: the rank of the observation sensitivities against the
+  number of free parameters, and the null space of unidentified
+  directions.
 - Distributed optimal control with optional control bounds.

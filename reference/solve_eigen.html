@@ -3,11 +3,15 @@
 elliptic_problem() (diffusion and reaction, with Dirichlet conditions
 removing the prescribed degrees of freedom; Neumann and Robin terms enter
 K) or an elasticity_problem() (vibration modes, with M the mass
-matrix of unit density), nearest to the shift sigma."><meta property="og:description" content="Computes the eigenpairs K x = lambda M x of the discrete operator of an
+matrix of unit density), nearest to the shift sigma. Periodic
+conditions reduce both matrices as in solve_pde(), and the returned
+eigenvectors satisfy them."><meta property="og:description" content="Computes the eigenpairs K x = lambda M x of the discrete operator of an
 elliptic_problem() (diffusion and reaction, with Dirichlet conditions
 removing the prescribed degrees of freedom; Neumann and Robin terms enter
 K) or an elasticity_problem() (vibration modes, with M the mass
-matrix of unit density), nearest to the shift sigma."><meta property="og:image" content="https://adamrsophie.github.io/pdecompR/logo.svg"></head><body>
+matrix of unit density), nearest to the shift sigma. Periodic
+conditions reduce both matrices as in solve_pde(), and the returned
+eigenvectors satisfy them."><meta property="og:image" content="https://adamrsophie.github.io/pdecompR/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -80,7 +84,9 @@ matrix of unit density), nearest to the shift sigma."><meta property="og:image" 
 <code><a href="elliptic_problem.html">elliptic_problem()</a></code> (diffusion and reaction, with Dirichlet conditions
 removing the prescribed degrees of freedom; Neumann and Robin terms enter
 <code>K</code>) or an <code><a href="elasticity_problem.html">elasticity_problem()</a></code> (vibration modes, with <code>M</code> the mass
-matrix of unit density), nearest to the shift <code>sigma</code>.</p>
+matrix of unit density), nearest to the shift <code>sigma</code>. Periodic
+conditions reduce both matrices as in <code><a href="solve_pde.html">solve_pde()</a></code>, and the returned
+eigenvectors satisfy them.</p>
     </div>
 
     <div class="section level2">

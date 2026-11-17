@@ -153,7 +153,10 @@ domain diameter; the result is then labeled with attribute
 <code>gradient = "finite difference"</code>. Its accuracy depends on the smoothness of
 <code>exact</code> (the truncation error is of order step squared times the third
 derivative), and it is wrong near jumps of the gradient, so pass <code>gradient</code>
-for verification work.</p>
+for verification work. The step does not change when the domain is
+translated; on a domain far from the origin it is raised where the
+coordinates cannot represent it, and the rounding error then grows like
+<code>1e-16 |x|</code> divided by the step.</p>
     </div>
 
     <div class="section level2">

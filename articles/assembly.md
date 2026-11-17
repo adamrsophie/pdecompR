@@ -99,8 +99,11 @@ sum(assemble_boundary_vector(V, 1, "left"))       # length of the left edge
 space with the same integrals against every basis function. Unlike
 interpolation it preserves the integral of `f`. For a finite-element
 function on an unrelated mesh, the load integrals are computed exactly
-on the overlay (common refinement) of the two meshes, so the transfer is
-conservative up to rounding.
+on the overlay (common refinement) of the two meshes, so the integral
+over the whole domain is preserved up to rounding. Integrals over single
+elements or groups of elements are not preserved in general; that would
+need a discontinuous space. The two meshes must cover the same domain,
+otherwise the projection is rejected.
 [`errornorm()`](https://adamrsophie.github.io/pdecompR/reference/errornorm.md)
 uses the same overlay to compare solutions on unrelated meshes.
 
@@ -153,7 +156,7 @@ for (m in c("auto", "lu", "cg", "bicgstab", "gmres")) {
 #> lu       lu        iterations   NA  relative residual 1.77e-13
 #> cg       cg        iterations   54  relative residual 4.51e-13
 #> bicgstab bicgstab  iterations   43  relative residual 5.04e-13
-#> gmres    gmres     iterations   54  relative residual 8.58e-13
+#> gmres    gmres     iterations   54  relative residual 8.66e-13
 ```
 
 Every solve reports a status, the residual and its relative size, the
@@ -252,7 +255,7 @@ for (n in c(16, 32, 64)) {
 }
 #> n =  16  dofs =    289  assembly 0.00s  solve 0.00s
 #> n =  32  dofs =   1089  assembly 0.00s  solve 0.00s
-#> n =  64  dofs =   4225  assembly 0.01s  solve 0.01s
+#> n =  64  dofs =   4225  assembly 0.01s  solve 0.00s
 ```
 
 Where coefficients change every time step or Newton iteration, the

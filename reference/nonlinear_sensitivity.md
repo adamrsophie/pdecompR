@@ -80,7 +80,8 @@ final state of a
 family solved by backward Euler or Crank-Nicolson (without startup
 steps). The forward run stores the states; a backward sweep with the
 transposed step matrix computes the discrete adjoint, and the gradient
-collects the derivatives of the operator, the loads and the initial
+collects the derivatives of the operator, the mass matrix (which depends
+on the parameters under SUPG stabilization), the loads and the initial
 condition. It is the exact gradient of the discrete time-stepping scheme
 (up to the difference steps of the operator derivatives), at the cost of
 one extra solve per step, independent of the number of parameters.

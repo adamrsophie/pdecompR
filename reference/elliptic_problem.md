@@ -115,10 +115,18 @@ read from the Lagrange multiplier of the zero-mean constraint and
 compared with `compatibility_tol * sum_i |b_i|` (an argument of
 [`solve_pde()`](https://adamrsophie.github.io/pdecompR/reference/solve_pde.md),
 default `1e-6`). For a nonsymmetric operator (advection) the left null
-vector is not constant; there a defect above `h^2` gives a warning
-instead of an error, because data that are compatible for the PDE leave
-a defect of the size of the discretization error; defects above about
-one percent are still errors.
+vector is not constant, and data that are compatible for the PDE leave a
+discrete defect of the size of the discretization error. A relative
+defect up to `(h / diameter)^2` is then accepted silently, one up to one
+percent with a warning, and anything larger is an error on every mesh:
+the discrete equations have no solution, and refining the mesh is the
+remedy when the data are compatible. Whenever the defect exceeds
+`compatibility_tol`, the returned function solves the equations with the
+source shifted by the multiplier times the constant mass, not the
+original ones: `diagnostics$gauge$modified` is then `TRUE`,
+`diagnostics$gauge$original_problem_solved` is `FALSE`, and
+`diagnostics$solver$relative_residual` is the residual of the original
+equations.
 
 ## References
 

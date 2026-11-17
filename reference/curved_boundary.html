@@ -119,14 +119,16 @@ closest points on the curve.</p></dd>
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>The mesh, with the curve stored in <code>curves</code>.</p>
+    <p>The mesh, with the curve stored in <code>curves</code> and attached to the
+marked edges.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>The existing nodes on the marked edges must already lie on the curve. The
-projection is kept by refinement and by meshes derived from the refined
-ones; relabeling edges with <code><a href="set_boundary_marker.html">set_boundary_marker()</a></code> to a new marker drops
-the curve for them. Because refined meshes no longer cover the same
+curve is attached to those edges (column <code>curve</code> of <code>mesh$boundary</code>, an
+index into <code>mesh$curves</code>) and passed to their children by refinement;
+relabeling edges with <code><a href="set_boundary_marker.html">set_boundary_marker()</a></code> makes them straight again,
+whatever marker the curve was declared with. Because refined meshes no longer cover the same
 domain as their parents, <code><a href="errornorm.html">errornorm()</a></code> against a finite-element reference
 from another mesh of the sequence and <code><a href="l2_project.html">l2_project()</a></code> between them stop
 with an error; compare with exact functions instead. Multigrid

@@ -37,16 +37,18 @@ curved_boundary(mesh, marker, projection)
 
 ## Value
 
-The mesh, with the curve stored in `curves`.
+The mesh, with the curve stored in `curves` and attached to the marked
+edges.
 
 ## Details
 
 The existing nodes on the marked edges must already lie on the curve.
-The projection is kept by refinement and by meshes derived from the
-refined ones; relabeling edges with
+The curve is attached to those edges (column `curve` of `mesh$boundary`,
+an index into `mesh$curves`) and passed to their children by refinement;
+relabeling edges with
 [`set_boundary_marker()`](https://adamrsophie.github.io/pdecompR/reference/set_boundary_marker.md)
-to a new marker drops the curve for them. Because refined meshes no
-longer cover the same domain as their parents,
+makes them straight again, whatever marker the curve was declared with.
+Because refined meshes no longer cover the same domain as their parents,
 [`errornorm()`](https://adamrsophie.github.io/pdecompR/reference/errornorm.md)
 against a finite-element reference from another mesh of the sequence and
 [`l2_project()`](https://adamrsophie.github.io/pdecompR/reference/l2_project.md)

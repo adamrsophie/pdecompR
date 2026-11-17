@@ -136,9 +136,16 @@ parameter vector.</p></dd>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>A list of class <code>pde_estimate</code> with the estimate, standard errors,
-the <code>fixed</code> parameters, and <code>identifiability</code>: singular values, condition
-number and right singular vectors of the weighted observation sensitivity
-matrix of the free parameters, and their correlation matrix.</p>
+the <code>fixed</code> parameters, and <code>identifiability</code>: one singular value per
+free parameter of the weighted observation sensitivity matrix (zero for
+directions the observations cannot see, as when there are fewer
+observations than free parameters), its numerical <code>rank</code>, the condition
+number (infinite when <code>rank</code> is below the number of free parameters),
+the right singular vectors <code>directions</code>, the <code>null_space</code> of
+unidentified parameter directions, and the correlation matrix (<code>NULL</code>
+when rank deficient). These describe the information in the data only;
+<code>regularization</code> can make the optimization well posed but adds no
+information.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

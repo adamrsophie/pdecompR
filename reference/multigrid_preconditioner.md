@@ -53,5 +53,5 @@ for (k in 1:3) ms[[k + 1]] <- refine_uniform(ms[[k]])
 prob <- poisson_problem(ms[[4]], source = 1, boundary = dirichlet_bc(0))
 sol <- solve_pde(prob, method = "cg", preconditioner = multigrid_preconditioner(ms))
 sol$diagnostics$solver$iterations
-#> [1] 8
+#> [1] 9
 ```

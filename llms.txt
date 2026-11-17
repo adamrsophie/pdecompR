@@ -73,7 +73,7 @@ solve_pde(variational_problem(a, L, dirichlet_bc(0)))
 | Area | Functionality |
 |----|----|
 | Geometry and meshes | rectangles and simple polygons, with holes; structured meshes (three diagonal patterns); polygon meshes (ear clipping, Delaunay flips, refinement); validation of connectivity, orientation, degeneracy, geometric overlap and boundary markers; quality measures; subdomain regions with piecewise coefficients; Gmsh 2.2 and 4.1 import (physical lines and surfaces); VTK export (legacy and XML `.vtu`, P1 and quadratic P2 cells, vectors, stresses) and `.pvd` time series |
-| Finite elements | continuous Lagrange P1 and P2 on triangles, scalar and vector valued; interpolation, conservative L2 projection between unrelated meshes, point evaluation, observation matrices |
+| Finite elements | continuous Lagrange P1 and P2 on triangles, scalar and vector valued; interpolation, L2 projection between unrelated meshes of the same domain (globally conservative), point evaluation, observation matrices |
 | Quadrature | Gauss-Legendre on intervals; triangle rules exact to any degree |
 | Assembly | sparse triplet assembly of stiffness, mass, advection and boundary matrices, load vectors, variable tensor diffusion; reference-element kernels for elementwise constant coefficients |
 | Boundary conditions | Dirichlet (by elimination, keeps SPD), Neumann, Robin, periodic; pure Neumann problems with compatibility check and a zero-mean gauge on each connected component |

@@ -68,9 +68,16 @@ estimate_parameters(
 ## Value
 
 A list of class `pde_estimate` with the estimate, standard errors, the
-`fixed` parameters, and `identifiability`: singular values, condition
-number and right singular vectors of the weighted observation
-sensitivity matrix of the free parameters, and their correlation matrix.
+`fixed` parameters, and `identifiability`: one singular value per free
+parameter of the weighted observation sensitivity matrix (zero for
+directions the observations cannot see, as when there are fewer
+observations than free parameters), its numerical `rank`, the condition
+number (infinite when `rank` is below the number of free parameters),
+the right singular vectors `directions`, the `null_space` of
+unidentified parameter directions, and the correlation matrix (`NULL`
+when rank deficient). These describe the information in the data only;
+`regularization` can make the optimization well posed but adds no
+information.
 
 ## Details
 

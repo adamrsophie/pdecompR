@@ -18,9 +18,12 @@ on any components.
 [`traction_bc()`](https://adamrsophie.github.io/pdecompR/reference/displacement_bc.md)
 prescribes the pseudo-traction (\nu\nabla\mathbf u - pI)\mathbf n, and
 boundary parts without a condition get the do-nothing outflow condition
-(zero pseudo-traction). When the velocity is prescribed on the whole
-boundary, the pressure is determined only up to a constant and is fixed
-by a zero-mean gauge.
+(zero pseudo-traction). When the normal velocity is prescribed on the
+whole boundary (both components, or only the normal one with tangential
+slip on axis-aligned walls), the pressure is determined only up to a
+constant and is fixed by a zero-mean gauge. The test is made on the
+constrained divergence operator, separately for each connected part of
+the mesh.
 
 ## Convergence
 

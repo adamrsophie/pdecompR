@@ -190,8 +190,12 @@ with the same integrals against every basis function. Unlike
 interpolation it preserves the integral of <code>f</code>. For a
 finite-element function on an unrelated mesh, the load integrals are
 computed exactly on the overlay (common refinement) of the two meshes,
-so the transfer is conservative up to rounding. <code><a href="../reference/errornorm.html">errornorm()</a></code>
-uses the same overlay to compare solutions on unrelated meshes.</p>
+so the integral over the whole domain is preserved up to rounding.
+Integrals over single elements or groups of elements are not preserved
+in general; that would need a discontinuous space. The two meshes must
+cover the same domain, otherwise the projection is rejected.
+<code><a href="../reference/errornorm.html">errornorm()</a></code> uses the same overlay to compare solutions on
+unrelated meshes.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">a</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fe_function.html">interpolate</a></span><span class="op">(</span><span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">sin</a></span><span class="op">(</span><span class="fl">5</span> <span class="op">*</span> <span class="va">x</span><span class="op">)</span> <span class="op">*</span> <span class="va">y</span>, <span class="fu"><a href="../reference/fe_space.html">fe_space</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">12</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">W</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fe_space.html">fe_space</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">5</span>, pattern <span class="op">=</span> <span class="st">"left"</span><span class="op">)</span><span class="op">)</span></span>
@@ -235,7 +239,7 @@ gradients, BiCGSTAB and restarted GMRES are also available.</p>
 <span><span class="co">#&gt; lu       lu        iterations   NA  relative residual 1.77e-13</span></span>
 <span><span class="co">#&gt; cg       cg        iterations   54  relative residual 4.51e-13</span></span>
 <span><span class="co">#&gt; bicgstab bicgstab  iterations   43  relative residual 5.04e-13</span></span>
-<span><span class="co">#&gt; gmres    gmres     iterations   54  relative residual 8.58e-13</span></span></code></pre></div>
+<span><span class="co">#&gt; gmres    gmres     iterations   54  relative residual 8.66e-13</span></span></code></pre></div>
 <p>Every solve reports a status, the residual and its relative size, the
 iteration count, the matrix size and the number of nonzeros. Iterative
 methods report <code>"not converged"</code> instead of returning
@@ -317,7 +321,7 @@ workstation.</p>
 <span><span class="op">}</span></span>
 <span><span class="co">#&gt; n =  16  dofs =    289  assembly 0.00s  solve 0.00s</span></span>
 <span><span class="co">#&gt; n =  32  dofs =   1089  assembly 0.00s  solve 0.00s</span></span>
-<span><span class="co">#&gt; n =  64  dofs =   4225  assembly 0.01s  solve 0.01s</span></span></code></pre></div>
+<span><span class="co">#&gt; n =  64  dofs =   4225  assembly 0.01s  solve 0.00s</span></span></code></pre></div>
 <p>Where coefficients change every time step or Newton iteration, the
 matrix is reassembled on a fixed sparsity pattern: the map from element
 entries to the nonzeros is computed once, and each reassembly is one
