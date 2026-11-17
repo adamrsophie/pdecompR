@@ -20,8 +20,12 @@ errornorm(
 list of two gradient functions, one per component).}
 
 \item{exact}{Exact solution \verb{function(x, y)}, or an \code{\link[=fe_function]{fe_function()}}
-reference solution (for example on a finer mesh, possibly of another
-degree); its gradient is then used for gradient norms.}
+reference solution on the same mesh or on a nested one (coarser, or finer
+from \code{\link[=refine_uniform]{refine_uniform()}} or \code{\link[=refine_mesh]{refine_mesh()}}), possibly of another degree;
+its gradient is then used for gradient norms. The integral runs on the
+finer of the two meshes, so the result is exact up to quadrature and
+symmetric in the two functions. References on meshes that are not nested
+are rejected.}
 
 \item{type}{Norm type.}
 
@@ -55,10 +59,12 @@ Norms:
 }
 
 Gradient-based norms need the exact gradient. When \code{gradient} is not given
-it is approximated by central differences (step \code{1e-5}); the result is then
-labeled with attribute \code{gradient = "finite difference"} and is accurate to
-about 1e-9 relative, which is adequate for convergence studies on
-moderately fine meshes.
+it is approximated by central differences with step \code{1e-5} times the
+domain diameter; the result is then labeled with attribute
+\code{gradient = "finite difference"}. Its accuracy depends on the smoothness of
+\code{exact} (the truncation error is of order step squared times the third
+derivative), and it is wrong near jumps of the gradient, so pass \code{gradient}
+for verification work.
 }
 \examples{
 mesh <- pde_mesh_rectangle(nx = 8)

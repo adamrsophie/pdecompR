@@ -68,12 +68,17 @@ matrices only).
 general matrices.
 }
 
-Iterative methods use Jacobi (diagonal) preconditioning by default and stop
-when \verb{||b - A x|| <= tol * ||b||}. Direct methods report the same relative
-residual, and status \code{"singular"} when the ratio of the smallest to the
-largest pivot of the factorization is below about \code{2e-13} (the matrix is
-singular to working precision, for example a stiffness matrix without
-boundary conditions). A small residual says the linear system was solved accurately;
+Iterative methods use Jacobi (diagonal) preconditioning by default and
+iterate on the scaled system \verb{A y = b / max|b|}, which avoids overflow and
+underflow. They report \code{"converged"} only when the true residual of the
+returned solution satisfies \verb{||b - A x|| <= tol * ||b||}, and
+\code{"not converged"} otherwise. Direct methods report the same relative
+residual, status \code{"inaccurate"} when the normwise backward error
+\verb{||b - A x|| / (||A|| ||x|| + ||b||)} exceeds \code{1e-8}, and status \code{"near-singular"} when the ratio of the smallest to
+the largest pivot of the factorization is below about \code{2e-13}. That ratio
+is a conditioning diagnostic: the matrix is singular or nearly singular to
+working precision, for example a stiffness matrix without boundary
+conditions. A system with no unknowns returns method \code{"none"}. A small residual says the linear system was solved accurately;
 it says nothing about the discretization error of the PDE.
 }
 \examples{

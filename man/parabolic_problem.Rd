@@ -71,7 +71,7 @@ time (\verb{function(x, y, t)}); the operator is then reassembled and
 refactorized at every step, with \verb{A(t_\{n+1\})} on the implicit side and
 \code{A(t_n)} on the explicit side of the theta scheme (second order for
 Crank-Nicolson). Otherwise the matrices are assembled and factorized once.
-The Rannacher startup steps are skipped for time-dependent coefficients.
+The Rannacher startup steps also apply with time-dependent coefficients.
 SUPG requires time-independent coefficients.
 
 \code{heat_problem()} is the heat equation \verb{du/dt - kappa Laplace(u) = f}.

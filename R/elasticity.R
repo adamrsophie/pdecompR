@@ -111,6 +111,10 @@ eval_vector <- function(v, x, y, name) {
   if (nrow(val) != length(x) || ncol(val) != 2L || !is.numeric(val)) {
     stopf("`%s` must return a two-column matrix with one row per point.", name)
   }
+  if (any(!is.finite(val))) {
+    bad <- which(!is.finite(val), arr.ind = TRUE)[1, ]
+    stopf("`%s` returned a non-finite value at (%s, %s).", name, fmt_num(x[bad[1]]), fmt_num(y[bad[1]]))
+  }
   val
 }
 
@@ -150,7 +154,8 @@ discretize.elasticity_problem <- function(problem, ...) {
   A <- rbind(cbind(blk(1, 1), blk(1, 2)), cbind(blk(2, 1), blk(2, 2)))
   fq <- vec_qp(problem$body_force, geo, name = "body_force")
   b <- c(global_vector(V, local_linear(geo, f = fq$x)), global_vector(V, local_linear(geo, f = fq$y)))
-  vals <- rep(NA_real_, 2L * n)
+  vals <- numeric(2L * n)
+  fixed <- logical(2L * n)
   for (bc in problem$bcs) {
     if (bc$type == "traction") {
       comp <- function(k) function(x, y) eval_vector(bc$value, x, y, "traction")[, k]
@@ -159,11 +164,11 @@ discretize.elasticity_problem <- function(problem, ...) {
     } else {
       d <- boundary_dofs(V, bc$marker)
       g <- eval_vector(bc$value, V$dof_coords[d, 1], V$dof_coords[d, 2], "displacement")
-      if ("x" %in% bc$components) vals[d] <- g[, 1]
-      if ("y" %in% bc$components) vals[n + d] <- g[, 2]
+      if ("x" %in% bc$components) { vals[d] <- g[, 1]; fixed[d] <- TRUE }
+      if ("y" %in% bc$components) { vals[n + d] <- g[, 2]; fixed[n + d] <- TRUE }
     }
   }
-  dofs <- which(!is.na(vals))
+  dofs <- which(fixed)
   structure(list(A = A, b = b, space = V, dirichlet = list(dofs = dofs, values = vals[dofs]),
                  free = setdiff(seq_len(2L * n), dofs), assembly_time = proc.time()[["elapsed"]] - t0,
                  problem = problem), class = "pde_discretization")
@@ -177,14 +182,25 @@ solve_pde.elasticity_problem <- function(problem, method = c("auto", "cholesky",
   disc <- discretize(problem)
   V <- disc$space; n <- V$ndof
   dd <- disc$dirichlet; free <- disc$free
-  # The constraints must remove the three rigid motions: the 3 columns
-  # (1, 0), (0, 1), (-y, x) restricted to the constrained dofs need rank 3.
+  # The constraints must remove the three rigid motions of every connected
+  # component: the columns (1, 0), (0, 1), (-y, x) restricted to the
+  # component's constrained dofs need rank 3 (coordinates centered and scaled
+  # so the test does not depend on the length unit).
   xy <- rbind(V$dof_coords, V$dof_coords)
   comp_x <- rep(c(TRUE, FALSE), each = n)
-  Rm <- cbind(comp_x, !comp_x, ifelse(comp_x, -xy[, 2], xy[, 1]))[dd$dofs, , drop = FALSE]
-  if (!length(dd$dofs) || qr(Rm, tol = 1e-10)$rank < 3L) {
-    stopf(paste0("The elasticity problem is singular: the displacement conditions must remove ",
-                 "the rigid motions (two translations and a rotation)."))
+  cc <- mesh_components(V$mesh)
+  dof_comp <- dof_components(V, cc)
+  for (k in seq_len(cc$n)) {
+    on <- rep(dof_comp == k, 2L)
+    ctr <- colMeans(V$dof_coords[dof_comp == k, , drop = FALSE])
+    sc <- max(abs(sweep(V$dof_coords[dof_comp == k, , drop = FALSE], 2, ctr)), 1e-300)
+    rx <- (xy[, 1] - ctr[1]) / sc; ry <- (xy[, 2] - ctr[2]) / sc
+    Rm <- cbind(comp_x, !comp_x, ifelse(comp_x, -ry, rx))[intersect(dd$dofs, which(on)), , drop = FALSE]
+    if (!nrow(Rm) || qr(Rm, tol = 1e-10)$rank < 3L) {
+      stopf(paste0("The elasticity problem is singular: the displacement conditions must remove ",
+                   "the rigid motions (two translations and a rotation)%s."),
+            if (cc$n > 1L) sprintf(" of every connected component (component %d)", k) else "")
+    }
   }
   u <- numeric(2L * n)
   u[dd$dofs] <- dd$values

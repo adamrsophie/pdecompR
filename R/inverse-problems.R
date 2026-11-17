@@ -47,6 +47,23 @@ estimate_parameters <- function(problem_fun, theta0, observations, mesh = NULL,
                                 theta_ref = theta0, control = list()) {
   stopifnot(inherits(observations, "pde_observations"))
   theta0 <- as.numeric(theta0)
+  np <- length(theta0)
+  lower <- rep_len(as.numeric(lower), np); upper <- rep_len(as.numeric(upper), np)
+  theta_ref <- rep_len(as.numeric(theta_ref), np)
+  if (any(lower > upper)) stopf("Each lower bound must not exceed its upper bound.")
+  # Parameters with equal bounds are fixed: optimize and differentiate in the
+  # subspace of the free parameters and expand for every model evaluation.
+  fixed <- lower == upper
+  theta0[fixed] <- lower[fixed]
+  ifree <- which(!fixed)
+  if (!length(ifree)) stopf("All parameters are fixed by their bounds; there is nothing to estimate.")
+  full_theta <- function(th) { out <- theta0_all; out[ifree] <- th; out }
+  theta0_all <- theta0
+  pf_full <- problem_fun
+  problem_fun <- if (length(formals(pf_full)) >= 2L) function(th, m) pf_full(full_theta(th), m)
+                 else function(th) pf_full(full_theta(th))
+  theta0 <- theta0[ifree]; theta_ref <- theta_ref[ifree]
+  lower <- lower[ifree]; upper <- upper[ifree]
   call_pf <- function(th, m = mesh) if (is.null(m)) problem_fun(th) else problem_fun(th, m)
   V <- fe_space(call_pf(theta0)$mesh, call_pf(theta0)$degree)
   obj <- misfit_objective(V, observations)
@@ -79,14 +96,17 @@ estimate_parameters <- function(problem_fun, theta0, observations, mesh = NULL,
   }, error = function(e) rep(NA_real_, length(est)))
   pred <- as.numeric(P %*% fin$solution$u$values)
   disc <- NULL
-  if (length(formals(problem_fun)) >= 2L && !is.null(mesh)) {
+  if (length(formals(pf_full)) >= 2L && !is.null(mesh)) {
     fine <- refine_uniform(mesh)
     sf <- solve_pde(call_pf(est, fine))
     pf <- evaluate(sf$u, observations$x, observations$y)
     disc <- list(max_change = max(abs(pf - pred)),
                  relative_to_sd = max(abs(pf - pred) / observations$sd))
   }
-  structure(list(estimate = est, std_error = se, objective = opt$value, gradient = fin$gradient,
+  est_full <- full_theta(est); se_full <- rep(NA_real_, np); se_full[ifree] <- se
+  grad_full <- rep(NA_real_, np); grad_full[ifree] <- fin$gradient
+  structure(list(estimate = est_full, std_error = se_full, fixed = fixed,
+                 objective = opt$value, gradient = grad_full,
                  convergence = opt$convergence, message = opt$message, counts = opt$counts,
                  forward_solves = cache$n_solves, predicted = pred,
                  residuals = pred - observations$value, solution = fin$solution,
@@ -167,9 +187,12 @@ optimal_control <- function(mesh, target, alpha, diffusion = 1, source = 0,
   }
   t0 <- proc.time()[["elapsed"]]
   slv <- linear_solver(Aff)
+  # The adjoint solves with A^T (A is symmetric for the supported scalar
+  # symmetric diffusion; the transpose keeps the gradient exact otherwise).
+  slv_t <- if (isTRUE(slv$info$symmetric)) slv else linear_solver(Matrix::t(Aff))
   grad_fun <- function(q) {
     u <- state(q, slv)
-    lam <- slv$solve(as.numeric(M %*% (u - ud))[f])$x
+    lam <- slv_t$solve(as.numeric(M %*% (u - ud))[f])$x
     as.numeric(Matrix::crossprod(Mf, lam)) + alpha * as.numeric(M %*% q)
   }
   bounded <- !is.null(lower) || !is.null(upper)

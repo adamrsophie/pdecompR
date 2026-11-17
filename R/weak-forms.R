@@ -117,6 +117,11 @@ dot <- function(a, b) {
   terms <- list()
   for (s in A$terms) for (t in B$terms) {
     if (s$rank != 1L || t$rank != 1L) stopf("`dot()` needs two vector-valued arguments.")
+    if (s$contract != "none" || t$contract != "none") {
+      stopf(paste0("Nested contractions such as `dot(b * dot(c, grad(u)), grad(v))` are not ",
+                   "supported; for directional (anisotropic) diffusion use elliptic_problem() ",
+                   "with a matrix diffusion coefficient."))
+    }
     r <- mono(trial = if (s$trial != "none") s$trial else t$trial,
               test = if (s$test != "none") s$test else t$test,
               coefs = c(s$coefs, t$coefs))
@@ -154,6 +159,9 @@ Ops.fe_expr <- function(e1, e2) {
         if (s$contract != "none" && t$contract != "none") {
           stopf(paste0("Products of two directional derivatives such as ",
                        "`dot(b, grad(u)) * dot(c, grad(v))` are not supported."))
+        }
+        if (!is.null(s$vec) && !is.null(t$vec)) {
+          stopf("Products of two vector coefficients (or of a vector and a directional derivative) are not supported.")
         }
         r <- mono(trial = if (s$trial != "none") s$trial else t$trial,
                   test = if (s$test != "none") s$test else t$test,

@@ -226,7 +226,11 @@ discretize.elliptic_problem <- function(problem, t = NULL, ...) {
   dd <- dirichlet_data(V, problem$bcs, t)
   structure(list(space = V, A = A, b = b, dirichlet = dd,
                  free = setdiff(seq_len(V$ndof), dd$dofs),
-                 pure_neumann = constant_kernel(A, dd),
+                 # Constants are in the kernel exactly when nothing but diffusion,
+                 # advection and zero-flux or Neumann data act on u; decided from
+                 # the problem data, not from the size of A %*% 1.
+                 pure_neumann = !length(dd$dofs) && is.null(cq) &&
+                   (is.null(nat$A) || all(nat$A@x == 0)),
                  assembly_time = proc.time()[["elapsed"]] - t0),
             class = "pde_discretization")
 }
@@ -266,12 +270,14 @@ solve_pde.elliptic_problem <- function(problem, method = "auto", ...) {
 
 # Dirichlet elimination and linear solve shared by all linear stationary
 # problems.
-# TRUE when no Dirichlet data are imposed and constants lie in the kernel of
-# the assembled operator (no reaction, no Robin term, zero-flux boundary).
+# For general weak forms (no coefficient provenance): TRUE when no Dirichlet
+# data are imposed and A %*% 1 vanishes to rounding error, measured against
+# the row sums of |A| so that a small but genuine reaction term still counts.
 constant_kernel <- function(A, dd) {
   if (length(dd$dofs)) return(FALSE)
-  r <- as.numeric(A %*% rep(1, nrow(A)))
-  max(abs(r)) <= 1e-10 * max(abs(A@x))
+  r <- abs(as.numeric(A %*% rep(1, nrow(A))))
+  scale <- as.numeric(abs(A) %*% rep(1, nrow(A)))
+  all(r <= 64 * .Machine$double.eps * scale)
 }
 
 solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6, ...) {
@@ -284,6 +290,10 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
   t0 <- proc.time()[["elapsed"]]
   gauge <- NULL
   if (disc$pure_neumann) {
+    if (mesh_components(V$mesh)$n > 1L) {
+      stopf(paste0("Pure Neumann problems on disconnected meshes are not supported: each ",
+                   "component needs its own constant. Add a Dirichlet condition on every component."))
+    }
     # Bordered system [A m; m' 0] with m the mass of the constant: it is
     # nonsingular, and its multiplier lambda = w'b / w'm vanishes exactly when
     # b is orthogonal to the left null vector w of A (w = 1 when A is
@@ -296,7 +306,11 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
     scale <- sum(abs(disc$b))
     rel <- comp / max(scale, 1e-300)
     sym <- Matrix::isSymmetric(A, tol = 1e-12)
-    tol_c <- if (sym) compatibility_tol else max(compatibility_tol, mesh_size(V$mesh)^2)
+    # (h / diameter)^2 is dimensionless, so the decision does not change
+    # with the length unit.
+    bb <- apply(V$mesh$nodes, 2, range)
+    hrel <- mesh_size(V$mesh) / sqrt(sum((bb[2, ] - bb[1, ])^2))
+    tol_c <- if (sym) compatibility_tol else max(compatibility_tol, hrel^2)
     if (abs(rel) > tol_c) {
       if (sym) {
         stopf(paste0("Pure Neumann problem with incompatible data: ",
@@ -306,7 +320,7 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
       # With advection the left null vector is only an approximation of the
       # continuous one, so data that are compatible for the PDE leave a
       # defect of the size of the discretization error; only defects above
-      # h^2 are reported.
+      # (h / diameter)^2 are reported.
       if (abs(rel) > 0.01 + 10 * tol_c) {
         stopf(paste0("Pure Neumann problem with incompatible data: ",
                      "compatibility defect %s (relative %s). The problem has no solution."),
@@ -319,8 +333,16 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
     }
     u <- s$x[seq_len(V$ndof)]
     gauge <- list(type = "zero mean", multiplier = s$x[V$ndof + 1L],
-                  compatibility = comp)
+                  compatibility = comp, relative_compatibility = rel,
+                  modified = abs(rel) > tol_c)
     info <- s$info
+    # Report the residual of the original equations A u = b; the bordered
+    # system is solved to rounding error even when A u = b has no solution.
+    info$augmented_relative_residual <- info$relative_residual
+    info$residual <- safe_norm(disc$b - as.numeric(A %*% u))
+    nb <- safe_norm(disc$b)
+    info$relative_residual <- if (nb > 0) info$residual / nb else info$residual
+    warn_solver(list(status = info$status, relative_residual = info$augmented_relative_residual))
   } else {
     if (!length(free)) {
       info <- list(method = "none", status = "solved", residual = 0, relative_residual = 0,

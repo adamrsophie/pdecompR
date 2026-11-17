@@ -146,6 +146,7 @@ importFrom(graphics,
   plot,
   points,
   polygon,
+  rect,
   segments,
   text
 )

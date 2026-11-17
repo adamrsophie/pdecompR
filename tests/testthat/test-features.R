@@ -2,7 +2,7 @@ test_that("direct solvers flag singular matrices and nonlinear pure Neumann prob
   V <- fe_space(pde_mesh_rectangle(nx = 8))
   K <- assemble_matrix(V, "stiffness")
   b <- assemble_vector(V, function(x, y) x - 0.5)
-  for (m in c("auto", "cholesky", "lu")) expect_equal(solve_linear_system(K, b, m)$info$status, "singular")
+  for (m in c("auto", "cholesky", "lu")) expect_equal(solve_linear_system(K, b, m)$info$status, "near-singular")
   expect_equal(solve_linear_system(K + assemble_matrix(V, "mass"), b)$info$status, "solved")
   expect_error(solve_pde(nonlinear_problem(pde_mesh_rectangle(nx = 4), diffusion = function(u) 1 + u^2,
                                            source = 0)), "not unique")

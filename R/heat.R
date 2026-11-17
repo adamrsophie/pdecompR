@@ -10,7 +10,7 @@
 #' refactorized at every step, with `A(t_{n+1})` on the implicit side and
 #' `A(t_n)` on the explicit side of the theta scheme (second order for
 #' Crank-Nicolson). Otherwise the matrices are assembled and factorized once.
-#' The Rannacher startup steps are skipped for time-dependent coefficients.
+#' The Rannacher startup steps also apply with time-dependent coefficients.
 #' SUPG requires time-independent coefficients.
 #'
 #' `heat_problem()` is the heat equation `du/dt - kappa Laplace(u) = f`.
@@ -144,6 +144,7 @@ solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson"
   t0 <- problem$time[1]; t1 <- problem$time[2]
   N <- max(1L, as.integer(ceiling((t1 - t0) / dt - 1e-10)))
   dt <- (t1 - t0) / N
+  startup <- min(startup, N)
   grid <- t0 + (0:N) * dt
   out_idx <- output_index(output_times, grid, dt)
   dd0 <- dirichlet_data(V, problem$bcs, t0)

@@ -42,18 +42,23 @@ manufactured_solution <- function(u, diffusion = 1, advection = NULL, reaction =
   sx <- symcompR::Symbol("x"); sy <- symcompR::Symbol("y"); st <- symcompR::Symbol("t")
   as_sym <- function(e) symcompR::sympify(if (is.numeric(e)) as.character(e) else e)
   U <- as_sym(u); K <- as_sym(diffusion); C <- as_sym(reaction)
-  td <- grepl("\\bt\\b", format(U))
-  for (e in list(K, C)) {
-    if (grepl("\\bt\\b", format(e))) stopf("Coefficients must not depend on time.")
-  }
-  ux <- diff(U, sx); uy <- diff(U, sy)
-  f <- -(diff(K * ux, sx) + diff(K * uy, sy)) + C * U
   B <- NULL
   if (!is.null(advection)) {
     if (length(advection) != 2L) stopf("`advection` must have two components.")
     B <- lapply(advection, as_sym)
-    f <- f + B[[1]] * ux + B[[2]] * uy
   }
+  syms <- function(e) vapply(symcompR::free_symbols(e), format, character(1))
+  for (e in c(list(U, K, C), B)) {
+    bad <- setdiff(syms(e), c("x", "y", "t"))
+    if (length(bad)) stopf("Unknown symbol(s) %s; expressions may use only x, y and t.", paste(bad, collapse = ", "))
+  }
+  td <- "t" %in% syms(U)
+  for (e in c(list(K, C), B)) {
+    if ("t" %in% syms(e)) stopf("Coefficients (diffusion, advection, reaction) must not depend on time.")
+  }
+  ux <- diff(U, sx); uy <- diff(U, sy)
+  f <- -(diff(K * ux, sx) + diff(K * uy, sy)) + C * U
+  if (!is.null(B)) f <- f + B[[1]] * ux + B[[2]] * uy
   if (td) f <- f + diff(U, st)
   f <- symcompR::simplify(f)
   args <- if (td) list(sx, sy, st) else list(sx, sy)

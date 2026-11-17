@@ -59,6 +59,6 @@ test_that("regularized p-Laplacian converges to a manufactured solution", {
 test_that("Newton failure is reported, not hidden", {
   prob <- nonlinear_problem(pde_mesh_rectangle(nx = 4), diffusion = function(u) 1 + u^2,
                             source = 50, bcs = dirichlet_bc(0))
-  expect_warning(s <- solve_pde(prob, maxit = 1), "did not converge")
+  expect_warning(s <- solve_pde(prob, maxit = 1), "Newton stopped")
   expect_false(s$converged)
 })

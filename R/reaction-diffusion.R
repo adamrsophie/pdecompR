@@ -116,7 +116,13 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
   V <- fe_space(problem$mesh, problem$degree)
   n <- V$ndof; sp <- problem$species; ns <- length(sp)
   M <- assemble_matrix(V, "mass")
-  K <- lapply(problem$diffusion, function(d) assemble_matrix(V, "stiffness", d))
+  K <- lapply(problem$diffusion, function(d) {
+    if (is.function(d) || inherits(d, "fe_function")) {
+      dq <- coef_qp(d, element_geometry(V), name = "diffusion")
+      if (any(dq < 0)) stopf("Diffusion coefficients must be nonnegative.")
+    }
+    assemble_matrix(V, "stiffness", d)
+  })
   for (s in sp) {
     if (any(vapply(problem$bcs[[s]], function(b) b$type == "robin" && is_time_function(b$alpha),
                    logical(1)))) {
@@ -140,6 +146,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
   reac <- function(U, t) {
     r <- as.matrix(problem$reaction(U, xy[, 1], xy[, 2], t))
     if (!all(dim(r) == dim(U))) stopf("`reaction` must return a matrix with %d rows and %d columns.", n, ns)
+    if (!all(is.finite(r))) stop_nonfinite("`reaction` returned non-finite values at t = %s.", fmt_num(t))
     dimnames(r) <- list(NULL, sp)
     r
   }
@@ -228,15 +235,21 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
         if (!ls$info$status %in% c("solved", "converged")) bad <- ls$info
         max_rel <- max(max_rel, ls$info$relative_residual)
         step <- ls$x
-        lam <- 1
-        repeat {
+        if (!all(is.finite(step))) break
+        lam <- 1; accepted <- FALSE
+        while (lam >= 1e-4) {
           Zt <- Z; zt <- as.vector(Zt); zt[freeb] <- zt[freeb] + lam * step
           Zt <- matrix(zt, n, ns, dimnames = list(NULL, sp))
-          gt <- resid(Zt)
-          if (sqrt(sum(gt^2)) < (1 - 1e-4 * lam) * gn || lam < 1e-4) break
+          gt <- trial_eval(function() resid(Zt))
+          gtn <- if (is.null(gt)) Inf else sqrt(sum(gt^2))
+          if (is.finite(gtn) && gtn < (1 - 1e-4 * lam) * gn) { accepted <- TRUE; break }
           lam <- lam / 2
         }
-        Z <- Zt; g <- gt; gn <- sqrt(sum(g^2))
+        if (!accepted) {
+          warnf("Newton line search failed at t = %s (residual %s).", fmt_num(tn), fmt_num(gn))
+          break
+        }
+        Z <- Zt; g <- resid(Z); gn <- sqrt(sum(g^2))
       }
       if (gn > max(newton_tol * g0, 1e-12) * 10) {
         warnf("Newton did not converge at t = %s (residual %s).", fmt_num(tn), fmt_num(gn))

@@ -620,3 +620,58 @@ print.pde_region_coefficient <- function(x, ...) {
   cat("<pde_region_coefficient>", paste(names(v), "=", fmt_num(v), collapse = ", "), "\n")
   invisible(x)
 }
+
+# Connected components of a mesh (triangles sharing a vertex are connected):
+# list(n = number of components, node = component of each node).
+mesh_components <- function(mesh) {
+  T <- mesh$triangles
+  lab <- seq_len(nrow(mesh$nodes))
+  repeat {
+    m <- pmin(lab[T[, 1]], lab[T[, 2]], lab[T[, 3]])
+    new <- lab
+    for (k in 1:3) {
+      o <- order(m, decreasing = TRUE)  # smallest label wins on repeated nodes
+      new[T[o, k]] <- pmin(new[T[o, k]], m[o])
+    }
+    new <- new[new]  # pointer jumping
+    if (identical(new, lab)) break
+    lab <- new
+  }
+  u <- unique(lab)
+  list(n = length(u), node = match(lab, u))
+}
+
+# Component of each degree of freedom of a space (P2 edge dofs follow the
+# element they belong to).
+dof_components <- function(space, cc = mesh_components(space$mesh)) {
+  comp <- integer(space$ndof)
+  ec <- cc$node[space$mesh$triangles[, 1]]
+  comp[as.vector(space$cell_dofs)] <- rep(ec, ncol(space$cell_dofs))
+  comp
+}
+
+# For a mesh `fine` whose triangles each lie inside one triangle of `coarse`
+# (for example after refinement), the containing triangle of each fine
+# triangle; NULL when the meshes are not nested this way.
+nested_parent <- function(fine, coarse) {
+  if (identical(fine$nodes, coarse$nodes) && identical(fine$triangles, coarse$triangles)) {
+    return(seq_len(nrow(fine$triangles)))
+  }
+  P <- fine$nodes; T <- fine$triangles
+  cx <- (P[T[, 1], 1] + P[T[, 2], 1] + P[T[, 3], 1]) / 3
+  cy <- (P[T[, 1], 2] + P[T[, 2], 2] + P[T[, 3], 2]) / 3
+  par <- locate_points(coarse, cx, cy)$element
+  if (anyNA(par)) return(NULL)
+  Q <- coarse$nodes; C <- coarse$triangles
+  for (k in 1:3) {
+    x1 <- Q[C[par, 1], 1]; y1 <- Q[C[par, 1], 2]
+    b11 <- Q[C[par, 2], 1] - x1; b12 <- Q[C[par, 3], 1] - x1
+    b21 <- Q[C[par, 2], 2] - y1; b22 <- Q[C[par, 3], 2] - y1
+    det <- b11 * b22 - b12 * b21
+    dx <- P[T[, k], 1] - x1; dy <- P[T[, k], 2] - y1
+    xi <- (b22 * dx - b12 * dy) / det; eta <- (-b21 * dx + b11 * dy) / det
+    tol <- 1e-10
+    if (any(xi < -tol | eta < -tol | xi + eta > 1 + tol)) return(NULL)
+  }
+  par
+}

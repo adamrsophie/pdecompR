@@ -17,12 +17,17 @@
 #' * `"bicgstab"`, `"gmres"`: preconditioned BiCGSTAB and restarted GMRES for
 #'   general matrices.
 #'
-#' Iterative methods use Jacobi (diagonal) preconditioning by default and stop
-#' when `||b - A x|| <= tol * ||b||`. Direct methods report the same relative
-#' residual, and status `"singular"` when the ratio of the smallest to the
-#' largest pivot of the factorization is below about `2e-13` (the matrix is
-#' singular to working precision, for example a stiffness matrix without
-#' boundary conditions). A small residual says the linear system was solved accurately;
+#' Iterative methods use Jacobi (diagonal) preconditioning by default and
+#' iterate on the scaled system `A y = b / max|b|`, which avoids overflow and
+#' underflow. They report `"converged"` only when the true residual of the
+#' returned solution satisfies `||b - A x|| <= tol * ||b||`, and
+#' `"not converged"` otherwise. Direct methods report the same relative
+#' residual, status `"inaccurate"` when the normwise backward error
+#' `||b - A x|| / (||A|| ||x|| + ||b||)` exceeds `1e-8`, and status `"near-singular"` when the ratio of the smallest to
+#' the largest pivot of the factorization is below about `2e-13`. That ratio
+#' is a conditioning diagnostic: the matrix is singular or nearly singular to
+#' working precision, for example a stiffness matrix without boundary
+#' conditions. A system with no unknowns returns method `"none"`. A small residual says the linear system was solved accurately;
 #' it says nothing about the discretization error of the PDE.
 #'
 #' @param A A square sparse matrix (`Matrix` class) or base matrix.
@@ -69,15 +74,27 @@ linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgsta
                           restart = 50) {
   method <- match.arg(method)
   preconditioner <- match.arg(preconditioner)
+  A_res <- if (inherits(A, "Matrix")) A else methods::as(A, "CsparseMatrix")  # for residuals, as passed
   A <- methods::as(methods::as(A, "CsparseMatrix"), "generalMatrix")
   n <- nrow(A)
   if (ncol(A) != n) stopf("The system matrix must be square.")
+  if (n == 0L) {
+    # No unknowns (every degree of freedom prescribed): nothing to solve.
+    base0 <- list(n = 0L, nnz = 0L, symmetric = TRUE, tol = tol)
+    solve0 <- function(b, x0 = NULL) {
+      if (length(b) != 0L) stopf("The right-hand side has length %d; expected 0.", length(b))
+      list(x = numeric(0), info = c(list(method = "none", status = "solved", residual = 0,
+                                         relative_residual = 0, iterations = 0L), base0))
+    }
+    return(list(solve = solve0, info = c(list(method = "none"), base0), matrix = A))
+  }
   if (is.null(maxit)) maxit <- 10L * n
   maxit <- check_count(maxit, "maxit", min = 1L)
   restart <- check_count(restart, "restart", min = 1L)
   check_number(tol, "tol", positive = TRUE)
   sym <- Matrix::isSymmetric(A, tol = 1e-12)
   base <- list(n = n, nnz = length(A@x), symmetric = sym, tol = tol)
+  normA <- max(Matrix::rowSums(abs(A)))
   factor <- NULL
   note <- NULL
   used <- method
@@ -108,7 +125,8 @@ linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgsta
   }
   if (used == "cg" && !sym) stopf("Conjugate gradients require a symmetric matrix.")
   # Pivot ratio of the factorization: a tiny ratio means the matrix is
-  # singular to working precision even though the factorization succeeded.
+  # numerically singular or nearly so (a conditioning diagnostic, not a proof
+  # of exact singularity) even though the factorization succeeded.
   singular <- FALSE
   if (!is.null(factor)) {
     piv <- tryCatch(abs(as.numeric(if (used == "lu") Matrix::diag(factor@U) else Matrix::diag(factor))),
@@ -126,24 +144,43 @@ linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgsta
     b <- as.numeric(b)
     if (length(b) != n) stopf("The right-hand side has length %d; expected %d.", length(b), n)
     it <- NA_integer_
+    if (any(!is.finite(b))) stopf("The right-hand side contains non-finite values.")
     if (used %in% c("cholesky", "lu")) {
       x <- tryCatch(as.numeric(Matrix::solve(factor, b)),
                     warning = function(w) stopf("Sparse solve failed: %s", conditionMessage(w)),
                     error = function(e) stopf("Sparse solve failed: %s", conditionMessage(e)))
       status <- "solved"
     } else {
-      res <- switch(used,
-                    cg = krylov_cg(A, b, x0, dinv, tol, maxit),
-                    bicgstab = krylov_bicgstab(A, b, x0, dinv, tol, maxit),
-                    gmres = krylov_gmres(A, b, x0, dinv, tol, maxit, restart))
+      # Iterate on b / s, which is exact for a linear system and keeps the
+      # recurrences away from overflow and underflow.
+      sc <- max(abs(b))
+      if (sc == 0) {
+        res <- list(x = numeric(n), iterations = 0L, converged = TRUE)
+      } else {
+        xs <- if (is.null(x0)) NULL else as.numeric(x0) / sc
+        res <- switch(used,
+                      cg = krylov_cg(A, b / sc, xs, dinv, tol, maxit),
+                      bicgstab = krylov_bicgstab(A, b / sc, xs, dinv, tol, maxit),
+                      gmres = krylov_gmres(A, b / sc, xs, dinv, tol, maxit, restart))
+        res$x <- res$x * sc
+      }
       x <- res$x; it <- res$iterations
       status <- if (res$converged) "converged" else "not converged"
     }
-    r <- sqrt(sum((b - as.numeric(A %*% x))^2))
-    nb <- sqrt(sum(b^2))
+    r <- safe_norm(b - as.numeric(A_res %*% x))
+    nb <- safe_norm(b)
     rel <- if (nb > 0) r / nb else r
-    if (used %in% c("cholesky", "lu") && !(is.finite(rel) && rel < 1e-6)) status <- "inaccurate"
-    if (singular && status == "solved") status <- "singular"
+    if (used %in% c("cholesky", "lu")) {
+      # Normwise backward error: a backward-stable solve gives rounding level
+      # even when ||b|| is tiny compared with ||A|| ||x||.
+      den <- normA * safe_norm(x) + nb
+      bwe <- if (den > 0) r / den else r
+      if (!(is.finite(bwe) && bwe < 1e-8)) status <- "inaccurate"
+    }
+    # Report convergence only when the true residual meets the tolerance; the
+    # recursively updated Krylov residual can drift from it.
+    if (status == "converged" && !(is.finite(rel) && rel <= tol * (1 + 1e-6))) status <- "not converged"
+    if (singular && status == "solved") status <- "near-singular"
     if (!all(is.finite(x))) status <- "failed"
     info <- c(list(method = used, status = status, residual = r, relative_residual = rel,
                    iterations = it), base)
@@ -256,4 +293,11 @@ warn_solver <- function(info, where = "linear solve") {
           fmt_num(info$relative_residual))
   }
   invisible(info)
+}
+
+# Euclidean norm without overflow or underflow.
+safe_norm <- function(v) {
+  m <- max(abs(v))
+  if (!is.finite(m) || m == 0) return(m)
+  m * sqrt(sum((v / m)^2))
 }

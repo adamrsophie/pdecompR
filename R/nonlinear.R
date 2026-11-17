@@ -81,7 +81,7 @@ eval_u <- function(f, U, name) {
   v <- f(as.vector(U))
   if (length(v) == 1L) v <- rep(v, length(U))
   if (length(v) != length(U) || !is.numeric(v)) stopf("`%s` must return one value per input value.", name)
-  if (!all(is.finite(v))) stopf("`%s` returned non-finite values.", name)
+  if (!all(is.finite(v))) stop_nonfinite("`%s` returned non-finite values.", name)
   matrix(v, nrow(U))
 }
 
@@ -98,10 +98,6 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
   nat <- natural_bc_terms(V, problem$bcs)
   b_nat <- global_vector(V, local_linear(geo, f = fq)) + nat$b
   dd <- dirichlet_data(V, problem$bcs)
-  if (!length(dd$dofs) && is.null(problem$reaction) && is.null(nat$A)) {
-    stopf(paste0("The nonlinear problem has no Dirichlet, Robin or reaction term, so its solution ",
-                 "is not unique (pure Neumann); add a Dirichlet condition."))
-  }
   free <- setdiff(seq_len(V$ndof), dd$dofs)
   plap <- identical(problem$type, "p-laplace")
   k <- as_fun_u(problem$diffusion)
@@ -129,6 +125,22 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
     u <- solve_pde(lin)$u$values
   }
   u[dd$dofs] <- dd$values
+  if (!length(dd$dofs)) {
+    # Without Dirichlet data the solution is unique only through a reaction or
+    # Robin term. A reaction that vanishes with its derivative at the initial
+    # state, or an all-zero Robin matrix, counts as absent (a narrow check, not
+    # a general uniqueness proof).
+    robin <- !is.null(nat$A) && any(nat$A@x != 0)
+    react <- FALSE
+    if (!is.null(g)) {
+      uq <- fe_qp(u, geo)$value
+      react <- any(eval_u(g, uq, "reaction") != 0) || any(eval_u(dg, uq, "reaction_derivative") != 0)
+    }
+    if (!robin && !react) {
+      stopf(paste0("The nonlinear problem has no Dirichlet, Robin or reaction term, so its solution ",
+                   "is not unique (pure Neumann); add a Dirichlet condition."))
+    }
+  }
   residual_jac <- function(u, jacobian = TRUE) {
     q <- fe_qp(u, geo)
     if (plap) {
@@ -162,31 +174,37 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
   hist[1, ] <- list(0L, r0, NA)
   it <- 0L
   converged <- rn <= 1e-12
+  status <- "not converged"
   while (!converged && it < maxit) {
     it <- it + 1L
-    du <- solve_linear_system(rj$J[free, free, drop = FALSE], -rj$r[free], method = method)$x
-    lam <- 1
-    repeat {
+    ls <- solve_linear_system(rj$J[free, free, drop = FALSE], -rj$r[free], method = method)
+    du <- ls$x
+    if (!ls$info$status %in% c("solved", "converged") || !all(is.finite(du))) {
+      status <- "linear solve failed"; break
+    }
+    lam <- 1; accepted <- FALSE
+    while (lam >= 1e-6) {
       ut <- u; ut[free] <- u[free] + lam * du
-      rt <- residual_jac(ut, jacobian = FALSE)$r
-      rtn <- sqrt(sum(rt[free]^2))
-      if (rtn < (1 - 1e-4 * lam) * rn || lam < 1e-6) break
+      rt <- trial_eval(function() residual_jac(ut, jacobian = FALSE)$r)
+      rtn <- if (is.null(rt)) Inf else sqrt(sum(rt[free]^2))
+      if (is.finite(rtn) && rtn < (1 - 1e-4 * lam) * rn) { accepted <- TRUE; break }
       lam <- lam / 2
     }
+    if (!accepted) { status <- "line search failed"; break }
     u <- ut
     rj <- residual_jac(u)
     rn <- sqrt(sum(rj$r[free]^2))
     hist[it + 1L, ] <- list(it, rn, lam)
     converged <- rn <= max(tol * r0, 1e-12)
-    if (lam < 1e-6 && !converged) break
   }
+  if (converged) status <- "converged"
   if (!converged) {
-    warnf("Newton did not converge in %d iterations (residual %s, initial %s).",
-          it, fmt_num(rn), fmt_num(r0))
+    warnf("Newton stopped (%s) after %d iterations (residual %s, initial %s).",
+          status, it, fmt_num(rn), fmt_num(r0))
   }
   diag <- structure(list(ndof = V$ndof, free = length(free), nnz = length(rj$J@x),
                          assembly_time = NA_real_, solve_time = proc.time()[["elapsed"]] - t0,
-                         solver = list(method = "newton", status = if (converged) "converged" else "not converged",
+                         solver = list(method = "newton", status = status,
                                        residual = rn, relative_residual = rn / max(r0, 1e-300),
                                        iterations = it),
                          gauge = NULL),

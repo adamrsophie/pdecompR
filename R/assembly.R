@@ -248,6 +248,8 @@ assemble_boundary_vector <- function(space, g, marker = "boundary", t = NULL,
 diffusion_qp <- function(k, geo, t = NULL) {
   if (is.matrix(k) && is.numeric(k)) {
     if (!all(dim(k) == 2L)) stopf("A tensor diffusion coefficient must be a 2 by 2 matrix.")
+    if (any(!is.finite(k))) stopf("The diffusion tensor must be finite.")
+    if (abs(k[1, 2] - k[2, 1]) > 1e-12 * max(abs(k))) stopf("The diffusion tensor must be symmetric.")
     ev <- eigen((k + t(k)) / 2, symmetric = TRUE, only.values = TRUE)$values
     if (min(ev) <= 0) stopf("The diffusion tensor must be positive definite.")
     z <- matrix(1, geo$m, geo$nq)

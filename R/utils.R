@@ -2,7 +2,7 @@
 #' @importFrom Matrix sparseMatrix t crossprod tcrossprod Diagonal Cholesky solve diag drop0
 #' @importFrom methods as is
 #' @importFrom stats optim setNames
-#' @importFrom graphics plot polygon segments lines points legend par contour image axis box text abline
+#' @importFrom graphics plot polygon segments lines points legend par contour image axis box text abline rect
 #' @importFrom grDevices hcl.colors
 #' @importFrom utils head tail
 "_PACKAGE"
@@ -12,6 +12,21 @@
 stopf <- function(...) stop(sprintf(...), call. = FALSE)
 
 warnf <- function(...) warning(sprintf(...), call. = FALSE)
+
+# Error for non-finite values produced by a user callback. Newton line
+# searches catch this class (and only this class) at trial points and take a
+# shorter step; any other error still propagates.
+stop_nonfinite <- function(...) {
+  stop(structure(class = c("pde_nonfinite", "error", "condition"),
+                 list(message = sprintf(...), call = NULL)))
+}
+
+# Evaluate f() at a Newton trial point: NULL when it produced non-finite
+# values. Warnings from rejected trial points (for example log of a negative
+# number) are muffled; the accepted state is evaluated again without this.
+trial_eval <- function(f) {
+  tryCatch(suppressWarnings(f()), pde_nonfinite = function(e) NULL)
+}
 
 check_number <- function(x, name, positive = FALSE, finite = TRUE) {
   if (!is.numeric(x) || length(x) != 1L || is.na(x)) {

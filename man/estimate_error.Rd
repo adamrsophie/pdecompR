@@ -4,10 +4,13 @@
 \alias{estimate_error}
 \title{A posteriori error estimation}
 \usage{
-estimate_error(solution)
+estimate_error(solution, diffusion_gradient = NULL)
 }
 \arguments{
 \item{solution}{A \code{pde_solution} of an \code{\link[=elliptic_problem]{elliptic_problem()}}.}
+
+\item{diffusion_gradient}{Optional exact gradient of a scalar diffusion
+coefficient, \verb{function(x, y)} returning a two-column matrix.}
 }
 \value{
 A list of class \code{pde_error_estimate} with \code{eta} (per element),
@@ -31,7 +34,11 @@ differences). The diffusion coefficient in the flux jumps is evaluated on
 each side of an edge separately, so coefficients that jump across element
 edges are handled; finite-element coefficients are allowed. For P1 with constant diffusion the divergence term vanishes;
 variable scalar diffusion contributes \verb{grad k . grad u_h}, computed with
-central differences of \code{k}. The estimator is reliable and efficient up to
+central differences of \code{k} with a step of \code{1e-3} times the inradius of
+each element, so the differences stay inside the element (pass
+\code{diffusion_gradient} for an exact gradient). Region coefficients
+(\code{\link[=region_coefficient]{region_coefficient()}}) are constant on each element and contribute
+nothing. The estimator is reliable and efficient up to
 constants for diffusion-dominated problems (Verfurth 2013); it is not robust
 for strongly advection-dominated problems.
 }

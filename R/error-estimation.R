@@ -13,17 +13,23 @@
 #' * `"energy"`: `sqrt(int k |grad(u - u_h)|^2)` with diffusion `k`.
 #'
 #' Gradient-based norms need the exact gradient. When `gradient` is not given
-#' it is approximated by central differences (step `1e-5`); the result is then
-#' labeled with attribute `gradient = "finite difference"` and is accurate to
-#' about 1e-9 relative, which is adequate for convergence studies on
-#' moderately fine meshes.
+#' it is approximated by central differences with step `1e-5` times the
+#' domain diameter; the result is then labeled with attribute
+#' `gradient = "finite difference"`. Its accuracy depends on the smoothness of
+#' `exact` (the truncation error is of order step squared times the third
+#' derivative), and it is wrong near jumps of the gradient, so pass `gradient`
+#' for verification work.
 #'
 #' @param u An [fe_function()], `pde_solution` or `pde_vector_solution` (from
 #'   [elasticity_problem()]; then `exact` returns two columns and `gradient` is a
 #'   list of two gradient functions, one per component).
 #' @param exact Exact solution `function(x, y)`, or an [fe_function()]
-#'   reference solution (for example on a finer mesh, possibly of another
-#'   degree); its gradient is then used for gradient norms.
+#'   reference solution on the same mesh or on a nested one (coarser, or finer
+#'   from [refine_uniform()] or [refine_mesh()]), possibly of another degree;
+#'   its gradient is then used for gradient norms. The integral runs on the
+#'   finer of the two meshes, so the result is exact up to quadrature and
+#'   symmetric in the two functions. References on meshes that are not nested
+#'   are rejected.
 #' @param type Norm type.
 #' @param gradient Exact gradient `function(x, y)` returning a two-column
 #'   matrix.
@@ -51,20 +57,47 @@ errornorm <- function(u, exact, type = c("L2", "H1_semi", "H1", "energy"), gradi
   }
   if (inherits(u, "pde_solution")) u <- u$u
   if (!inherits(u, "fe_function")) stopf("`u` must be a finite-element function or solution.")
+  label <- "exact"
+  ref_degree <- 0L
   if (inherits(exact, "fe_function")) {
-    # Reference solution, for example on a finer mesh.
+    # Reference solution, for example on a finer mesh. Quadrature must run on
+    # a partition on which both functions are polynomials: the mesh of `u`
+    # when its triangles lie inside those of the reference mesh, otherwise the
+    # reference mesh (when nested the other way), with contributions summed
+    # back to the triangles of `u`.
     ref <- exact
+    if (is.null(nested_parent(u$space$mesh, ref$space$mesh))) {
+      par <- nested_parent(ref$space$mesh, u$space$mesh)
+      if (is.null(par)) {
+        stopf(paste0("The reference function lives on a mesh that is not nested with the mesh of `u`; ",
+                     "use a reference from refine_uniform() or refine_mesh() of the same mesh, or ",
+                     "interpolate both onto a common mesh."))
+      }
+      if (is.null(quad_degree)) quad_degree <- 2L * max(u$space$degree, ref$space$degree) + 4L
+      r <- errornorm(ref, u, type, diffusion = diffusion, quad_degree = quad_degree, elementwise = TRUE)
+      e2 <- numeric(nrow(u$space$mesh$triangles))
+      s2 <- rowsum(attr(r, "elements"), par, reorder = TRUE)
+      e2[as.integer(rownames(s2))] <- s2[, 1]
+      out <- sqrt(sum(e2))
+      attr(out, "norm") <- type
+      attr(out, "gradient") <- "finite-element reference"
+      if (elementwise) attr(out, "elements") <- e2
+      return(out)
+    }
     exact <- function(x, y) evaluate(ref, x, y)
-    if (is.null(gradient)) gradient <- function(x, y) as.matrix(evaluate(ref, x, y, gradient = TRUE)[, 2:3])
+    if (is.null(gradient)) {
+      gradient <- function(x, y) as.matrix(evaluate(ref, x, y, gradient = TRUE)[, 2:3])
+      label <- "finite-element reference"
+    }
+    ref_degree <- ref$space$degree
   }
   V <- u$space
-  if (is.null(quad_degree)) quad_degree <- 2L * V$degree + 4L
+  if (is.null(quad_degree)) quad_degree <- 2L * max(V$degree, ref_degree) + 4L
   geo <- element_geometry(V, quad_degree)
   uh <- fe_qp(u, geo)
   xx <- as.vector(geo$x); yy <- as.vector(geo$y)
   w <- function(vals) as.vector((vals %*% geo$w) * geo$det)
   e2 <- numeric(geo$m)
-  label <- "exact"
   if (type %in% c("L2", "H1")) {
     ue <- matrix(eval_spatial(exact, xx, yy, name = "exact"), geo$m)
     e2 <- e2 + w((ue - uh$value)^2)
@@ -72,7 +105,8 @@ errornorm <- function(u, exact, type = c("L2", "H1_semi", "H1", "energy"), gradi
   if (type %in% c("H1_semi", "H1", "energy")) {
     if (is.null(gradient)) {
       label <- "finite difference"
-      gradient <- fd_gradient(exact)
+      bb <- apply(V$mesh$nodes, 2, range)
+      gradient <- fd_gradient(exact, scale = sqrt(sum((bb[2, ] - bb[1, ])^2)))
     }
     g <- as.matrix(gradient(xx, yy))
     if (nrow(g) != length(xx) || ncol(g) != 2L) {
@@ -96,9 +130,11 @@ errornorm <- function(u, exact, type = c("L2", "H1_semi", "H1", "energy"), gradi
   out
 }
 
-fd_gradient <- function(f, h = 1e-5) {
+# Central-difference gradient; the step is h times max(scale, |x|), so pass
+# the length scale of the domain to keep it unit independent.
+fd_gradient <- function(f, h = 1e-5, scale = 1) {
   function(x, y) {
-    hx <- h * pmax(1, abs(x)); hy <- h * pmax(1, abs(y))
+    hx <- h * pmax(scale, abs(x)); hy <- h * pmax(scale, abs(y))
     cbind((f(x + hx, y) - f(x - hx, y)) / (2 * hx),
           (f(x, y + hy) - f(x, y - hy)) / (2 * hy))
   }
@@ -228,11 +264,17 @@ print.pde_convergence <- function(x, ...) {
 #' each side of an edge separately, so coefficients that jump across element
 #' edges are handled; finite-element coefficients are allowed. For P1 with constant diffusion the divergence term vanishes;
 #' variable scalar diffusion contributes `grad k . grad u_h`, computed with
-#' central differences of `k`. The estimator is reliable and efficient up to
+#' central differences of `k` with a step of `1e-3` times the inradius of
+#' each element, so the differences stay inside the element (pass
+#' `diffusion_gradient` for an exact gradient). Region coefficients
+#' ([region_coefficient()]) are constant on each element and contribute
+#' nothing. The estimator is reliable and efficient up to
 #' constants for diffusion-dominated problems (Verfurth 2013); it is not robust
 #' for strongly advection-dominated problems.
 #'
 #' @param solution A `pde_solution` of an [elliptic_problem()].
+#' @param diffusion_gradient Optional exact gradient of a scalar diffusion
+#'   coefficient, `function(x, y)` returning a two-column matrix.
 #' @return A list of class `pde_error_estimate` with `eta` (per element),
 #'   `total`, and the interior and edge contributions.
 #' @references Verfurth, R. (2013). *A Posteriori Error Estimation Techniques
@@ -243,7 +285,7 @@ print.pde_convergence <- function(x, ...) {
 #' est <- estimate_error(sol)
 #' est
 #' @export
-estimate_error <- function(solution) {
+estimate_error <- function(solution, diffusion_gradient = NULL) {
   stopifnot(inherits(solution, "pde_solution"), inherits(solution$problem, "elliptic_problem"))
   prob <- solution$problem
   u <- solution$u; V <- u$space; mesh <- V$mesh
@@ -259,9 +301,28 @@ estimate_error <- function(solution) {
   if (is.function(k) || inherits(k, "fe_function")) {
     kq <- coef_qp(k, geo, name = "diffusion")
     xx <- as.vector(geo$x); yy <- as.vector(geo$y)
-    gk <- if (inherits(k, "pde_region_coefficient")) matrix(0, length(xx), 2)  # constant per element
-          else if (is.function(k)) fd_gradient(k)(xx, yy)
-          else as.matrix(evaluate(k, xx, yy, gradient = TRUE)[, 2:3])
+    gk <- if (!is.null(diffusion_gradient)) {
+      g <- as.matrix(diffusion_gradient(xx, yy))
+      if (nrow(g) != length(xx) || ncol(g) != 2L || any(!is.finite(g))) {
+        stopf("`diffusion_gradient` must return a finite two-column matrix with one row per point.")
+      }
+      g
+    } else if (inherits(k, "pde_region_coefficient")) {
+      matrix(0, length(xx), 2)  # constant per element
+    } else if (is.function(k)) {
+      # Element-local step: quadrature points lie well inside each element,
+      # so a step of 1e-3 inradius never reaches a neighbor (or an interface
+      # along element edges), whatever the length unit.
+      P <- mesh$nodes; T <- mesh$triangles
+      el <- function(a, b) sqrt(rowSums((P[T[, a], , drop = FALSE] - P[T[, b], , drop = FALSE])^2))
+      inr <- abs(tri_det(P, T)) / (el(1, 2) + el(2, 3) + el(3, 1))
+      hq <- rep(1e-3 * inr, geo$nq)
+      kx <- function(x, y) eval_spatial(k, x, y, name = "diffusion")
+      cbind((kx(xx + hq, yy) - kx(xx - hq, yy)) / (2 * hq),
+            (kx(xx, yy + hq) - kx(xx, yy - hq)) / (2 * hq))
+    } else {
+      as.matrix(evaluate(k, xx, yy, gradient = TRUE)[, 2:3])
+    }
     R <- R + matrix(gk[, 1], geo$m) * uh$dx + matrix(gk[, 2], geo$m) * uh$dy
   } else if (is.null(Kt)) {
     kq <- matrix(k, geo$m, geo$nq)
