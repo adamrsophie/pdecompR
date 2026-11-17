@@ -57,6 +57,9 @@ the sparse matrix classes of 'Matrix'.
 * Damped wave equation and elastodynamics integrated by the Newmark
   average acceleration method, second order and energy conserving, with
   the discrete energy reported at every step.
+* Polygon domains with holes (`pde_domain(holes = )`), meshed by bridging
+  each hole to the outer boundary before ear clipping; hole sides carry
+  their own markers.
 * Incompressible Stokes flow with Taylor-Hood P2-P1 elements, velocity,
   pseudo-traction and do-nothing outflow conditions, solved by sparse LU or
   by GMRES with a block-diagonal preconditioner (`stokes_problem()`).

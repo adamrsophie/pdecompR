@@ -166,3 +166,20 @@ test_that("periodic boundary conditions", {
   expect_error(heat_problem(m, bcs = all_per), "elliptic_problem")
   expect_error(periodic_bc("left", "right", c(0, 0)), "nonzero")
 })
+
+test_that("polygon domains with holes are meshed and solved", {
+  sq <- cbind(c(0, 1, 1, 0), c(0, 0, 1, 1))
+  h1 <- cbind(c(.3, .5, .5, .3), c(.3, .3, .5, .5)); h2 <- cbind(c(.65, .85, .75), c(.6, .6, .85))
+  d <- pde_domain("polygon", vertices = sq, holes = list(h1, h2), hole_markers = c("a", "b"))
+  expect_output(print(d), "holes: 2")
+  m <- pde_mesh_polygon(d, h = 0.2)
+  expect_equal(sum(mesh_quality(m)$area), 1 - 0.04 - 0.025)
+  expect_setequal(boundary_markers(m), c("boundary", "a", "b"))
+  u <- function(x, y) exp(x) * sin(y)
+  e <- vapply(c(0.2, 0.1), function(h) errornorm(solve_pde(poisson_problem(pde_mesh_polygon(d, h = h), source = 0,
+                                                                                boundary = dirichlet_bc(u))), u), numeric(1))
+  expect_gt(log2(e[1] / e[2]), 1.9)
+  expect_error(pde_domain("polygon", vertices = sq, holes = list(cbind(c(.5, 1.2, .5), c(.2, .5, .8)))), "strictly inside")
+  expect_error(pde_domain("polygon", vertices = sq, holes = list(h1, h1 + 0.05)), "overlap")
+  expect_error(pde_domain("polygon", vertices = sq, holes = list(cbind(c(0, .5, .5), c(.2, .2, .6)))), "inside|touches")
+})

@@ -27,6 +27,11 @@
 #' @param vertices For polygons, a two-column numeric matrix of vertices.
 #' @param markers For polygons, a character vector naming each side, or a
 #'   single name used for every side.
+#' @param holes For polygons, an optional list of vertex matrices, each a
+#'   simple polygon strictly inside the outer polygon; holes must not touch
+#'   each other or the outer boundary.
+#' @param hole_markers Marker of the sides of each hole: one name for all
+#'   holes or one per hole.
 #' @return An object of class `pde_domain`.
 #' @examples
 #' pde_domain("rectangle", x = c(0, 1), y = c(0, 2))
@@ -35,7 +40,7 @@
 #' @export
 pde_domain <- function(type = c("rectangle", "polygon"),
                        x = c(0, 1), y = c(0, 1), vertices = NULL,
-                       markers = "boundary") {
+                       markers = "boundary", holes = NULL, hole_markers = "hole") {
   type <- match.arg(type)
   if (type == "rectangle") {
     check_endpoints(x, "x")
@@ -78,8 +83,66 @@ pde_domain <- function(type = c("rectangle", "polygon"),
     # side i of the reversed polygon joins old vertices nv-i+1 and nv-i
     markers <- markers[c((nv - 1):1, nv)]
   }
-  structure(list(type = "polygon", dim = 2L, vertices = v, markers = markers),
-            class = "pde_domain")
+  hl <- NULL; hm <- NULL
+  if (!is.null(holes)) {
+    if (is.matrix(holes)) holes <- list(holes)
+    if (!is.list(holes) || !length(holes)) stopf("`holes` must be a list of vertex matrices.")
+    if (length(hole_markers) == 1L) hole_markers <- rep(hole_markers, length(holes))
+    if (!is.character(hole_markers) || length(hole_markers) != length(holes) || anyNA(hole_markers) ||
+        any(!nzchar(hole_markers))) {
+      stopf("`hole_markers` must be one name or one name per hole.")
+    }
+    hl <- lapply(holes, function(h) suppressMessages(pde_domain("polygon", vertices = h))$vertices)
+    loops <- c(list(v), hl)
+    for (i in seq_along(hl)) {
+      if (!all(points_in_polygon(hl[[i]], v))) stopf("Hole %d is not strictly inside the outer polygon.", i)
+      for (j in seq_along(hl)) {
+        if (i != j && any(points_in_polygon(hl[[i]], hl[[j]]))) stopf("Holes %d and %d overlap.", i, j)
+      }
+    }
+    for (i in seq_along(loops)) for (j in seq_along(loops)) {
+      if (j > i && loops_intersect(loops[[i]], loops[[j]])) {
+        stopf("The boundary of %s touches or crosses the boundary of hole %d.",
+              if (i == 1L) "the outer polygon" else sprintf("hole %d", i - 1L), j - 1L)
+      }
+    }
+    hm <- hole_markers
+  }
+  structure(list(type = "polygon", dim = 2L, vertices = v, markers = markers, holes = hl,
+                 hole_markers = hm), class = "pde_domain")
+}
+
+# Ray casting; points on the boundary count as outside.
+points_in_polygon <- function(p, v) {
+  p <- matrix(p, ncol = 2); nv <- nrow(v); j <- c(nv, seq_len(nv - 1L))
+  vapply(seq_len(nrow(p)), function(k) {
+    x <- p[k, 1]; y <- p[k, 2]
+    xi <- v[, 1]; yi <- v[, 2]; xj <- v[j, 1]; yj <- v[j, 2]
+    cr <- (yi > y) != (yj > y)
+    xs <- xj + (y - yj) * (xi - xj) / (yi - yj)
+    on <- abs((xi - xj) * (y - yj) - (yi - yj) * (x - xj)) <= 1e-12 * max(1, abs(v)) &
+      x >= pmin(xi, xj) & x <= pmax(xi, xj) & y >= pmin(yi, yj) & y <= pmax(yi, yj)
+    !any(on) && (sum(cr & x < xs) %% 2L == 1L)
+  }, logical(1))
+}
+
+# Do any sides of two closed polygons touch or cross?
+loops_intersect <- function(a, b) {
+  na <- nrow(a); nb <- nrow(b)
+  for (i in seq_len(na)) for (j in seq_len(nb)) {
+    if (segments_touch(a[i, ], a[i %% na + 1L, ], b[j, ], b[j %% nb + 1L, ])) return(TRUE)
+  }
+  FALSE
+}
+
+segments_touch <- function(a, b, c, d) {
+  orient <- function(p, q, r) (q[1] - p[1]) * (r[2] - p[2]) - (q[2] - p[2]) * (r[1] - p[1])
+  on_seg <- function(p, q, r) min(p[1], q[1]) <= r[1] && r[1] <= max(p[1], q[1]) &&
+    min(p[2], q[2]) <= r[2] && r[2] <= max(p[2], q[2])
+  o1 <- orient(a, b, c); o2 <- orient(a, b, d); o3 <- orient(c, d, a); o4 <- orient(c, d, b)
+  if (((o1 > 0 && o2 < 0) || (o1 < 0 && o2 > 0)) && ((o3 > 0 && o4 < 0) || (o3 < 0 && o4 > 0))) return(TRUE)
+  (o1 == 0 && on_seg(a, b, c)) || (o2 == 0 && on_seg(a, b, d)) ||
+    (o3 == 0 && on_seg(c, d, a)) || (o4 == 0 && on_seg(c, d, b))
 }
 
 check_endpoints <- function(x, name) {
@@ -126,6 +189,7 @@ print.pde_domain <- function(x, ...) {
     cat("  (", x$x[1], ", ", x$x[2], ") x (", x$y[1], ", ", x$y[2], ")\n", sep = "")
   } else {
     cat("  vertices:", nrow(x$vertices), "\n")
+    if (length(x$holes)) cat("  holes:", length(x$holes), "\n")
   }
   cat("  markers:", paste(unique(x$markers), collapse = ", "), "\n")
   invisible(x)

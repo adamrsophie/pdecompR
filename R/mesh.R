@@ -319,10 +319,46 @@ pde_mesh_polygon <- function(domain, h = Inf, markers = "boundary") {
   }
   check_number(h, "h", positive = TRUE, finite = FALSE)
   v <- domain$vertices
-  tris <- ear_clip(v)
   nv <- nrow(v)
   be <- cbind(1:nv, c(2:nv, 1L))
-  mesh <- pde_mesh(v, tris, be, domain$markers)
+  bm <- domain$markers
+  loop <- seq_len(nv)
+  if (length(domain$holes)) {
+    # Bridge every hole to the boundary so far, giving one weakly simple
+    # polygon that ear clipping triangulates.
+    hl <- domain$holes
+    off <- nv + c(0L, cumsum(vapply(hl, nrow, integer(1))))
+    v <- rbind(v, do.call(rbind, hl))
+    for (k in seq_along(hl)) {
+      ids <- off[k] + seq_len(nrow(hl[[k]]))
+      be <- rbind(be, cbind(ids, c(ids[-1], ids[1])))
+      bm <- c(bm, rep(domain$hole_markers[k], length(ids)))
+    }
+    inside <- function(p) points_in_polygon(p, domain$vertices) &&
+      !any(vapply(hl, function(h) points_in_polygon(p, h), logical(1)))
+    for (k in order(-vapply(hl, function(h) max(h[, 1]), numeric(1)))) {
+      ids <- rev(off[k] + seq_len(nrow(hl[[k]])))          # clockwise
+      ids <- ids[c(seq(which.max(v[ids, 1]), length(ids)), seq_len(which.max(v[ids, 1]) - 1L))]
+      M <- ids[1]
+      cand <- unique(loop); cand <- cand[order(rowSums(sweep(v[cand, , drop = FALSE], 2, v[M, ])^2))]
+      edges <- be
+      P <- NA_integer_
+      for (q in cand) {
+        ok <- inside((v[q, ] + v[M, ]) / 2)
+        if (ok) for (e in seq_len(nrow(edges))) {
+          a <- edges[e, 1]; b <- edges[e, 2]
+          if (a %in% c(q, M) || b %in% c(q, M)) next
+          if (segments_touch(v[q, ], v[M, ], v[a, ], v[b, ])) { ok <- FALSE; break }
+        }
+        if (ok) { P <- q; break }
+      }
+      if (is.na(P)) stopf("Could not connect hole %d to the boundary.", k)
+      pos <- match(P, loop)
+      loop <- c(loop[seq_len(pos)], ids, M, P, loop[-seq_len(pos)])
+    }
+  }
+  tris <- ear_clip(v, loop)
+  mesh <- pde_mesh(v, tris, be, bm)
   mesh <- lawson_flip(mesh)
   while (max(mesh_edge_lengths(mesh)) > h) {
     mesh <- refine_uniform(mesh)
@@ -332,9 +368,8 @@ pde_mesh_polygon <- function(domain, h = Inf, markers = "boundary") {
   mesh
 }
 
-ear_clip <- function(v) {
-  idx <- seq_len(nrow(v))
-  out <- vector("list", nrow(v) - 2L)
+ear_clip <- function(v, idx = seq_len(nrow(v))) {
+  out <- vector("list", length(idx) - 2L)
   k <- 0L
   cross <- function(a, b, c) {
     (v[b, 1] - v[a, 1]) * (v[c, 2] - v[a, 2]) - (v[b, 2] - v[a, 2]) * (v[c, 1] - v[a, 1])
@@ -361,7 +396,7 @@ ear_clip <- function(v) {
       break
     }
     guard <- guard + 1L
-    if (!found || guard > 10L * nrow(v)) stopf("Ear clipping failed; is the polygon simple?")
+    if (!found || guard > 10L * length(out)) stopf("Ear clipping failed; is the polygon simple?")
   }
   k <- k + 1L
   out[[k]] <- idx

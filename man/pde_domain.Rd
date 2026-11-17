@@ -9,7 +9,9 @@ pde_domain(
   x = c(0, 1),
   y = c(0, 1),
   vertices = NULL,
-  markers = "boundary"
+  markers = "boundary",
+  holes = NULL,
+  hole_markers = "hole"
 )
 }
 \arguments{
@@ -23,6 +25,13 @@ pde_domain(
 
 \item{markers}{For polygons, a character vector naming each side, or a
 single name used for every side.}
+
+\item{holes}{For polygons, an optional list of vertex matrices, each a
+simple polygon strictly inside the outer polygon; holes must not touch
+each other or the outer boundary.}
+
+\item{hole_markers}{Marker of the sides of each hole: one name for all
+holes or one per hole.}
 }
 \value{
 An object of class \code{pde_domain}.
