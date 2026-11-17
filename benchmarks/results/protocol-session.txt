@@ -1,0 +1,5 @@
+R version 4.6.0 (2026-04-24)
+Matrix 1.7.6
+Darwin 27.2.0 arm64
+repeats 5
+2026-11-17 21:46:45 UTC

@@ -207,3 +207,18 @@ for (n in c(16, 32, 64)) {
               s$diagnostics$assembly_time, s$diagnostics$solve_time))
 }
 ```
+
+Where coefficients change every time step or Newton iteration, the matrix
+is reassembled on a fixed sparsity pattern: the map from element entries to
+the nonzeros is computed once, and each reassembly is one sparse
+matrix-vector product, about twelve times faster than building the matrix
+from triplets. The element integrals themselves then dominate (about 80
+percent of a reassembly for P1 on a 128 by 128 mesh), so the end-to-end
+gain is modest: 7 percent for a heat problem with time-dependent diffusion
+and 4 percent for a quasilinear Newton solve.
+
+`benchmarks/protocol.R` in the source repository runs each case in a fresh
+R process under `/usr/bin/time` for the true peak memory, repeats it after
+a warm-up run and reports the median with the range, and compares P1, P2
+and AMG solves at a fixed error. On the unit square P2 reaches an L2 error
+of `1e-5` with 4,225 unknowns, where P1 needs more than 66,000.

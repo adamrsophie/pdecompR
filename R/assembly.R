@@ -185,6 +185,26 @@ global_matrix <- function(space, A) {
                        dims = c(space$ndof, space$ndof))
 }
 
+# Assembly plan for repeated assembly on one space: the sparsity pattern
+# and the map from element triplets to its nonzeros are computed once; each
+# call then only sums the element values into the nonzeros (one sparse
+# matrix-vector product), which matters when coefficients change every
+# time step or Newton iteration.
+assembly_plan <- function(space) {
+  D <- space$cell_dofs; nl <- ncol(D); n <- space$ndof
+  i <- as.vector(D[, rep(seq_len(nl), times = nl)])
+  j <- as.vector(D[, rep(seq_len(nl), each = nl)])
+  key <- (j - 1) * n + i
+  u <- sort(unique(key))
+  S <- Matrix::sparseMatrix(i = match(key, u), j = seq_along(key), x = 1, dims = c(length(u), length(key)))
+  tmpl <- Matrix::sparseMatrix(i = (u - 1) %% n + 1, j = (u - 1) %/% n + 1, x = rep(1, length(u)), dims = c(n, n))
+  function(A) {
+    out <- tmpl
+    out@x <- as.numeric(S %*% as.vector(A))
+    out
+  }
+}
+
 global_vector <- function(space, b) {
   out <- numeric(space$ndof)
   s <- rowsum(as.vector(b), as.vector(space$cell_dofs), reorder = TRUE)

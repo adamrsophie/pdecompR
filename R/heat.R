@@ -103,13 +103,14 @@ parabolic_operators <- function(problem) {
   robin <- natural_bc_terms(V, rb, problem$time[1])$A
   if (!is.null(robin)) A <- A + robin
   # Operator at time t, reassembled when a coefficient depends on time.
+  plan <- if (coef_td) assembly_plan(V)
   A_at <- function(t) {
     if (!coef_td) return(A)
     Dt <- diffusion_qp(problem$diffusion, geo, t)
     if (!is.list(Dt) && min(Dt) <= 0) stopf("The diffusion coefficient must be positive (t = %s).", fmt_num(t))
     ct <- coef_qp(problem$reaction, geo, t, name = "reaction")
     if (all(ct == 0)) ct <- NULL
-    At <- global_matrix(V, local_bilinear(geo, mass = ct, adv = vec_qp(problem$advection, geo, t), diff = Dt))
+    At <- plan(local_bilinear(geo, mass = ct, adv = vec_qp(problem$advection, geo, t), diff = Dt))
     if (!is.null(robin)) At <- At + robin
     At
   }
