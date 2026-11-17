@@ -290,6 +290,48 @@ freedom. Refined meshes are nested in their parents, so P1 and P2
 functions transfer exactly from coarse to fine meshes. Refined meshes
 also record the parent edge of every new node in `info$new_nodes`.
 
+### Curved boundaries
+
+Refining a polygon keeps its chords, so on a disk the error stalls at
+the geometric error of the coarse polygon.
+[`curved_boundary()`](https://adamrsophie.github.io/pdecompR/reference/curved_boundary.md)
+attaches the closest point projection of the curve to a boundary marker;
+refinement then puts new boundary nodes on the curve and the domain
+converges with the mesh. For -\Delta u = 4 on the unit disk with u = 1 -
+r^2:
+
+``` r
+
+n <- 12
+circle <- cbind(cos(2 * pi * (1:n) / n), sin(2 * pi * (1:n) / n))
+m0 <- pde_mesh_polygon(circle)
+mc <- curved_boundary(m0, "boundary", function(x, y) cbind(x, y) / sqrt(x^2 + y^2))
+exact <- function(x, y) 1 - x^2 - y^2
+err <- function(m) errornorm(solve_pde(poisson_problem(m, source = 4, boundary = dirichlet_bc(0))),
+                             exact, "L2")
+e <- sapply(list(straight = m0, curved = mc), function(m) {
+  sapply(1:4, function(k) { for (i in seq_len(k)) m <- refine_uniform(m); err(m) })
+})
+e
+#>        straight      curved
+#> [1,] 0.33647807 0.268536112
+#> [2,] 0.15125121 0.067776297
+#> [3,] 0.10136100 0.016976434
+#> [4,] 0.08755111 0.004245441
+log2(e[-4, ] / e[-1, ])
+#>       straight   curved
+#> [1,] 1.1535658 1.986263
+#> [2,] 0.5774439 1.997247
+#> [3,] 0.2113053 1.999547
+```
+
+The curved sequence keeps the P1 rate 2. Elements stay straight sided,
+so P2 edge nodes sit on chords and P2 converges only as fast as the
+polygonal domain (rate 2 in L2, 1.5 in H1); isoparametric elements are
+not provided. Refined curved meshes cover slightly different domains, so
+compare them with exact functions rather than with solutions on other
+meshes of the sequence.
+
 ## Selecting boundary parts
 
 [`boundary_nodes()`](https://adamrsophie.github.io/pdecompR/reference/boundary_markers.md)

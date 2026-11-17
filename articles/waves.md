@@ -44,7 +44,7 @@ data.frame(dt = dts, error = err, rate = c(NA, log2(err[-4] / err[-1])))
 #> 4 0.0125 0.002259093 1.997343
 s <- solve_pde(p, dt = 0.05)
 diff(range(s$diagnostics$energy)) / s$diagnostics$energy[1]
-#> [1] 7.486982e-15
+#> [1] 8.913074e-15
 ```
 
 The relative energy drift is at rounding level.

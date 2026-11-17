@@ -350,6 +350,43 @@ evaluating it at the new degrees of freedom. Refined meshes are nested
 in their parents, so P1 and P2 functions transfer exactly from coarse to
 fine meshes. Refined meshes also record the parent edge of every new
 node in <code>info$new_nodes</code>.</p>
+<div class="section level3">
+<h3 id="curved-boundaries">Curved boundaries<a class="anchor" aria-label="anchor" href="#curved-boundaries"></a>
+</h3>
+<p>Refining a polygon keeps its chords, so on a disk the error stalls at
+the geometric error of the coarse polygon.
+<code><a href="../reference/curved_boundary.html">curved_boundary()</a></code> attaches the closest point projection of
+the curve to a boundary marker; refinement then puts new boundary nodes
+on the curve and the domain converges with the mesh. For <span class="math inline">-\Delta u = 4</span> on the unit disk with <span class="math inline">u = 1 - r^2</span>:</p>
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">n</span> <span class="op">&lt;-</span> <span class="fl">12</span></span>
+<span><span class="va">circle</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">cos</a></span><span class="op">(</span><span class="fl">2</span> <span class="op">*</span> <span class="va">pi</span> <span class="op">*</span> <span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">n</span><span class="op">)</span> <span class="op">/</span> <span class="va">n</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">sin</a></span><span class="op">(</span><span class="fl">2</span> <span class="op">*</span> <span class="va">pi</span> <span class="op">*</span> <span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="va">n</span><span class="op">)</span> <span class="op">/</span> <span class="va">n</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">m0</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pde_mesh_polygon.html">pde_mesh_polygon</a></span><span class="op">(</span><span class="va">circle</span><span class="op">)</span></span>
+<span><span class="va">mc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/curved_boundary.html">curved_boundary</a></span><span class="op">(</span><span class="va">m0</span>, <span class="st">"boundary"</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="va">x</span><span class="op">^</span><span class="fl">2</span> <span class="op">+</span> <span class="va">y</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">exact</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fl">1</span> <span class="op">-</span> <span class="va">x</span><span class="op">^</span><span class="fl">2</span> <span class="op">-</span> <span class="va">y</span><span class="op">^</span><span class="fl">2</span></span>
+<span><span class="va">err</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="fu"><a href="../reference/errornorm.html">errornorm</a></span><span class="op">(</span><span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="../reference/elliptic_problem.html">poisson_problem</a></span><span class="op">(</span><span class="va">m</span>, source <span class="op">=</span> <span class="fl">4</span>, boundary <span class="op">=</span> <span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>                             <span class="va">exact</span>, <span class="st">"L2"</span><span class="op">)</span></span>
+<span><span class="va">e</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>straight <span class="op">=</span> <span class="va">m0</span>, curved <span class="op">=</span> <span class="va">mc</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">4</span>, <span class="kw">function</span><span class="op">(</span><span class="va">k</span><span class="op">)</span> <span class="op">{</span> <span class="kw">for</span> <span class="op">(</span><span class="va">i</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq_len</a></span><span class="op">(</span><span class="va">k</span><span class="op">)</span><span class="op">)</span> <span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/refine_uniform.html">refine_uniform</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span>; <span class="fu">err</span><span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="op">}</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span></span>
+<span><span class="va">e</span></span>
+<span><span class="co">#&gt;        straight      curved</span></span>
+<span><span class="co">#&gt; [1,] 0.33647807 0.268536112</span></span>
+<span><span class="co">#&gt; [2,] 0.15125121 0.067776297</span></span>
+<span><span class="co">#&gt; [3,] 0.10136100 0.016976434</span></span>
+<span><span class="co">#&gt; [4,] 0.08755111 0.004245441</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log2</a></span><span class="op">(</span><span class="va">e</span><span class="op">[</span><span class="op">-</span><span class="fl">4</span>, <span class="op">]</span> <span class="op">/</span> <span class="va">e</span><span class="op">[</span><span class="op">-</span><span class="fl">1</span>, <span class="op">]</span><span class="op">)</span></span>
+<span><span class="co">#&gt;       straight   curved</span></span>
+<span><span class="co">#&gt; [1,] 1.1535658 1.986263</span></span>
+<span><span class="co">#&gt; [2,] 0.5774439 1.997247</span></span>
+<span><span class="co">#&gt; [3,] 0.2113053 1.999547</span></span></code></pre></div>
+<p>The curved sequence keeps the P1 rate 2. Elements stay straight
+sided, so P2 edge nodes sit on chords and P2 converges only as fast as
+the polygonal domain (rate 2 in L2, 1.5 in H1); isoparametric elements
+are not provided. Refined curved meshes cover slightly different
+domains, so compare them with exact functions rather than with solutions
+on other meshes of the sequence.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="selecting-boundary-parts">Selecting boundary parts<a class="anchor" aria-label="anchor" href="#selecting-boundary-parts"></a>
@@ -358,7 +395,7 @@ node in <code>info$new_nodes</code>.</p>
 nodes by marker. For imported meshes without physical groups,
 <code><a href="../reference/set_boundary_marker.html">set_boundary_marker()</a></code> relabels boundary edges whose
 midpoints satisfy a predicate.</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/set_boundary_marker.html">set_boundary_marker</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">8</span><span class="op">)</span>, <span class="st">"inlet"</span>,</span>
 <span>                         <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="va">x</span> <span class="op">&lt;</span> <span class="fl">1e-12</span> <span class="op">&amp;</span> <span class="va">y</span> <span class="op">&gt;</span> <span class="fl">0.25</span> <span class="op">&amp;</span> <span class="va">y</span> <span class="op">&lt;</span> <span class="fl">0.75</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">m</span><span class="op">$</span><span class="va">boundary</span><span class="op">$</span><span class="va">marker</span><span class="op">)</span></span>

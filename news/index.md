@@ -74,6 +74,11 @@ of the sparse matrix classes of ‘Matrix’.
 - [`pde_mesh()`](https://adamrsophie.github.io/pdecompR/reference/pde_mesh.md)
   rejects elements that overlap without sharing an edge (folded node
   neighborhoods or crossing boundary edges).
+- [`curved_boundary()`](https://adamrsophie.github.io/pdecompR/reference/curved_boundary.md)
+  declares boundary parts as curves; refinement then places new boundary
+  nodes on the curve, which restores second-order P1 convergence on
+  curved domains. Elements stay straight sided, so P2 is limited by the
+  polygonal geometry (H1 rate 1.5).
 - [`amg_preconditioner()`](https://adamrsophie.github.io/pdecompR/reference/amg_preconditioner.md)
   adds smoothed aggregation algebraic multigrid for CG, with nearly
   constant iteration counts on unstructured and P2 meshes where

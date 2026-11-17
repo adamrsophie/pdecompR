@@ -153,7 +153,7 @@ for (m in c("auto", "lu", "cg", "bicgstab", "gmres")) {
 #> lu       lu        iterations   NA  relative residual 1.77e-13
 #> cg       cg        iterations   54  relative residual 4.51e-13
 #> bicgstab bicgstab  iterations   43  relative residual 5.04e-13
-#> gmres    gmres     iterations   54  relative residual 8.66e-13
+#> gmres    gmres     iterations   54  relative residual 8.58e-13
 ```
 
 Every solve reports a status, the residual and its relative size, the

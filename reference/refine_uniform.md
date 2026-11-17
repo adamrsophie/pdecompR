@@ -43,6 +43,10 @@ yields two edges with the parent's marker. The returned mesh records the
 parent edge of each new node in `info$new_nodes` (a two-column matrix of
 node indices), which makes exact transfer of P1 functions possible, see
 [`transfer_function()`](https://adamrsophie.github.io/pdecompR/reference/transfer_function.md).
+On boundary parts declared curved with
+[`curved_boundary()`](https://adamrsophie.github.io/pdecompR/reference/curved_boundary.md),
+new boundary nodes are projected onto the curve instead of staying at
+the chord midpoint.
 
 ## References
 

@@ -97,6 +97,8 @@
 <li>
 <code><a href="../reference/pde_mesh.html">pde_mesh()</a></code> rejects elements that overlap without sharing an edge (folded node neighborhoods or crossing boundary edges).</li>
 <li>
+<code><a href="../reference/curved_boundary.html">curved_boundary()</a></code> declares boundary parts as curves; refinement then places new boundary nodes on the curve, which restores second-order P1 convergence on curved domains. Elements stay straight sided, so P2 is limited by the polygonal geometry (H1 rate 1.5).</li>
+<li>
 <code><a href="../reference/amg_preconditioner.html">amg_preconditioner()</a></code> adds smoothed aggregation algebraic multigrid for CG, with nearly constant iteration counts on unstructured and P2 meshes where geometric multigrid does not apply.</li>
 <li>
 <code>elasticity_problem(formulation = "mixed")</code> solves nearly incompressible elasticity with P2 displacements and a P1 pressure, free of volumetric locking; <code><a href="../reference/elasticity_stress.html">elasticity_stress()</a></code> uses the pressure unknown.</li>

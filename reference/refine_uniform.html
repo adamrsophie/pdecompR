@@ -114,7 +114,9 @@ from zero.</p>
 two edges with the parent's marker. The returned mesh records the parent
 edge of each new node in <code>info$new_nodes</code> (a two-column matrix of node
 indices), which makes exact transfer of P1 functions possible, see
-<code><a href="transfer_function.html">transfer_function()</a></code>.</p>
+<code><a href="transfer_function.html">transfer_function()</a></code>. On boundary parts declared curved with
+<code><a href="curved_boundary.html">curved_boundary()</a></code>, new boundary nodes are projected onto the curve
+instead of staying at the chord midpoint.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>

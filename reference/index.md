@@ -29,6 +29,8 @@
 - [`refine_uniform()`](https://adamrsophie.github.io/pdecompR/reference/refine_uniform.md)
   [`refine_mesh()`](https://adamrsophie.github.io/pdecompR/reference/refine_uniform.md)
   : Mesh refinement
+- [`curved_boundary()`](https://adamrsophie.github.io/pdecompR/reference/curved_boundary.md)
+  : Curved boundaries
 - [`read_gmsh()`](https://adamrsophie.github.io/pdecompR/reference/read_gmsh.md)
   : Read a Gmsh mesh
 - [`write_vtk()`](https://adamrsophie.github.io/pdecompR/reference/write_vtk.md)

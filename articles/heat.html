@@ -164,7 +164,7 @@ zero boundary values and no source, the exact solution is <span class="math inli
 <span><span class="co">#&gt;   degrees of freedom: 625  ( 529  free)</span></span>
 <span><span class="co">#&gt;   linear solver: cholesky  max relative residual: 8.27e-16 </span></span>
 <span><span class="co">#&gt;   integral of the solution, first and last stored time: 0.4041 to 0.1501 </span></span>
-<span><span class="co">#&gt;   assembly 0.022 s, time stepping 0.039 s</span></span>
+<span><span class="co">#&gt;   assembly 0.023 s, time stepping 0.046 s</span></span>
 <span></span>
 <span><span class="va">exact_end</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="op">-</span><span class="fl">2</span> <span class="op">*</span> <span class="va">pi</span><span class="op">^</span><span class="fl">2</span> <span class="op">*</span> <span class="va">kappa</span> <span class="op">*</span> <span class="fl">0.1</span><span class="op">)</span> <span class="op">*</span> <span class="fu">u0</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/errornorm.html">errornorm</a></span><span class="op">(</span><span class="fu"><a href="../reference/solution_at.html">solution_at</a></span><span class="op">(</span><span class="va">sol</span>, <span class="fl">0.1</span><span class="op">)</span>, <span class="va">exact_end</span>, <span class="st">"L2"</span><span class="op">)</span></span>
