@@ -69,6 +69,9 @@ to the difference error).
 }
 
 Positivity is not guaranteed by either scheme for general reactions.
+The solution diagnostics report the smallest and largest nodal value of
+each species over all steps (\code{range}, a two-row matrix) and its integral
+at the stored times (\code{integral}); nothing is clipped.
 }
 \examples{
 mesh <- pde_mesh_rectangle(nx = 6)

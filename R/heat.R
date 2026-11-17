@@ -19,6 +19,15 @@
 #' matrix `M` and operator matrix `A` (including Robin terms). Time stepping
 #' uses the theta method; see [solve_pde()] arguments `dt` and `method`.
 #'
+#' The solution diagnostics report `integral` (the integral of `u` at each
+#' stored time, for mass balance) and `range` (the smallest and largest
+#' nodal value over all time steps). These are reports, not limiters:
+#' nothing is clipped. A negative minimum for nonnegative data shows a
+#' violated discrete maximum principle. Consistent-mass Galerkin schemes
+#' preserve positivity only under mesh and step conditions (acute meshes
+#' and a time step bounded below by a multiple of `h^2`), and for P2 the
+#' nodal minimum is not the minimum of the function.
+#'
 #' @inheritParams elliptic_problem
 #' @param initial Initial condition: number, `function(x, y)` or
 #'   [fe_function()].
@@ -189,6 +198,7 @@ solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson"
   F_old <- ops$load(t0)
   max_rel <- 0
   bad <- NULL
+  rng <- range(u)
   for (n in seq_len(N)) {
     tn <- grid[n + 1L]
     F_new <- if (ops$time_dependent) ops$load(tn) else F_old
@@ -215,6 +225,7 @@ solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson"
     if (length(bdofs)) u[bdofs] <- ud
     max_rel <- max(max_rel, s$info$relative_residual)
     if (!s$info$status %in% c("solved", "converged")) bad <- s$info
+    rng <- range(rng, u)
     F_old <- F_new
     if (k_out <= length(out_idx) && out_idx[k_out] == n + 1L) {
       U[, k_out] <- u; k_out <- k_out + 1L
@@ -224,7 +235,7 @@ solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson"
   diag <- structure(list(ndof = V$ndof, free = length(free), steps = N, dt = dt,
                          method = method, theta = theta, startup = startup, solver = slv$info,
                          integral = as.numeric(crossprod(assemble_vector(V, 1), U)),
-                         max_relative_residual = max_rel,
+                         range = rng, max_relative_residual = max_rel,
                          assembly_time = ops$assembly_time,
                          solve_time = proc.time()[["elapsed"]] - ts),
                     class = "pde_diagnostics")
@@ -372,6 +383,7 @@ solve_parabolic_multistage <- function(problem, dt, method, output_times, solver
     list(u = U2, err = U2 - uh)
   }
   mnorm <- function(v) sqrt(max(0, sum(v * as.numeric(M %*% v))))
+  rng <- range(u)
   if (!adaptive) {
     N <- max(1L, as.integer(ceiling((t1 - t0) / dt - 1e-10)))
     dt <- (t1 - t0) / N
@@ -387,6 +399,7 @@ solve_parabolic_multistage <- function(problem, dt, method, output_times, solver
                else if (is.null(u_old)) stage_solve(1, dt, as.numeric(M %*% u) + dt * load(tn), gd(tn), u)
                else stage_solve(1.5, dt, as.numeric(M %*% (2 * u - 0.5 * u_old)) + dt * load(tn), gd(tn), u)
       u_old <- u; u <- u_new
+      rng <- range(rng, u)
       if (k_out <= length(out_idx) && out_idx[k_out] == n + 1L) { U[, k_out] <- u; k_out <- k_out + 1L }
     }
     times <- grid[out_idx]; steps <- N; rejected <- 0L; dts <- rep(dt, N)
@@ -411,7 +424,7 @@ solve_parabolic_multistage <- function(problem, dt, method, output_times, solver
       fac <- min(2, max(0.2, 0.9 * sqrt(tol / max(err, 1e-300))))
       if (err <= tol) {
         tt <- if (abs(tt + hs - nxt) <= hmin) nxt else tt + hs
-        u <- st$u; dts <- c(dts, hs)
+        u <- st$u; dts <- c(dts, hs); rng <- range(rng, u)
         if (is.null(outs) || any(abs(outs - tt) <= hmin)) { times <- c(times, tt); vals[[length(vals) + 1L]] <- u }
         # Keep the step (and its factorization) unless it should shrink or
         # grow by more than 25 percent.
@@ -430,7 +443,7 @@ solve_parabolic_multistage <- function(problem, dt, method, output_times, solver
                          dt = if (adaptive) range(dts) else dt, method = method, adaptive = adaptive,
                          rejected_steps = rejected, factorizations = cache$n,
                          integral = as.numeric(crossprod(assemble_vector(V, 1), U)),
-                         max_relative_residual = max_rel, assembly_time = ops$assembly_time,
+                         range = rng, max_relative_residual = max_rel, assembly_time = ops$assembly_time,
                          solve_time = proc.time()[["elapsed"]] - ts),
                     class = "pde_diagnostics")
   structure(list(times = times, values = U, space = V, problem = problem, diagnostics = diag),

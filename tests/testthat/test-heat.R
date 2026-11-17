@@ -75,3 +75,29 @@ test_that("BDF2 and SDIRK2 are second order and adaptive SDIRK2 meets its tolera
   pt <- parabolic_problem(m, diffusion = function(x, y, t) 1 + t, initial = 0, bcs = dirichlet_bc(0), time = c(0, 1))
   expect_error(solve_pde(pt, dt = 0.1, method = "bdf2"), "do not depend on time")
 })
+
+test_that("time-dependent solvers report the range of nodal values", {
+  m <- pde_mesh_rectangle(nx = 6)
+  p <- heat_problem(m, initial = function(x, y) sin(pi * x) * sin(pi * y), bcs = dirichlet_bc(0), time = c(0, 0.2))
+  for (me in c("backward-euler", "crank-nicolson", "bdf2", "sdirk2")) {
+    s <- solve_pde(p, dt = 0.05, method = me)
+    r <- s$diagnostics$range
+    expect_length(r, 2L)
+    expect_equal(r[2], 1, tolerance = 1e-12)   # the initial maximum
+    expect_lte(r[1], min(s$values))
+  }
+  sa <- solve_pde(p, dt = 0.05, method = "sdirk2", adaptive = TRUE, tol = 1e-4)
+  expect_length(sa$diagnostics$range, 2L)
+  # Crank-Nicolson without startup on a nonsmooth initial state undershoots.
+  ps <- heat_problem(m, initial = function(x, y) as.numeric(x > 0.5), bcs = dirichlet_bc(0), time = c(0, 0.2))
+  expect_lt(solve_pde(ps, dt = 0.1, method = "crank-nicolson", startup = 0)$diagnostics$range[1], 0)
+  w <- solve_pde(wave_problem(m, initial = function(x, y) sin(pi * x) * sin(pi * y), bcs = dirichlet_bc(0),
+                              time = c(0, 0.5)), dt = 0.05)
+  expect_lt(w$diagnostics$range[1], -0.5)
+  rd <- reaction_diffusion_problem(m, c("a", "b"), diffusion = 1,
+                                   reaction = function(U, x, y, t) cbind(-U[, 1], U[, 1]),
+                                   initial = list(a = 1, b = 0), time = c(0, 0.2))
+  r2 <- solve_pde(rd, dt = 0.05)$diagnostics$range
+  expect_equal(dim(r2), c(2L, 2L))
+  expect_equal(colnames(r2), c("a", "b"))
+})

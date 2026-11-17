@@ -23,6 +23,9 @@
 #'   to the difference error).
 #'
 #' Positivity is not guaranteed by either scheme for general reactions.
+#' The solution diagnostics report the smallest and largest nodal value of
+#' each species over all steps (`range`, a two-row matrix) and its integral
+#' at the stored times (`integral`); nothing is clipped.
 #'
 #' @param mesh A [pde_mesh()].
 #' @param species Character vector of species names.
@@ -170,6 +173,8 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
   newton_res <- numeric(0)
   max_rel <- 0
   bad <- NULL
+  rng <- apply(U, 2, range)
+  track <- function(U) rbind(pmin(rng[1, ], apply(U, 2, min)), pmax(rng[2, ], apply(U, 2, max)))
   if (method == "imex-euler") {
     solvers <- list(); free <- list(); Lfd <- list()
     for (s in sp) {
@@ -194,7 +199,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
         Unew[f, s] <- sol$x
         if (length(dd$dofs)) Unew[dd$dofs, s] <- dd$values
       }
-      U <- Unew
+      U <- Unew; rng <- track(U)
       if (k_out <= length(out_idx) && out_idx[k_out] == k + 1L) {
         for (s in sp) store[[s]][, k_out] <- U[, s]; k_out <- k_out + 1L
       }
@@ -271,7 +276,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
       }
       newton_its <- c(newton_its, it)
       newton_res <- c(newton_res, gn / max(g0, 1e-300))
-      U <- Z
+      U <- Z; rng <- track(U)
       if (k_out <= length(out_idx) && out_idx[k_out] == k + 1L) {
         for (s in sp) store[[s]][, k_out] <- U[, s]; k_out <- k_out + 1L
       }
@@ -282,6 +287,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
   diag <- structure(list(ndof = n * ns, free = n * ns - nfix, steps = N, dt = dt, method = method,
                          species = sp, solver = list(method = solver),
                          max_relative_residual = max_rel,
+                         range = `dimnames<-`(rng, list(c("min", "max"), sp)),
                          newton_iterations = if (length(newton_its)) newton_its else NULL,
                          newton_relative_residual = if (length(newton_res)) newton_res else NULL,
                          integral = { one <- assemble_vector(V, 1)

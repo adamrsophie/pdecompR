@@ -79,6 +79,15 @@ SUPG requires time-independent coefficients.
 The finite-element semidiscretization is \verb{M du/dt + A u = F(t)} with mass
 matrix \code{M} and operator matrix \code{A} (including Robin terms). Time stepping
 uses the theta method; see \code{\link[=solve_pde]{solve_pde()}} arguments \code{dt} and \code{method}.
+
+The solution diagnostics report \code{integral} (the integral of \code{u} at each
+stored time, for mass balance) and \code{range} (the smallest and largest
+nodal value over all time steps). These are reports, not limiters:
+nothing is clipped. A negative minimum for nonnegative data shows a
+violated discrete maximum principle. Consistent-mass Galerkin schemes
+preserve positivity only under mesh and step conditions (acute meshes
+and a time step bounded below by a multiple of \code{h^2}), and for P2 the
+nodal minimum is not the minimum of the function.
 }
 \examples{
 mesh <- pde_mesh_rectangle(nx = 8)

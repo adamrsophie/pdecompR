@@ -14,7 +14,8 @@
 #' Newmark average acceleration method (`beta = 1/4`, `gamma = 1/2`): second
 #' order, unconditionally stable and, without damping and forcing, exactly
 #' conserving the discrete energy `1/2 v'Mv + 1/2 u'Ku`, which is reported as
-#' `diagnostics$energy`. The effective matrix is factorized once.
+#' `diagnostics$energy`, with the range of nodal values over all steps in
+#' `diagnostics$range`. The effective matrix is factorized once.
 #'
 #' @param mesh A [pde_mesh()].
 #' @param speed Wave speed `c` (number or `function(x, y)`).
@@ -145,7 +146,7 @@ newmark <- function(M, C, K, load, bdofs, g, u, v, time, dt, output_times, solve
   Kfd <- Keff[free, bdofs, drop = FALSE]
   energy <- function(u, v) 0.5 * sum(v * as.numeric(M %*% v)) + 0.5 * sum(u * as.numeric(K %*% u))
   U <- Vel <- matrix(NA_real_, n, length(out_idx))
-  E <- numeric(N + 1L); E[1] <- energy(u, v)
+  E <- numeric(N + 1L); E[1] <- energy(u, v); rng <- range(u)
   k_out <- 1L
   if (out_idx[1] == 1L) { U[, 1] <- u; Vel[, 1] <- v; k_out <- 2L }
   for (k in seq_len(N)) {
@@ -159,13 +160,13 @@ newmark <- function(M, C, K, load, bdofs, g, u, v, time, dt, output_times, solve
     un[free] <- s$x
     an <- c0 * (un - u - dt * v) - (1 / (2 * beta) - 1) * a
     v <- v + dt * ((1 - gam) * a + gam * an)
-    u <- un; a <- an
+    u <- un; a <- an; rng <- range(rng, u)
     E[k + 1L] <- energy(u, v)
     if (k_out <= length(out_idx) && out_idx[k_out] == k + 1L) { U[, k_out] <- u; Vel[, k_out] <- v; k_out <- k_out + 1L }
   }
   if (!is.null(bad)) warn_solver(bad, "linear solve of at least one time step")
   diag <- structure(list(ndof = n, free = length(free), steps = N, dt = dt, method = "newmark",
-                         solver = slv$info, energy = E, max_relative_residual = max_rel,
+                         solver = slv$info, energy = E, range = rng, max_relative_residual = max_rel,
                          solve_time = proc.time()[["elapsed"]] - ts),
                     class = "pde_diagnostics")
   list(times = grid[out_idx], U = U, Vel = Vel, diagnostics = diag)

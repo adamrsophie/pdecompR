@@ -59,6 +59,9 @@ the sparse matrix classes of 'Matrix'.
   the discrete energy reported at every step.
 * `pde_mesh()` rejects elements that overlap without sharing an edge
   (folded node neighborhoods or crossing boundary edges).
+* Time-dependent solvers report the range of nodal values over all steps
+  (`diagnostics$range`) next to the integral, to expose violations of
+  positivity or of the discrete maximum principle.
 * Polygon domains with holes (`pde_domain(holes = )`), meshed by bridging
   each hole to the outer boundary before ear clipping; hole sides carry
   their own markers.
