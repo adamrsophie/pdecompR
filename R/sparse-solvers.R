@@ -314,14 +314,19 @@ multigrid_preconditioner <- function(meshes, smoothing = 2L) {
       if (n != nf) stopf("The system has %d unknowns but the finest mesh has %d nodes; give `free`.", n, nf)
     } else {
       if (length(free) != n) stopf("`free` has %d entries; the system has %d unknowns.", length(free), n)
-      # Restrict to the free rows level by level, dropping coarse unknowns
-      # that no longer influence any free fine unknown.
+      # Restrict to the free rows level by level. A coarse node is a node of
+      # the finer mesh too (refinement keeps the coarse nodes first), and it
+      # inherits that node's constraint: the coarse space is the homogeneous
+      # constrained one. A level with no free node gives an empty coarse
+      # correction, and the coarser levels are dropped.
       rows <- free
       for (k in top:1) {
         Pt <- Pl[[k]][rows, , drop = FALSE]
-        rows <- which(Matrix::colSums(abs(Pt)) > 0)
+        rows <- rows[rows <= ncol(Pt)]
+        if (!length(rows)) { Pl <- Pl[-seq_len(k)]; break }
         Pl[[k]] <- Pt[, rows, drop = FALSE]
       }
+      if (!length(Pl)) return(make_preconditioner("ssor", A))
     }
     mg_cycle(A, Pl, smoothing)
   }, levels = length(meshes)), class = "pde_preconditioner")
@@ -432,7 +437,11 @@ aggregation_prolongation <- function(A, strength, smoothed) {
   Dinv <- 1 / Matrix::diag(A)
   x <- sin(seq_len(n)); x <- x / sqrt(sum(x^2)); rho <- 1
   for (k in 1:15) { y <- Dinv * as.numeric(A %*% x); rho <- sqrt(sum(y^2)); x <- y / rho }
-  Matrix::drop0(P - (4 / (3 * rho)) * (Matrix::Diagonal(x = Dinv) %*% (A %*% P)), tol = 1e-14 * max(abs(Dinv)))
+  # The entries of P are dimensionless (about one), so the drop tolerance is
+  # absolute; it must not scale with A. Columns left empty are removed to
+  # keep P of full rank.
+  P <- Matrix::drop0(P - (4 / (3 * rho)) * (Matrix::Diagonal(x = Dinv) %*% (A %*% P)), tol = 1e-14)
+  P[, Matrix::colSums(abs(P)) > 0, drop = FALSE]
 }
 
 # P1 prolongation from `coarse` to `fine` = one refinement of `coarse`.

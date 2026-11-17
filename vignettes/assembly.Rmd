@@ -88,8 +88,11 @@ sum(assemble_boundary_vector(V, 1, "left"))       # length of the left edge
 space with the same integrals against every basis function. Unlike
 interpolation it preserves the integral of `f`. For a finite-element
 function on an unrelated mesh, the load integrals are computed exactly on
-the overlay (common refinement) of the two meshes, so the transfer is
-conservative up to rounding. `errornorm()` uses the same overlay to compare
+the overlay (common refinement) of the two meshes, so the integral over the
+whole domain is preserved up to rounding. Integrals over single elements
+or groups of elements are not preserved in general; that would need a
+discontinuous space. The two meshes must cover the same domain, otherwise
+the projection is rejected. `errornorm()` uses the same overlay to compare
 solutions on unrelated meshes.
 
 ```{r}

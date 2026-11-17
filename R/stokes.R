@@ -9,9 +9,11 @@
 #' conditions are given with [velocity_bc()] (any components, data may vary
 #' in space); [traction_bc()] prescribes the pseudo-traction
 #' `(nu grad u - p I) n`, and boundary parts with no condition get the
-#' do-nothing outflow condition (zero pseudo-traction). When the velocity is
-#' prescribed on the whole boundary, the pressure is fixed by a zero-mean
-#' gauge and the prescribed velocity must have zero net flux through the
+#' do-nothing outflow condition (zero pseudo-traction). When the normal
+#' velocity is prescribed on the whole boundary of a connected part of the
+#' mesh (both components, or only the normal one on walls aligned with the
+#' axes, with tangential slip), the pressure there is fixed by a zero-mean
+#' gauge and the prescribed velocity must have zero net flux through that
 #' boundary.
 #'
 #' [solve_pde()] solves the saddle-point system by sparse LU
@@ -94,25 +96,36 @@ solve_pde.stokes_problem <- function(problem, method = c("lu", "gmres"), tol = 1
       if ("y" %in% bc$components) { vals[n + d] <- g[, 2]; fixed[n + d] <- TRUE }
     }
   }
-  bd <- boundary_dofs(V)
-  enclosed <- all(fixed[bd]) && all(fixed[n + bd])
   dofs <- which(fixed); fv <- which(!fixed)
   rhs_u <- b[fv] - as.numeric(Avel[fv, dofs, drop = FALSE] %*% vals[dofs])
   rhs_p <- -as.numeric(B[, dofs, drop = FALSE] %*% vals[dofs])
   Aff <- Avel[fv, fv, drop = FALSE]; Bf <- B[, fv, drop = FALSE]
-  if (enclosed) {
-    # Testing div u = 0 with the constant pressure gives the net boundary
-    # flux of the prescribed velocity, which must vanish.
-    flux <- sum(rhs_p)
-    scale <- sum(abs(B[, dofs, drop = FALSE]) %*% abs(vals[dofs]))
-    if (abs(flux) > 1e-10 * max(scale, 1e-300)) {
-      stopf(paste0("The prescribed velocity has net boundary flux %s (relative %s), but incompressible ",
-                   "flow in a closed domain needs zero net flux."), fmt_num(-flux), fmt_num(abs(flux) / scale))
+  # Pressure null modes from the constrained divergence: a pressure that is
+  # constant on one connected component is unseen by the free velocities
+  # (Bf' q = 0) when the normal velocity is prescribed on the whole boundary
+  # of that component, with or without tangential slip. Each such mode gets
+  # a zero-mean gauge on its component.
+  pc <- dof_components(Q)
+  colabs <- Matrix::colSums(abs(Bf))
+  gauges <- list(); mq <- assemble_vector(Q, 1)
+  for (k in sort(unique(pc))) {
+    q <- as.numeric(pc == k)
+    if (all(abs(as.numeric(Matrix::crossprod(Bf, q))) <= 1e-10 * max(colabs))) {
+      # Testing div u = 0 with this pressure gives the net boundary flux of
+      # the prescribed velocity through the component, which must vanish.
+      flux <- sum(rhs_p[pc == k])
+      scale <- sum(abs(B[pc == k, dofs, drop = FALSE]) %*% abs(vals[dofs]))
+      if (abs(flux) > 1e-10 * max(scale, 1e-300)) {
+        stopf(paste0("The prescribed velocity has net boundary flux %s (relative %s), but incompressible ",
+                     "flow in a closed domain needs zero net flux."), fmt_num(-flux), fmt_num(abs(flux) / scale))
+      }
+      gauges[[length(gauges) + 1L]] <- mq * q
     }
   }
+  enclosed <- length(gauges) > 0L
   assembly_time <- proc.time()[["elapsed"]] - t0
   ts <- proc.time()[["elapsed"]]
-  s <- solve_saddle(Aff, Bf, NULL, rhs_u, rhs_p, gauge = if (enclosed) assemble_vector(Q, 1),
+  s <- solve_saddle(Aff, Bf, NULL, rhs_u, rhs_p, gauge = if (enclosed) do.call(cbind, gauges),
                     pressure_mass = assemble_matrix(Q, "mass", coef = function(x, y) 1 / eval_spatial(problem$viscosity, x, y)),
                     method = method, tol = tol, ...)
   warn_solver(s$info)
@@ -165,19 +178,21 @@ divergence_coupling <- function(V, Q, gv, gq) {
 }
 
 # Solve [A B'; B C] [u; p] = [f; g] (C = NULL for a zero block), optionally
-# bordered by the zero-mean pressure constraint gauge' p = 0. Sparse LU, or
+# bordered by the zero-mean pressure constraints gauge' p = 0 (one column of
+# `gauge` per pressure null mode). Sparse LU, or
 # GMRES right-preconditioned by diag(A, pressure_mass) with A factorized
 # once; pressure_mass should be spectrally equivalent to minus the Schur
 # complement. Returns the solver result with x = c(u, p) and the nonzero
 # count of the system.
 solve_saddle <- function(A, B, C, f, g, gauge = NULL, pressure_mass, method = c("lu", "gmres"), tol = 1e-10, ...) {
   method <- match.arg(method)
-  nu <- nrow(A); nq <- nrow(B); ng <- if (is.null(gauge)) 0L else 1L
+  nu <- nrow(A); nq <- nrow(B); ng <- if (is.null(gauge)) 0L else NCOL(gauge)
   Z <- zero_matrix
   Cb <- if (is.null(C)) Z(nq, nq) else C
+  if (ng) Gm <- Matrix::Matrix(as.matrix(gauge), sparse = TRUE)
   S <- rbind(cbind(A, Matrix::t(B), Z(nu, ng)),
-             cbind(B, Cb, if (ng) Matrix::Matrix(gauge, ncol = 1, sparse = TRUE) else Z(nq, 0)),
-             cbind(Z(ng, nu), if (ng) Matrix::Matrix(gauge, nrow = 1, sparse = TRUE) else Z(0, nq), Z(ng, ng)))
+             cbind(B, Cb, if (ng) Gm else Z(nq, 0)),
+             cbind(Z(ng, nu), if (ng) Matrix::t(Gm) else Z(0, nq), Z(ng, ng)))
   rhs <- c(f, g, numeric(ng))
   s <- if (method == "lu") {
     solve_linear_system(S, rhs, method = "lu")

@@ -36,7 +36,8 @@ Suggests:
     rmarkdown,
     symcompR,
     testthat (>= 3.0.0),
-    withr
+    withr,
+    xml2
 VignetteBuilder: knitr
 Remotes: adamrsophie/symcompR
 Config/testthat/edition: 3

@@ -15,7 +15,8 @@ the sparse matrix classes of 'Matrix'.
 * Import of Gmsh 2.2 and 4.1 meshes (physical lines become boundary
   markers, physical surfaces become regions) and export to VTK, including
   quadratic P2 cells, displacement vectors and stress fields, in legacy and
-  XML (`.vtu`, raw binary or text) formats, and ParaView time series (`write_pvd()`).
+  XML (`.vtu`, raw binary or text) formats, and ParaView time series
+  (`write_pvd()`); field and file names are XML escaped.
 
 ## Discretization
 
@@ -29,13 +30,22 @@ the sparse matrix classes of 'Matrix'.
   finite-element functions, constant or spatially varying symmetric tensors
   (`tensor_coefficient()`) or piecewise values by region
   (`region_coefficient()`).
-* Interpolation, exact transfer to refined meshes, and conservative L2
-  projection between any two meshes of a domain (`l2_project()`).
+* Interpolation, exact transfer to refined meshes, and L2 projection
+  between any two meshes of the same domain (`l2_project()`), which
+  preserves the integral over the whole domain. Meshes of different
+  domains (for example a subdomain, or a refined curved boundary) are
+  rejected.
 * Dirichlet, Neumann and Robin conditions; pure Neumann problems with a
   compatibility check and a zero-mean gauge on each connected component.
+  Data whose discrete compatibility defect exceeds 1 percent are rejected
+  on every mesh; the gauge reports whether the original problem was solved.
 * Periodic conditions for elliptic problems (`periodic_bc()`), by
   elimination of the identified degrees of freedom, including fully
-  periodic problems with a zero-mean gauge.
+  periodic problems with a zero-mean gauge. Matching is one to one in
+  coordinates relative to the boundary spacing, so it does not depend on
+  units or origin; prescribed values must agree within each periodic class.
+  The same constraint is applied by `solve_eigen()`, `pde_sensitivity()`,
+  `estimate_parameters()` and `optimal_control()`.
 * A weak-form language (`trial_function()`, `test_function()`, `grad()`,
   `dot()`, `integrate_domain()`, `integrate_boundary()`) for linear scalar
   problems.
@@ -51,14 +61,17 @@ the sparse matrix classes of 'Matrix'.
 * Reaction-diffusion systems with IMEX and fully implicit Newton time
   stepping.
 * Quasilinear diffusion, semilinear reaction and p-Laplace problems solved
-  by damped Newton iteration.
+  by damped Newton iteration. Without Dirichlet data, a converged state
+  that stays a solution when shifted by a constant is reported as not
+  unique.
 * Linear elasticity in plane strain and plane stress with displacement,
   roller and traction conditions, and strain, stress and von Mises output.
 * Damped wave equation and elastodynamics integrated by the Newmark
   average acceleration method, second order and energy conserving, with
   the discrete energy reported at every step.
 * `pde_mesh()` rejects elements that overlap without sharing an edge
-  (folded node neighborhoods or crossing boundary edges).
+  (folded node neighborhoods, crossing boundary edges, or a disconnected
+  part lying inside another element).
 * `curved_boundary()` declares boundary parts as curves; refinement then
   places new boundary nodes on the curve, which restores second-order P1
   convergence on curved domains. Elements stay straight sided, so P2 is
@@ -72,7 +85,13 @@ the sparse matrix classes of 'Matrix'.
 * Every time stepper accepts a per-step `callback` and can `restart` from
   the final state of an earlier run (including multistep history, Newmark
   velocity and acceleration, the adaptive step size and startup steps), so
-  long runs can be streamed and checkpointed.
+  long runs can be streamed and checkpointed. The state records its
+  finite-element space, and restarts on another mesh, degree or numbering
+  are rejected; reaction-diffusion species are matched by name.
+* Time tolerances are relative to the time interval, so short intervals in
+  small time units are integrated and intervals too short to represent are
+  rejected. Newmark startup never evaluates boundary data after the first
+  step.
 * Time-dependent solvers report the range of nodal values over all steps
   (`diagnostics$range`) next to the integral, to expose violations of
   positivity or of the discrete maximum principle.
@@ -81,7 +100,9 @@ the sparse matrix classes of 'Matrix'.
   their own markers.
 * Incompressible Stokes flow with Taylor-Hood P2-P1 elements, velocity,
   pseudo-traction and do-nothing outflow conditions, solved by sparse LU or
-  by GMRES with a block-diagonal preconditioner (`stokes_problem()`).
+  by GMRES with a block-diagonal preconditioner (`stokes_problem()`). The
+  pressure gauge is found from the constrained divergence operator, so
+  walls with only the normal velocity prescribed are gauged too.
 * Eigenvalue problems for symmetric elliptic operators and elastic
   vibration modes by shift-and-invert subspace iteration
   (`solve_eigen()`).
@@ -95,13 +116,17 @@ the sparse matrix classes of 'Matrix'.
   iterative solvers.
 * Jacobi, symmetric Gauss-Seidel (SSOR) and user-supplied preconditioners,
   and a geometric multigrid V-cycle on nested meshes
-  (`multigrid_preconditioner()`) with mesh-independent iteration counts.
+  (`multigrid_preconditioner()`) with mesh-independent iteration counts;
+  coarse levels inherit the homogeneous Dirichlet constraints. Algebraic
+  multigrid is invariant to scaling of the system.
 
 ## Verification and adaptivity
 
 * L2, H1 and energy error norms against exact or finite-element reference
-  solutions on nested or unrelated meshes (integrated on the mesh
-  overlay), and convergence studies with observed orders.
+  solutions on nested or unrelated meshes of the same domain (integrated on
+  the mesh overlay, which keeps arbitrarily small cells), and convergence
+  studies with observed orders. The finite-difference gradient used when no
+  exact gradient is given does not change when the domain is translated.
 * Symbolic manufactured solutions through the optional 'symcompR' package.
 * A residual a posteriori error estimator, Doerfler marking and an adaptive
   solve loop.
@@ -116,8 +141,11 @@ the sparse matrix classes of 'Matrix'.
   solve) and of backward Euler and Crank-Nicolson time stepping (a
   discrete backward sweep) through `nonlinear_sensitivity()` and
   `transient_sensitivity()`; the transient sweep accumulates the gradient
-  step by step and can checkpoint the forward states.
+  step by step, includes the derivative of the SUPG mass matrix, and can
+  checkpoint the forward states.
 * Parameter estimation with adjoint gradients, bounds (including fixed
   parameters), Gauss-Newton standard errors and identifiability
-  diagnostics.
+  diagnostics: the rank of the observation sensitivities against the
+  number of free parameters, and the null space of unidentified
+  directions.
 * Distributed optimal control with optional control bounds.

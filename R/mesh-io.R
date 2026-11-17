@@ -242,7 +242,7 @@ write_legacy_vtk <- function(d, file, name) {
 
 write_vtu_file <- function(d, file, name) {
   P <- d$P; C <- d$C; np <- nrow(P); nc <- nrow(C); k <- ncol(C)
-  da <- function(nm, comps, v) c(sprintf('<DataArray type="Float64" Name="%s" NumberOfComponents="%d" format="ascii">', nm, comps),
+  da <- function(nm, comps, v) c(sprintf('<DataArray type="Float64" Name="%s" NumberOfComponents="%d" format="ascii">', xml_escape(nm), comps),
                                  v, "</DataArray>")
   pd <- character(0)
   for (nm in names(d$arrays)) pd <- c(pd, da(nm, 1L, sprintf("%.17g", d$arrays[[nm]][seq_len(np)])))
@@ -275,7 +275,7 @@ write_vtu_binary <- function(d, file, name) {
     else writeBin(as.integer(v), con, size = size, endian = "little")
     b <- rawConnectionValue(con); close(con)
     tag <- sprintf('<DataArray type="%s" Name="%s" NumberOfComponents="%d" format="appended" offset="%.0f"/>',
-                   type, nm, comps, off)
+                   type, xml_escape(nm), comps, off)
     blocks[[length(blocks) + 1L]] <<- b; off <<- off + length(b)
     tag
   }
@@ -322,8 +322,15 @@ write_pvd <- function(x, file, name = "u", format = c("binary", "ascii")) {
   stem <- sub("\\.pvd$", "", file, ignore.case = TRUE)
   files <- sprintf("%s_%04d.vtu", stem, seq_along(x$times))
   for (i in seq_along(x$times)) write_vtk(x, files[i], name = name, time = x$times[i], format = format)
-  ds <- sprintf('<DataSet timestep="%.17g" part="0" file="%s"/>', x$times, basename(files))
+  ds <- sprintf('<DataSet timestep="%.17g" part="0" file="%s"/>', x$times, xml_escape(basename(files)))
   writeLines(c('<?xml version="1.0"?>', '<VTKFile type="Collection" version="0.1">', "<Collection>", ds,
                "</Collection>", "</VTKFile>"), file)
   invisible(file)
+}
+
+# Escape text for an XML attribute value.
+xml_escape <- function(x) {
+  x <- gsub("&", "&amp;", x, fixed = TRUE)
+  x <- gsub("<", "&lt;", x, fixed = TRUE); x <- gsub(">", "&gt;", x, fixed = TRUE)
+  x <- gsub("\"", "&quot;", x, fixed = TRUE); gsub("'", "&apos;", x, fixed = TRUE)
 }

@@ -1,5 +1,10 @@
+commit 8c3cf6fdecc3b08887c86e4b4cfb01ecf89509e5 (uncommitted changes in R/)
 R version 4.6.0 (2026-04-24)
 Matrix 1.7.6
+BLAS /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib
+LAPACK /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRlapack.dylib
+CPU Apple M2 ; cores 8
+threads OMP_NUM_THREADS=unset OPENBLAS_NUM_THREADS=unset VECLIB_MAXIMUM_THREADS=unset MKL_NUM_THREADS=unset
 Darwin 27.2.0 arm64
-repeats 5
-2026-11-17 21:46:45 UTC
+warmups 2, repeats 5
+2026-11-17 23:11:07 UTC

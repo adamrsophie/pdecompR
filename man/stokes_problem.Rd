@@ -43,9 +43,11 @@ Taylor-Hood pair: continuous P2 velocity and P1 pressure. Velocity
 conditions are given with \code{\link[=velocity_bc]{velocity_bc()}} (any components, data may vary
 in space); \code{\link[=traction_bc]{traction_bc()}} prescribes the pseudo-traction
 \verb{(nu grad u - p I) n}, and boundary parts with no condition get the
-do-nothing outflow condition (zero pseudo-traction). When the velocity is
-prescribed on the whole boundary, the pressure is fixed by a zero-mean
-gauge and the prescribed velocity must have zero net flux through the
+do-nothing outflow condition (zero pseudo-traction). When the normal
+velocity is prescribed on the whole boundary of a connected part of the
+mesh (both components, or only the normal one on walls aligned with the
+axes, with tangential slip), the pressure there is fixed by a zero-mean
+gauge and the prescribed velocity must have zero net flux through that
 boundary.
 
 \code{\link[=solve_pde]{solve_pde()}} solves the saddle-point system by sparse LU
