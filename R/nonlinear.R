@@ -42,6 +42,7 @@ nonlinear_problem <- function(mesh, diffusion = 1, diffusion_derivative = NULL,
                               bcs = list(), degree = 1, initial = NULL, quad_degree = NULL) {
   stopifnot(inherits(mesh, "pde_mesh"))
   bcs <- normalize_bcs(bcs)
+  no_periodic(bcs, "nonlinear problems")
   check_bc_markers(bcs, mesh)
   if (!(is.function(diffusion) || (is.numeric(diffusion) && length(diffusion) == 1L))) {
     stopf("`diffusion` must be a number or a function of u.")

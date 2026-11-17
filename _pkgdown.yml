@@ -81,6 +81,7 @@ reference:
 - title: Problems and solvers
   contents:
   - dirichlet_bc
+  - periodic_bc
   - elliptic_problem
   - parabolic_problem
   - reaction_diffusion_problem

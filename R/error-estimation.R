@@ -297,6 +297,7 @@ estimate_error <- function(solution, diffusion_gradient = NULL) {
   R <- R - cq * uh$value
   bq <- vec_qp(prob$advection, geo)
   if (!is.null(bq)) R <- R - (bq$x * uh$dx + bq$y * uh$dy)
+  no_periodic(prob$bcs, "estimate_error()")
   k <- prob$diffusion
   if (inherits(k, "pde_tensor")) {
     stopf(paste0("estimate_error() supports scalar and constant tensor diffusion; for a spatially ",

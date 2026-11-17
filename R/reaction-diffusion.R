@@ -92,6 +92,7 @@ reaction_diffusion_problem <- function(mesh, species = "u", diffusion = 1, react
           paste(species, collapse = ", "))
   }
   bcs <- lapply(stats::setNames(species, species), function(s) normalize_bcs(bcs[[s]]))
+  for (b in bcs) no_periodic(b, "reaction-diffusion systems")
   for (b in bcs) check_bc_markers(b, mesh)
   if (!is.numeric(time) || length(time) != 2L || time[2] <= time[1]) {
     stopf("`time` must be two increasing numbers.")

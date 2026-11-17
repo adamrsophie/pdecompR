@@ -45,6 +45,7 @@ parabolic_problem <- function(mesh, diffusion = 1, reaction = 0, advection = NUL
   if (!(is.function(source) || (is.numeric(source) && length(source) == 1L))) {
     stopf("`source` must be a number or a function of (x, y) or (x, y, t).")
   }
+  no_periodic(ep$bcs, "time-dependent problems")
   ep$source <- source
   ep$initial <- initial
   ep$time <- as.numeric(time)

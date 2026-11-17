@@ -54,6 +54,71 @@ robin_bc <- function(alpha, value = 0, marker = "boundary") {
                  marker = as.character(marker)), class = "pde_bc")
 }
 
+#' Periodic boundary conditions
+#'
+#' Identifies the degrees of freedom on boundary `to` with those on boundary
+#' `from` translated by `offset`, so that `u(x + offset) = u(x)` (and, in the
+#' weak form, the fluxes through the two boundaries cancel). Pairs are matched
+#' by coordinates; every degree of freedom on `to` must have a partner on
+#' `from`, so the two boundaries need matching nodes, as in
+#' [pde_mesh_rectangle()]. Several periodic conditions (for example in `x`
+#' and `y`) may be combined, and corners are identified transitively.
+#' Supported for [elliptic_problem()]; with no Dirichlet condition and no
+#' reaction the solution is fixed by a zero-mean gauge.
+#'
+#' @param from,to Boundary markers.
+#' @param offset Translation `c(dx, dy)` taking `from` onto `to`.
+#' @return An object of class `pde_bc`.
+#' @examples
+#' m <- pde_mesh_rectangle(nx = 16)
+#' p <- elliptic_problem(m, source = function(x, y) sin(2 * pi * x),
+#'                       bcs = list(periodic_bc("left", "right", c(1, 0)),
+#'                                  dirichlet_bc(0, c("bottom", "top"))))
+#' range(solve_pde(p)$u$values)
+#' @export
+periodic_bc <- function(from, to, offset) {
+  check_name(from, "from"); check_name(to, "to")
+  if (!is.numeric(offset) || length(offset) != 2L || any(!is.finite(offset)) || all(offset == 0)) {
+    stopf("`offset` must be a nonzero finite translation c(dx, dy).")
+  }
+  structure(list(type = "periodic", from = from, to = to, offset = as.numeric(offset),
+                 marker = c(from, to)), class = "pde_bc")
+}
+
+# Constraint matrix of periodic conditions: P (ndof by nr) with u = P u_r,
+# and the reduced index of every dof. NULL without periodic conditions.
+periodic_constraints <- function(space, bcs) {
+  pb <- Filter(function(b) b$type == "periodic", bcs)
+  if (!length(pb)) return(NULL)
+  n <- space$ndof
+  rep_of <- seq_len(n)
+  X <- space$dof_coords
+  scale <- max(abs(X), 1)
+  for (b in pb) {
+    df <- boundary_dofs(space, b$from); dt <- boundary_dofs(space, b$to)
+    key <- function(xy) paste(round(xy[, 1] / scale, 9), round(xy[, 2] / scale, 9))
+    kf <- key(sweep(X[df, , drop = FALSE], 2, b$offset, `+`))
+    m <- match(key(X[dt, , drop = FALSE]), kf)
+    if (anyNA(m)) {
+      stopf("Periodic condition %s -> %s: %d degree(s) of freedom on `%s` have no partner on `%s` at offset (%s, %s).",
+            b$from, b$to, sum(is.na(m)), b$to, b$from, fmt_num(b$offset[1]), fmt_num(b$offset[2]))
+    }
+    rep_of[dt] <- df[m]
+  }
+  # Follow chains (corners) to the root.
+  for (k in seq_len(n)) { nx <- rep_of[rep_of]; if (identical(nx, rep_of)) break; rep_of <- nx }
+  if (any(rep_of[rep_of] != rep_of)) stopf("Periodic conditions form a cycle; check the offsets.")
+  roots <- sort(unique(rep_of))
+  col <- match(rep_of, roots)
+  list(P = Matrix::sparseMatrix(i = seq_len(n), j = col, x = 1, dims = c(n, length(roots))), col = col)
+}
+
+no_periodic <- function(bcs, what) {
+  if (any(vapply(bcs, function(b) identical(b$type, "periodic"), logical(1)))) {
+    stopf("Periodic conditions are supported for elliptic_problem() only, not for %s.", what)
+  }
+}
+
 check_bc_value <- function(v, name) {
   ok <- (is.numeric(v) && length(v) == 1L && is.finite(v)) || is.function(v)
   if (!ok) stopf("`%s` must be a finite number or a function.", name)

@@ -144,3 +144,25 @@ test_that("spatially varying diffusion tensors", {
                                           bcs = dirichlet_bc(0))), "positive definite")
   expect_error(estimate_error(b), "constant tensor")
 })
+
+test_that("periodic boundary conditions", {
+  u <- function(x, y) cos(2 * pi * x) * sin(pi * y); f <- function(x, y) 5 * pi^2 * u(x, y)
+  bc <- list(periodic_bc("left", "right", c(1, 0)), dirichlet_bc(0, c("bottom", "top")))
+  e <- vapply(c(8, 16), function(n) errornorm(solve_pde(elliptic_problem(pde_mesh_rectangle(nx = n), source = f, bcs = bc)), u),
+              numeric(1))
+  expect_gt(log2(e[1] / e[2]), 1.9)
+  s <- solve_pde(elliptic_problem(pde_mesh_rectangle(nx = 8), source = f, bcs = bc))
+  V <- s$space; l <- which(V$dof_coords[, 1] == 0); r <- which(V$dof_coords[, 1] == 1)
+  expect_equal(s$u$values[l[order(V$dof_coords[l, 2])]], s$u$values[r[order(V$dof_coords[r, 2])]])
+  u3 <- function(x, y) sin(2 * pi * x) * cos(2 * pi * y)
+  all_per <- list(periodic_bc("left", "right", c(1, 0)), periodic_bc("bottom", "top", c(0, 1)))
+  s3 <- solve_pde(elliptic_problem(pde_mesh_rectangle(nx = 8), source = function(x, y) 8 * pi^2 * u3(x, y), bcs = all_per,
+                                   degree = 2))
+  expect_lt(errornorm(s3, u3), 1e-2)
+  expect_false(is.null(s3$diagnostics$gauge))
+  m <- pde_mesh_rectangle(nx = 4)
+  expect_error(solve_pde(elliptic_problem(m, source = 1, bcs = all_per)), "incompatible")
+  expect_error(solve_pde(elliptic_problem(m, source = 1, bcs = periodic_bc("left", "right", c(0.5, 0)))), "no partner")
+  expect_error(heat_problem(m, bcs = all_per), "elliptic_problem")
+  expect_error(periodic_bc("left", "right", c(0, 0)), "nonzero")
+})

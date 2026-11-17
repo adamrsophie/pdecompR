@@ -33,6 +33,9 @@ the sparse matrix classes of 'Matrix'.
   projection between any two meshes of a domain (`l2_project()`).
 * Dirichlet, Neumann and Robin conditions; pure Neumann problems with a
   compatibility check and a zero-mean gauge on each connected component.
+* Periodic conditions for elliptic problems (`periodic_bc()`), by
+  elimination of the identified degrees of freedom, including fully
+  periodic problems with a zero-mean gauge.
 * A weak-form language (`trial_function()`, `test_function()`, `grad()`,
   `dot()`, `integrate_domain()`, `integrate_boundary()`) for linear scalar
   problems.

@@ -226,7 +226,8 @@ discretize.elliptic_problem <- function(problem, t = NULL, ...) {
   if (!is.null(nat$A)) A <- A + nat$A
   b <- b + nat$b
   dd <- dirichlet_data(V, problem$bcs, t)
-  structure(list(space = V, A = A, b = b, dirichlet = dd,
+  pc <- periodic_constraints(V, problem$bcs)
+  structure(list(space = V, A = A, b = b, dirichlet = dd, periodic = pc$P, periodic_col = pc$col,
                  free = setdiff(seq_len(V$ndof), dd$dofs),
                  # Constants are in the kernel exactly when nothing but diffusion,
                  # advection and zero-flux or Neumann data act on u; decided from
@@ -274,11 +275,25 @@ solve_pde.elliptic_problem <- function(problem, method = "auto", ...) {
 # problems.
 solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6, ...) {
   V <- disc$space
-  u <- numeric(V$ndof)
   dd <- disc$dirichlet
-  u[dd$dofs] <- dd$values
   free <- disc$free
   A <- disc$A
+  bv <- disc$b
+  Pm <- disc$periodic
+  if (!is.null(Pm)) {
+    # Periodic constraints: u = P u_r with one unknown per class of
+    # identified degrees of freedom; solve P' A P u_r = P' b.
+    col <- disc$periodic_col
+    A <- Matrix::drop0(Matrix::crossprod(Pm, A %*% Pm))
+    bv <- as.numeric(Matrix::crossprod(Pm, bv))
+    rd <- col[dd$dofs]
+    keep <- !duplicated(rd)
+    dd <- list(dofs = rd[keep], values = dd$values[keep])
+    free <- setdiff(seq_len(ncol(Pm)), dd$dofs)
+  }
+  nd <- nrow(A)
+  u <- numeric(nd)
+  u[dd$dofs] <- dd$values
   t0 <- proc.time()[["elapsed"]]
   gauge <- NULL
   if (disc$pure_neumann) {
@@ -292,15 +307,19 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
     one <- assemble_vector(V, 1)
     cc <- mesh_components(V$mesh)
     dc <- dof_components(V, cc)
+    if (!is.null(Pm)) {
+      if (cc$n > 1L) stopf("Periodic pure Neumann problems need a connected mesh.")
+      one <- as.numeric(Matrix::crossprod(Pm, one)); dc <- rep(1L, nd)
+    }
     nc <- cc$n
-    Mc <- Matrix::sparseMatrix(i = seq_len(V$ndof), j = dc, x = one, dims = c(V$ndof, nc))
+    Mc <- Matrix::sparseMatrix(i = seq_len(nd), j = dc, x = one, dims = c(nd, nc))
     Z <- Matrix::sparseMatrix(i = integer(), j = integer(), x = numeric(), dims = c(nc, nc))
     K <- rbind(cbind(A, Mc), cbind(Matrix::t(Mc), Z))
-    s <- solve_linear_system(K, c(disc$b, numeric(nc)), method = "lu", ...)
-    lam <- s$x[V$ndof + seq_len(nc)]
+    s <- solve_linear_system(K, c(bv, numeric(nc)), method = "lu", ...)
+    lam <- s$x[nd + seq_len(nc)]
     mass <- as.numeric(Matrix::colSums(Mc))
     comp <- lam * mass
-    scale <- as.numeric(tapply(abs(disc$b), factor(dc, levels = seq_len(nc)), sum))
+    scale <- as.numeric(tapply(abs(bv), factor(dc, levels = seq_len(nc)), sum))
     rel <- comp / pmax(scale, 1e-300)
     sym <- Matrix::isSymmetric(A, tol = 1e-12)
     # (h / diameter)^2 per component is dimensionless, so the decision does
@@ -327,7 +346,7 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
                    "times the multiplier. Check that the data are compatible."),
             where(kk), fmt_num(comp[kk]), fmt_num(rel[kk]))
     }
-    u <- s$x[seq_len(V$ndof)]
+    u <- s$x[seq_len(nd)]
     gauge <- list(type = "zero mean", components = nc, multiplier = lam,
                   compatibility = comp, relative_compatibility = rel,
                   modified = abs(rel) > tol_c)
@@ -335,8 +354,8 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
     # Report the residual of the original equations A u = b; the bordered
     # system is solved to rounding error even when A u = b has no solution.
     info$augmented_relative_residual <- info$relative_residual
-    info$residual <- safe_norm(disc$b - as.numeric(A %*% u))
-    nb <- safe_norm(disc$b)
+    info$residual <- safe_norm(bv - as.numeric(A %*% u))
+    nb <- safe_norm(bv)
     info$relative_residual <- if (nb > 0) info$residual / nb else info$residual
     warn_solver(list(status = info$status, relative_residual = info$augmented_relative_residual))
   } else {
@@ -345,7 +364,7 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
                    iterations = 0L, n = 0L, nnz = 0L, symmetric = TRUE, tol = NA)
     } else {
       Aff <- A[free, free, drop = FALSE]
-      rhs <- disc$b[free]
+      rhs <- bv[free]
       if (length(dd$dofs)) rhs <- rhs - as.numeric(A[free, dd$dofs, drop = FALSE] %*% dd$values)
       dots <- list(...)
       pcs <- dots$preconditioner
@@ -365,8 +384,9 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
     ndof = V$ndof, free = length(free), nnz = length(A@x),
     assembly_time = disc$assembly_time, solve_time = solve_time,
     solver = info, gauge = gauge,
-    full_residual = if (length(free)) sqrt(sum((disc$b[free] - as.numeric(A[free, , drop = FALSE] %*% u))^2)) else 0
+    full_residual = if (length(free)) sqrt(sum((bv[free] - as.numeric(A[free, , drop = FALSE] %*% u))^2)) else 0
   ), class = "pde_diagnostics")
+  if (!is.null(Pm)) u <- as.numeric(Pm %*% u)
   structure(list(u = fe_function(V, u), space = V, diagnostics = diag, discretization = disc),
             class = "pde_solution")
 }
