@@ -51,6 +51,9 @@ the sparse matrix classes of 'Matrix'.
   by damped Newton iteration.
 * Linear elasticity in plane strain and plane stress with displacement,
   roller and traction conditions, and strain, stress and von Mises output.
+* Damped wave equation and elastodynamics integrated by the Newmark
+  average acceleration method, second order and energy conserving, with
+  the discrete energy reported at every step.
 
 ## Solvers
 

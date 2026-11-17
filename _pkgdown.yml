@@ -87,6 +87,7 @@ reference:
   - nonlinear_problem
   - elasticity_problem
   - elasticity_stress
+  - wave_problem
   - displacement_bc
   - trial_function
   - variational_problem
