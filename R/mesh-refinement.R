@@ -41,8 +41,9 @@ refine_uniform <- function(mesh) {
   bm <- n + bd$edge
   be <- rbind(cbind(bd$n1, bm), cbind(bm, bd$n2))
   out <- pde_mesh(nodes, tris, be, c(bd$marker, bd$marker), check_overlap = FALSE)
-  out <- inherit_regions(out, mesh)
-  out$info <- refined_info(mesh, E, nvb = FALSE)
+  parent <- rep(seq_len(nrow(T)), 4L)
+  out$regions <- mesh_regions(mesh)[parent]
+  out$info <- refined_info(mesh, E, nvb = FALSE, parent)
   out
 }
 
@@ -98,8 +99,10 @@ refine_mesh <- function(mesh, marked) {
               cbind(bmid, bd$n2)[split, , drop = FALSE])
   bmk <- c(bd$marker[!split], bd$marker[split], bd$marker[split])
   out <- pde_mesh(nodes, tris, be, bmk, check_overlap = FALSE)
-  out <- inherit_regions(out, mesh)
-  out$info <- refined_info(mesh, E[emark, , drop = FALSE], nvb = TRUE)
+  parent <- c(which(!r), which(A_plain), which(A_split), which(A_split),
+              which(B_plain), which(B_split), which(B_split))
+  out$regions <- mesh_regions(mesh)[parent]
+  out$info <- refined_info(mesh, E[emark, , drop = FALSE], nvb = TRUE, parent)
   out
 }
 
@@ -118,13 +121,15 @@ refinement_edges <- function(coarse, fine) {
   E
 }
 
-refined_info <- function(mesh, parent_edges, nvb) {
+refined_info <- function(mesh, parent_edges, nvb, parent_elements) {
   info <- mesh$info
   info$generator <- "refined"
   info$nvb <- nvb
   info$reoriented <- 0L
   info$new_nodes <- unname(parent_edges)
   info$parent_nodes <- nrow(mesh$nodes)
+  # Element of the coarse mesh containing each fine element.
+  info$parent_elements <- parent_elements
   info$args <- NULL
   info
 }

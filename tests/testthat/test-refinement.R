@@ -37,3 +37,16 @@ test_that("refinement records parents and transfers P1 functions exactly", {
   new <- nrow(m$nodes) + seq_len(nrow(par))
   expect_equal(ut$values[new], (u$values[par[, 1]] + u$values[par[, 2]]) / 2, tolerance = 1e-12)
 })
+
+test_that("refinement records parent elements and inherits regions through them", {
+  m <- set_region(pde_mesh_rectangle(nx = 4), "a", function(x, y) x < 0.5 & y > 0.25)
+  m <- set_region(m, "b", function(x, y) x > 0.6)
+  f <- refine_uniform(m); g <- refine_mesh(f, c(1, 5, 9, 30)); g2 <- refine_mesh(g, 1:20)
+  for (k in list(list(f, m), list(g, f), list(g2, g))) {
+    ch <- k[[1]]; pa <- k[[2]]
+    P <- ch$nodes; T <- ch$triangles
+    cx <- rowMeans(matrix(P[T, 1], ncol = 3)); cy <- rowMeans(matrix(P[T, 2], ncol = 3))
+    expect_equal(locate_points(pa, cx, cy)$element, ch$info$parent_elements)
+    expect_equal(mesh_regions(ch), mesh_regions(pa)[ch$info$parent_elements])
+  }
+})

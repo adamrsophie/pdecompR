@@ -159,20 +159,6 @@ set_region <- function(mesh, region, which) {
   mesh
 }
 
-# Give the triangles of a nested (refined) mesh the regions of their parents.
-inherit_regions <- function(child, parent) {
-  r <- mesh_regions(parent)
-  if (length(unique(r)) <= 1L) {
-    child$regions <- rep(r[1], nrow(child$triangles))
-    return(child)
-  }
-  P <- child$nodes; T <- child$triangles
-  cx <- (P[T[, 1], 1] + P[T[, 2], 1] + P[T[, 3], 1]) / 3
-  cy <- (P[T[, 1], 2] + P[T[, 2], 2] + P[T[, 3], 2]) / 3
-  child$regions <- r[locate_points(parent, cx, cy)$element]
-  child
-}
-
 # Edge structures for a valid, counterclockwise triangulation.
 build_topology <- function(nodes, tris) {
   n <- nrow(nodes); m <- nrow(tris)
