@@ -146,6 +146,8 @@ GPL-3.
   : Subdomains (regions) of a mesh
 - [`region_coefficient()`](https://adamrsophie.github.io/pdecompR/reference/region_coefficient.md)
   : Piecewise coefficients by region
+- [`tensor_coefficient()`](https://adamrsophie.github.io/pdecompR/reference/tensor_coefficient.md)
+  : Spatially varying diffusion tensors
 - [`refine_uniform()`](https://adamrsophie.github.io/pdecompR/reference/refine_uniform.md)
   [`refine_mesh()`](https://adamrsophie.github.io/pdecompR/reference/refine_uniform.md)
   : Mesh refinement
@@ -153,6 +155,8 @@ GPL-3.
   : Read a Gmsh mesh
 - [`write_vtk()`](https://adamrsophie.github.io/pdecompR/reference/write_vtk.md)
   : Write a VTK file
+- [`write_pvd()`](https://adamrsophie.github.io/pdecompR/reference/write_pvd.md)
+  : Write a time series for ParaView
 
 ## Finite elements and quadrature
 
@@ -170,6 +174,8 @@ GPL-3.
   : Evaluate finite-element functions at points
 - [`transfer_function()`](https://adamrsophie.github.io/pdecompR/reference/transfer_function.md)
   : Transfer a finite-element function to another mesh
+- [`l2_project()`](https://adamrsophie.github.io/pdecompR/reference/l2_project.md)
+  : Conservative L2 projection
 - [`quadrature_interval()`](https://adamrsophie.github.io/pdecompR/reference/quadrature_interval.md)
   [`quadrature_triangle()`](https://adamrsophie.github.io/pdecompR/reference/quadrature_interval.md)
   : Numerical quadrature rules

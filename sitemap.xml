@@ -43,6 +43,7 @@
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/fe_space.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/index.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/integrate_mesh.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/reference/l2_project.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/manufactured_solution.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/mark_elements.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/mesh_quality.html</loc></url>
@@ -70,10 +71,12 @@
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/solve_linear_system.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/solve_pde.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/taylor_test.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/reference/tensor_coefficient.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/transfer_function.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/trial_function.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/update_mesh.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/variational_problem.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/reference/write_pvd.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/write_vtk.html</loc></url>
 </urlset>
 

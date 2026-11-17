@@ -7,7 +7,7 @@ interpolation. A displacement solution of elasticity_problem() is written
 as a VECTORS array, optionally with the nodal stresses of
 elasticity_stress() (on the vertices, as P1 data). A time-dependent
 solution is written at one stored time (all species for reaction-diffusion
-systems); call it once per time to write a series."><meta property="og:description" content="Writes a mesh, finite-element function or solution in the legacy ASCII VTK
+systems); write_pvd() writes a whole series."><meta property="og:description" content="Writes a mesh, finite-element function or solution in the legacy ASCII VTK
 unstructured-grid format, readable by ParaView and VisIt. P1 data are
 written on linear triangles; P2 data on quadratic triangles (VTK cell type
 22) with all six nodal values, which ParaView renders with curved
@@ -15,7 +15,7 @@ interpolation. A displacement solution of elasticity_problem() is written
 as a VECTORS array, optionally with the nodal stresses of
 elasticity_stress() (on the vertices, as P1 data). A time-dependent
 solution is written at one stored time (all species for reaction-diffusion
-systems); call it once per time to write a series."><meta property="og:image" content="https://adamrsophie.github.io/pdecompR/logo.svg"></head><body>
+systems); write_pvd() writes a whole series."><meta property="og:image" content="https://adamrsophie.github.io/pdecompR/logo.svg"></head><body>
     <a href="#main" class="visually-hidden-focusable">Skip to contents</a>
 
 
@@ -89,7 +89,7 @@ interpolation. A displacement solution of <code><a href="elasticity_problem.html
 as a <code>VECTORS</code> array, optionally with the nodal stresses of
 <code><a href="elasticity_stress.html">elasticity_stress()</a></code> (on the vertices, as P1 data). A time-dependent
 solution is written at one stored time (all species for reaction-diffusion
-systems); call it once per time to write a series.</p>
+systems); <code><a href="write_pvd.html">write_pvd()</a></code> writes a whole series.</p>
     </div>
 
     <div class="section level2">
@@ -107,7 +107,7 @@ systems); call it once per time to write a series.</p>
 
 
 <dt id="arg-file">file<a class="anchor" aria-label="anchor" href="#arg-file"></a></dt>
-<dd><p>Output path.</p></dd>
+<dd><p>Output path (<code>.vtk</code> for legacy, <code>.vtu</code> for XML).</p></dd>
 
 
 <dt id="arg-name">name<a class="anchor" aria-label="anchor" href="#arg-name"></a></dt>
@@ -126,6 +126,11 @@ systems); call it once per time to write a series.</p>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
     <p>The file path, invisibly.</p>
+    </div>
+    <div class="section level2">
+    <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
+    <p>A <code>file</code> ending in <code>.vtu</code> is written in the XML VTK format instead, with
+the same content.</p>
     </div>
 
     <div class="section level2">

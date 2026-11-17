@@ -9,8 +9,9 @@ curved interpolation. A displacement solution of
 is written as a `VECTORS` array, optionally with the nodal stresses of
 [`elasticity_stress()`](https://adamrsophie.github.io/pdecompR/reference/elasticity_stress.md)
 (on the vertices, as P1 data). A time-dependent solution is written at
-one stored time (all species for reaction-diffusion systems); call it
-once per time to write a series.
+one stored time (all species for reaction-diffusion systems);
+[`write_pvd()`](https://adamrsophie.github.io/pdecompR/reference/write_pvd.md)
+writes a whole series.
 
 ## Usage
 
@@ -29,7 +30,7 @@ write_vtk(x, file, name = "u", time = NULL, stress = FALSE)
 
 - file:
 
-  Output path.
+  Output path (`.vtk` for legacy, `.vtu` for XML).
 
 - name:
 
@@ -47,6 +48,11 @@ write_vtk(x, file, name = "u", time = NULL, stress = FALSE)
 ## Value
 
 The file path, invisibly.
+
+## Details
+
+A `file` ending in `.vtu` is written in the XML VTK format instead, with
+the same content.
 
 ## Examples
 

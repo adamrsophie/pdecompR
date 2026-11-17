@@ -113,7 +113,7 @@ for (m in c("auto", "lu", "cg", "bicgstab", "gmres")) {
 #> lu       lu        iterations   NA  relative residual 1.77e-13
 #> cg       cg        iterations   54  relative residual 4.51e-13
 #> bicgstab bicgstab  iterations   43  relative residual 5.04e-13
-#> gmres    gmres     iterations   54  relative residual 8.66e-13
+#> gmres    gmres     iterations   54  relative residual 8.58e-13
 ```
 
 Every solve reports a status, the residual and its relative size, the
@@ -147,7 +147,7 @@ for (n in c(16, 32, 64)) {
   cat(sprintf("n = %3d  dofs = %6d  assembly %.2fs  solve %.2fs\n", n, s$space$ndof,
               s$diagnostics$assembly_time, s$diagnostics$solve_time))
 }
-#> n =  16  dofs =    289  assembly 0.00s  solve 0.00s
+#> n =  16  dofs =    289  assembly 0.00s  solve 0.01s
 #> n =  32  dofs =   1089  assembly 0.00s  solve 0.00s
-#> n =  64  dofs =   4225  assembly 0.01s  solve 0.00s
+#> n =  64  dofs =   4225  assembly 0.01s  solve 0.01s
 ```
