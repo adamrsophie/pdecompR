@@ -120,9 +120,19 @@ parabolic_operators <- function(problem) {
 #' @param dt Time step. The number of steps is `ceiling((T - t0) / dt)` and
 #'   the step is then adjusted to land exactly on the final time.
 #' @param method For time-dependent problems: `"crank-nicolson"` (second
-#'   order) or `"backward-euler"` (first order, L-stable).
+#'   order), `"backward-euler"` (first order, L-stable), `"bdf2"` (second
+#'   order, L-stable two-step method started with one backward Euler step) or
+#'   `"sdirk2"` (Alexander's two-stage, second-order, L-stable singly
+#'   diagonally implicit Runge-Kutta method). BDF2 and SDIRK2 require
+#'   coefficients that do not depend on time (data may).
 #' @param output_times Times at which to store the solution; they must lie on
-#'   the time grid. Default: every step.
+#'   the time grid. Default: every step. With `adaptive = TRUE` they may be
+#'   any times in the interval, and the steps land on them exactly.
+#' @param adaptive For `"sdirk2"`: choose the step size from an embedded
+#'   first-order error estimate (L2 norm through the mass matrix), starting
+#'   from `dt`. Steps whose estimate exceeds `tol` are rejected and retried.
+#' @param tol Error tolerance per step for adaptive stepping, relative to
+#'   `max(1, ||u||)`.
 #' @param solver Linear solver method, see [solve_linear_system()].
 #' @param startup Number of initial backward Euler steps taken before
 #'   Crank-Nicolson (Rannacher startup). They damp the oscillations that
@@ -132,10 +142,16 @@ parabolic_operators <- function(problem) {
 #' @references Rannacher, R. (1984). Finite element solution of diffusion
 #'   problems with irregular data. *Numerische Mathematik*, 43, 309-327.
 #' @export
-solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson", "backward-euler"),
-                                        output_times = NULL, solver = "auto", startup = 2L, ...) {
+solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson", "backward-euler", "bdf2", "sdirk2"),
+                                        output_times = NULL, solver = "auto", startup = 2L,
+                                        adaptive = FALSE, tol = 1e-4, ...) {
   method <- match.arg(method)
   check_number(dt, "dt", positive = TRUE)
+  if (!is.logical(adaptive) || length(adaptive) != 1L || is.na(adaptive)) stopf("`adaptive` must be TRUE or FALSE.")
+  if (adaptive && method != "sdirk2") stopf("Adaptive time stepping is available for method = \"sdirk2\".")
+  if (method %in% c("bdf2", "sdirk2")) {
+    return(solve_parabolic_multistage(problem, dt, method, output_times, solver, adaptive, tol, ...))
+  }
   startup <- check_count(startup, "startup", min = 0L)
   theta <- if (method == "crank-nicolson") 0.5 else 1
   if (theta == 1) startup <- 0L
@@ -293,4 +309,124 @@ summary.pde_transient <- function(object, ...) {
   }
   cat("  assembly", fmt_num(d$assembly_time, 3), "s, time stepping", fmt_num(d$solve_time, 3), "s\n")
   invisible(object)
+}
+
+# BDF2 and SDIRK2 (fixed or adaptive step) for M u' + A u = F(t) with
+# Dirichlet data g(t). Stage equations are written for the stage values U_i
+# with their prescribed boundary values, as in the theta scheme, so no time
+# derivative of the Dirichlet data is needed.
+solve_parabolic_multistage <- function(problem, dt, method, output_times, solver, adaptive, tol, ...) {
+  check_tol(tol, "tol")
+  ops <- parabolic_operators(problem)
+  if (ops$coef_time_dependent) {
+    stopf("Method \"%s\" requires coefficients that do not depend on time; use crank-nicolson.", method)
+  }
+  V <- ops$V; M <- ops$M; A <- ops$A
+  t0 <- problem$time[1]; t1 <- problem$time[2]
+  dd0 <- dirichlet_data(V, problem$bcs, t0)
+  bdofs <- dd0$dofs
+  free <- setdiff(seq_len(V$ndof), bdofs)
+  u <- initial_values(problem$initial, V)
+  if (length(bdofs)) u[bdofs] <- dd0$values
+  load <- function(t) if (ops$time_dependent) ops$load(t) else F0
+  F0 <- ops$load(t0)
+  gd <- function(t) if (length(bdofs)) dirichlet_data(V, problem$bcs, t)$values else numeric()
+  ts <- proc.time()[["elapsed"]]
+  max_rel <- 0; bad <- NULL
+  note <- function(s) {
+    max_rel <<- max(max_rel, s$info$relative_residual)
+    if (!solve_ok(s$info)) bad <<- s$info
+  }
+  # Solve (c M + h A) U = rhs on the free rows with U = g on bdofs.
+  cache <- new.env()
+  stage_solve <- function(cm, h, rhs, g, x0) {
+    key <- sprintf("%.17g/%.17g", cm, h)
+    if (!identical(cache$key, key)) {
+      L <- cm * M + h * A
+      cache$key <- key
+      cache$slv <- linear_solver(L[free, free, drop = FALSE], solver, ...)
+      cache$Lfd <- L[free, bdofs, drop = FALSE]
+      cache$n <- (if (is.null(cache$n)) 0L else cache$n) + 1L
+    }
+    r <- rhs[free]
+    if (length(bdofs)) r <- r - as.numeric(cache$Lfd %*% g)
+    s <- cache$slv$solve(r, x0 = x0[free]); note(s)
+    U <- numeric(V$ndof); U[free] <- s$x
+    if (length(bdofs)) U[bdofs] <- g
+    U
+  }
+  gam <- 1 - 1 / sqrt(2)
+  sdirk <- function(u, t, h) {
+    # Alexander's SDIRK2: A = [[g, 0], [1 - g, g]], c = (g, 1), stiffly accurate.
+    F1 <- load(t + gam * h)
+    U1 <- stage_solve(1, gam * h, as.numeric(M %*% u) + gam * h * F1, gd(t + gam * h), u)
+    Y1 <- F1 - as.numeric(A %*% U1)
+    F2 <- load(t + h)
+    U2 <- stage_solve(1, gam * h, as.numeric(M %*% u) + (1 - gam) * h * Y1 + gam * h * F2, gd(t + h), U1)
+    # Embedded first-order solution u + h K1 with K1 = (U1 - u) / (g h).
+    uh <- u + (U1 - u) / gam
+    list(u = U2, err = U2 - uh)
+  }
+  mnorm <- function(v) sqrt(max(0, sum(v * as.numeric(M %*% v))))
+  if (!adaptive) {
+    N <- max(1L, as.integer(ceiling((t1 - t0) / dt - 1e-10)))
+    dt <- (t1 - t0) / N
+    grid <- t0 + (0:N) * dt
+    out_idx <- output_index(output_times, grid, dt)
+    U <- matrix(NA_real_, V$ndof, length(out_idx))
+    k_out <- 1L
+    if (out_idx[1] == 1L) { U[, 1] <- u; k_out <- 2L }
+    u_old <- NULL
+    for (n in seq_len(N)) {
+      tn <- grid[n + 1L]
+      u_new <- if (method == "sdirk2") sdirk(u, grid[n], dt)$u
+               else if (is.null(u_old)) stage_solve(1, dt, as.numeric(M %*% u) + dt * load(tn), gd(tn), u)
+               else stage_solve(1.5, dt, as.numeric(M %*% (2 * u - 0.5 * u_old)) + dt * load(tn), gd(tn), u)
+      u_old <- u; u <- u_new
+      if (k_out <= length(out_idx) && out_idx[k_out] == n + 1L) { U[, k_out] <- u; k_out <- k_out + 1L }
+    }
+    times <- grid[out_idx]; steps <- N; rejected <- 0L; dts <- rep(dt, N)
+  } else {
+    outs <- if (is.null(output_times)) NULL else {
+      if (!is.numeric(output_times) || !length(output_times) || any(!is.finite(output_times)) ||
+          any(output_times < t0 - 1e-12 * max(1, abs(t0)) | output_times > t1 + 1e-12 * max(1, abs(t1)))) {
+        stopf("`output_times` must be finite times in [%s, %s].", fmt_num(t0), fmt_num(t1))
+      }
+      sort(unique(output_times))
+    }
+    stops <- sort(unique(c(outs, t1)))
+    tt <- t0; h <- min(dt, t1 - t0)
+    times <- t0; vals <- list(u); dts <- numeric(0); rejected <- 0L
+    hmin <- 1e-12 * max(1, abs(t1 - t0))
+    while (tt < t1 - hmin) {
+      nxt <- stops[stops > tt + hmin][1]
+      hs <- min(h, nxt - tt)
+      st <- sdirk(u, tt, hs)
+      err <- mnorm(st$err) / max(1, mnorm(st$u))
+      if (!is.finite(err)) stop_nonfinite("The time step produced non-finite values at t = %s.", fmt_num(tt))
+      fac <- min(2, max(0.2, 0.9 * sqrt(tol / max(err, 1e-300))))
+      if (err <= tol) {
+        tt <- if (abs(tt + hs - nxt) <= hmin) nxt else tt + hs
+        u <- st$u; dts <- c(dts, hs)
+        if (is.null(outs) || any(abs(outs - tt) <= hmin)) { times <- c(times, tt); vals[[length(vals) + 1L]] <- u }
+        h <- hs * fac
+      } else {
+        rejected <- rejected + 1L
+        h <- hs * fac
+        if (h < hmin) stopf("The adaptive step size fell below %s at t = %s.", fmt_num(hmin), fmt_num(tt))
+      }
+    }
+    keep <- if (is.null(outs)) rep(TRUE, length(times)) else vapply(times, function(t) any(abs(outs - t) <= hmin), logical(1))
+    times <- times[keep]; U <- do.call(cbind, vals[keep]); steps <- length(dts)
+  }
+  if (!is.null(bad)) warn_solver(bad, "linear solve of at least one time step")
+  diag <- structure(list(ndof = V$ndof, free = length(free), steps = steps,
+                         dt = if (adaptive) range(dts) else dt, method = method, adaptive = adaptive,
+                         rejected_steps = rejected, factorizations = cache$n,
+                         integral = as.numeric(crossprod(assemble_vector(V, 1), U)),
+                         max_relative_residual = max_rel, assembly_time = ops$assembly_time,
+                         solve_time = proc.time()[["elapsed"]] - ts),
+                    class = "pde_diagnostics")
+  structure(list(times = times, values = U, space = V, problem = problem, diagnostics = diag),
+            class = "pde_transient")
 }

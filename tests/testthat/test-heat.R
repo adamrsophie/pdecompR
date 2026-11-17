@@ -56,3 +56,22 @@ test_that("mass matrix conservation holds for zero-flux heat problems", {
   en <- apply(s$values, 2, function(u) sum(u * (M %*% u)))
   expect_true(all(diff(en) <= 1e-14))
 })
+
+test_that("BDF2 and SDIRK2 are second order and adaptive SDIRK2 meets its tolerance", {
+  m <- pde_mesh_rectangle(nx = 6)
+  p <- heat_problem(m, initial = function(x, y) sin(pi * x) * sin(pi * y),
+                    source = function(x, y, t) cos(3 * t) * x * (1 - x), bcs = dirichlet_bc(0), time = c(0, 1))
+  ref <- solution_at(solve_pde(p, dt = 1 / 1024, method = "sdirk2", output_times = 1), 1)
+  for (me in c("bdf2", "sdirk2")) {
+    e <- vapply(c(32, 64), function(N) errornorm(solution_at(solve_pde(p, dt = 1 / N, method = me, output_times = 1), 1), ref),
+                numeric(1))
+    expect_gt(log2(e[1] / e[2]), 1.85)
+  }
+  s <- solve_pde(p, dt = 0.1, method = "sdirk2", adaptive = TRUE, tol = 1e-5, output_times = c(0.25, 1))
+  expect_equal(s$times, c(0.25, 1))
+  expect_lt(errornorm(solution_at(s, 1), ref), 5e-6)
+  expect_gt(s$diagnostics$steps, 20)
+  expect_error(solve_pde(p, dt = 0.1, adaptive = TRUE), "sdirk2")
+  pt <- parabolic_problem(m, diffusion = function(x, y, t) 1 + t, initial = 0, bcs = dirichlet_bc(0), time = c(0, 1))
+  expect_error(solve_pde(pt, dt = 0.1, method = "bdf2"), "do not depend on time")
+})

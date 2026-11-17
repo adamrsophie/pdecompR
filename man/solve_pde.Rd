@@ -20,10 +20,12 @@ solve_pde(problem, ...)
 \method{solve_pde}{parabolic_problem}(
   problem,
   dt,
-  method = c("crank-nicolson", "backward-euler"),
+  method = c("crank-nicolson", "backward-euler", "bdf2", "sdirk2"),
   output_times = NULL,
   solver = "auto",
   startup = 2L,
+  adaptive = FALSE,
+  tol = 1e-04,
   ...
 )
 
@@ -44,7 +46,11 @@ solve_pde(problem, ...)
 \item{problem}{A \code{pde_problem}.}
 
 \item{method}{For time-dependent problems: \code{"crank-nicolson"} (second
-order) or \code{"backward-euler"} (first order, L-stable).}
+order), \code{"backward-euler"} (first order, L-stable), \code{"bdf2"} (second
+order, L-stable two-step method started with one backward Euler step) or
+\code{"sdirk2"} (Alexander's two-stage, second-order, L-stable singly
+diagonally implicit Runge-Kutta method). BDF2 and SDIRK2 require
+coefficients that do not depend on time (data may).}
 
 \item{...}{Passed to methods: \code{method}, \code{tol} and other arguments of
 \code{\link[=solve_linear_system]{solve_linear_system()}} for linear problems, time stepping or Newton
@@ -54,7 +60,8 @@ controls for the others.}
 the step is then adjusted to land exactly on the final time.}
 
 \item{output_times}{Times at which to store the solution; they must lie on
-the time grid. Default: every step.}
+the time grid. Default: every step. With \code{adaptive = TRUE} they may be
+any times in the interval, and the steps land on them exactly.}
 
 \item{solver}{Linear solver method, see \code{\link[=solve_linear_system]{solve_linear_system()}}.}
 
@@ -64,13 +71,20 @@ Crank-Nicolson produces for rough initial data or initial data that do
 not match the Dirichlet data; a fixed number of such steps keeps second
 order. Ignored for backward Euler.}
 
-\item{tol, maxit}{Newton tolerance on the free residual norm (relative to the
-initial residual, with an absolute floor of \code{1e-12}) and maximum number
-of Newton iterations.}
+\item{adaptive}{For \code{"sdirk2"}: choose the step size from an embedded
+first-order error estimate (L2 norm through the mass matrix), starting
+from \code{dt}. Steps whose estimate exceeds \code{tol} are rejected and retried.}
+
+\item{tol}{Error tolerance per step for adaptive stepping, relative to
+\verb{max(1, ||u||)}.}
 
 \item{newton_tol, newton_maxit}{Newton tolerance (on the residual norm
 relative to its initial value, or absolute \code{1e-12}) and maximum
 iterations per step.}
+
+\item{tol, maxit}{Newton tolerance on the free residual norm (relative to the
+initial residual, with an absolute floor of \code{1e-12}) and maximum number
+of Newton iterations.}
 }
 \value{
 A \code{pde_solution} (stationary problems) or \code{pde_transient}

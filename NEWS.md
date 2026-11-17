@@ -41,9 +41,10 @@ the sparse matrix classes of 'Matrix'.
 
 * Elliptic problems with diffusion, advection and reaction, with optional
   SUPG stabilization.
-* Heat and general linear parabolic problems with backward Euler and
-  Crank-Nicolson (Rannacher startup), time-dependent data and coefficients,
-  and mass diagnostics.
+* Heat and general linear parabolic problems with backward Euler,
+  Crank-Nicolson (Rannacher startup), BDF2 and L-stable SDIRK2, adaptive
+  SDIRK2 stepping with an embedded error estimate, time-dependent data and
+  coefficients, and mass diagnostics.
 * Reaction-diffusion systems with IMEX and fully implicit Newton time
   stepping.
 * Quasilinear diffusion, semilinear reaction and p-Laplace problems solved
