@@ -331,12 +331,16 @@ the matrix from triplets. The element integrals themselves then dominate
 end-to-end gain is modest: 7 percent for a heat problem with
 time-dependent diffusion and 4 percent for a quasilinear Newton
 solve.</p>
-<p><code>benchmarks/protocol.R</code> in the source repository runs each
-case in a fresh R process under <code>/usr/bin/time</code> for the true
-peak memory, repeats it after a warm-up run and reports the median with
-the range, and compares P1, P2 and AMG solves at a fixed error. On the
-unit square P2 reaches an L2 error of <code>1e-5</code> with 4,225
-unknowns, where P1 needs more than 66,000.</p>
+<p><code>benchmarks/protocol.R</code> in the source repository times the
+clean public workload (mesh creation and one <code><a href="../reference/solve_pde.html">solve_pde()</a></code>
+call) in a fresh R process under <code>/usr/bin/time</code>, so the peak
+memory belongs to that workload alone, and times the assembly components
+separately in another process. Each case runs twice to warm up and then
+five times; every repeat is saved, the median and range are reported,
+and the commit, BLAS, CPU and thread settings are recorded. P1, P2 and
+AMG solves are compared at a fixed error. On the unit square P2 reaches
+an L2 error of <code>1e-5</code> with 4,225 unknowns, where P1 needs
+more than 66,000.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
