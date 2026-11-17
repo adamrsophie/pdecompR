@@ -4,7 +4,14 @@
 \alias{write_vtk}
 \title{Write a VTK file}
 \usage{
-write_vtk(x, file, name = "u", time = NULL, stress = FALSE)
+write_vtk(
+  x,
+  file,
+  name = "u",
+  time = NULL,
+  stress = FALSE,
+  format = c("binary", "ascii")
+)
 }
 \arguments{
 \item{x}{A \code{\link[=pde_mesh]{pde_mesh()}}, \code{\link[=fe_function]{fe_function()}}, \code{pde_solution},
@@ -18,6 +25,8 @@ write_vtk(x, file, name = "u", time = NULL, stress = FALSE)
 
 \item{stress}{For elasticity solutions, also write \code{sxx}, \code{syy}, \code{sxy} and
 \code{von_mises} (P1 solutions only, since the stresses are vertex values).}
+
+\item{format}{Encoding of \code{.vtu} files: \code{"binary"} or \code{"ascii"}.}
 }
 \value{
 The file path, invisibly.
@@ -35,7 +44,10 @@ systems); \code{\link[=write_pvd]{write_pvd()}} writes a whole series.
 }
 \details{
 A \code{file} ending in \code{.vtu} is written in the XML VTK format instead, with
-the same content.
+the same content: by default as raw little-endian binary appended data
+(\code{format = "binary"}; Float64 values, Int32 connectivity, UInt32 block
+headers), which is exact and faster to write and read than text, or as
+text with \code{format = "ascii"}.
 }
 \examples{
 f <- tempfile(fileext = ".vtk")

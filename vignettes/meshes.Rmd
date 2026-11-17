@@ -162,7 +162,8 @@ table(gm$boundary$marker)
 
 `write_vtk()` exports meshes and solutions to the VTK format for ParaView:
 the legacy format by default, the XML `.vtu` format when the file name ends
-in `.vtu`. `write_pvd()` writes a time-dependent solution as one `.vtu`
+in `.vtu` (raw binary by default, exact to the last bit; `format = "ascii"`
+for text). `write_pvd()` writes a time-dependent solution as one `.vtu`
 file per output time plus a `.pvd` collection that ParaView opens as an
 animation.
 

@@ -4,7 +4,7 @@
 \alias{write_pvd}
 \title{Write a time series for ParaView}
 \usage{
-write_pvd(x, file, name = "u")
+write_pvd(x, file, name = "u", format = c("binary", "ascii"))
 }
 \arguments{
 \item{x}{A \code{pde_transient} from \code{\link[=solve_pde]{solve_pde()}}.}
@@ -13,6 +13,8 @@ write_pvd(x, file, name = "u")
 it with the same stem and the time index appended.}
 
 \item{name}{Name of the point data array for single-species solutions.}
+
+\item{format}{Encoding of the \code{.vtu} files, as in \code{\link[=write_vtk]{write_vtk()}}.}
 }
 \value{
 The \code{.pvd} path, invisibly.

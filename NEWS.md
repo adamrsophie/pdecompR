@@ -15,7 +15,7 @@ the sparse matrix classes of 'Matrix'.
 * Import of Gmsh 2.2 and 4.1 meshes (physical lines become boundary
   markers, physical surfaces become regions) and export to VTK, including
   quadratic P2 cells, displacement vectors and stress fields, in legacy and
-  XML (`.vtu`) formats, and ParaView time series (`write_pvd()`).
+  XML (`.vtu`, raw binary or text) formats, and ParaView time series (`write_pvd()`).
 
 ## Discretization
 

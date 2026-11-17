@@ -161,7 +161,10 @@ gmsh4_curve_physicals <- function(ent, dim = 1L) {
 #' systems); [write_pvd()] writes a whole series.
 #'
 #' A `file` ending in `.vtu` is written in the XML VTK format instead, with
-#' the same content.
+#' the same content: by default as raw little-endian binary appended data
+#' (`format = "binary"`; Float64 values, Int32 connectivity, UInt32 block
+#' headers), which is exact and faster to write and read than text, or as
+#' text with `format = "ascii"`.
 #'
 #' @param x A [pde_mesh()], [fe_function()], `pde_solution`,
 #'   `pde_vector_solution` or `pde_transient`.
@@ -170,14 +173,18 @@ gmsh4_curve_physicals <- function(ent, dim = 1L) {
 #' @param time Stored time to write for a `pde_transient` (default: the last).
 #' @param stress For elasticity solutions, also write `sxx`, `syy`, `sxy` and
 #'   `von_mises` (P1 solutions only, since the stresses are vertex values).
+#' @param format Encoding of `.vtu` files: `"binary"` or `"ascii"`.
 #' @return The file path, invisibly.
 #' @examples
 #' f <- tempfile(fileext = ".vtk")
 #' write_vtk(pde_mesh_rectangle(nx = 2), f)
 #' @export
-write_vtk <- function(x, file, name = "u", time = NULL, stress = FALSE) {
+write_vtk <- function(x, file, name = "u", time = NULL, stress = FALSE, format = c("binary", "ascii")) {
+  format <- match.arg(format)
   d <- vtk_data(x, name, time, stress)
-  if (grepl("\\.vtu$", file, ignore.case = TRUE)) write_vtu_file(d, file, name) else write_legacy_vtk(d, file, name)
+  if (grepl("\\.vtu$", file, ignore.case = TRUE)) {
+    if (format == "binary") write_vtu_binary(d, file, name) else write_vtu_file(d, file, name)
+  } else write_legacy_vtk(d, file, name)
   invisible(file)
 }
 
@@ -255,6 +262,41 @@ write_vtu_file <- function(d, file, name) {
   writeLines(out, file)
 }
 
+# XML VTK with raw appended data: every array is a UInt32 byte count followed
+# by its little-endian values; DataArray offsets point into that block.
+write_vtu_binary <- function(d, file, name) {
+  P <- d$P; C <- d$C; np <- nrow(P); nc <- nrow(C); k <- ncol(C)
+  blocks <- list(); tags <- character(0); off <- 0
+  add <- function(nm, type, comps, v) {
+    size <- switch(type, Float64 = 8L, Int32 = 4L, UInt8 = 1L)
+    con <- rawConnection(raw(0), "wb")
+    writeBin(as.integer(length(v) * size), con, size = 4L, endian = "little")
+    if (type == "Float64") writeBin(as.double(v), con, size = 8L, endian = "little")
+    else writeBin(as.integer(v), con, size = size, endian = "little")
+    b <- rawConnectionValue(con); close(con)
+    tag <- sprintf('<DataArray type="%s" Name="%s" NumberOfComponents="%d" format="appended" offset="%.0f"/>',
+                   type, nm, comps, off)
+    blocks[[length(blocks) + 1L]] <<- b; off <<- off + length(b)
+    tag
+  }
+  xyz <- function(M) as.vector(t(cbind(M[, 1], M[, 2], 0)))
+  pd <- character(0)
+  for (nm in names(d$arrays)) pd <- c(pd, add(nm, "Float64", 1L, d$arrays[[nm]][seq_len(np)]))
+  if (!is.null(d$vectors)) pd <- c(pd, add(name, "Float64", 3L, xyz(d$vectors)))
+  pts <- add("Points", "Float64", 3L, xyz(P))
+  cells <- c(add("connectivity", "Int32", 1L, as.vector(t(C - 1L))), add("offsets", "Int32", 1L, k * seq_len(nc)),
+             add("types", "UInt8", 1L, rep(d$type, nc)))
+  head <- c('<?xml version="1.0"?>',
+            '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian" header_type="UInt32">',
+            "<UnstructuredGrid>", sprintf('<Piece NumberOfPoints="%d" NumberOfCells="%d">', np, nc),
+            "<PointData>", pd, "</PointData>", "<Points>", pts, "</Points>", "<Cells>", cells, "</Cells>",
+            "</Piece>", "</UnstructuredGrid>", '<AppendedData encoding="raw">')
+  con <- file(file, "wb"); on.exit(close(con))
+  writeBin(charToRaw(paste0(paste(head, collapse = "\n"), "\n_")), con)
+  for (b in blocks) writeBin(b, con)
+  writeBin(charToRaw("\n</AppendedData>\n</VTKFile>\n"), con)
+}
+
 #' Write a time series for ParaView
 #'
 #' Writes every stored time of a time-dependent solution as an XML VTK file
@@ -265,6 +307,7 @@ write_vtu_file <- function(d, file, name) {
 #' @param file Path of the `.pvd` file; the `.vtu` files are written next to
 #'   it with the same stem and the time index appended.
 #' @param name Name of the point data array for single-species solutions.
+#' @param format Encoding of the `.vtu` files, as in [write_vtk()].
 #' @return The `.pvd` path, invisibly.
 #' @examples
 #' p <- heat_problem(pde_mesh_rectangle(nx = 4), initial = function(x, y) x * y,
@@ -273,11 +316,12 @@ write_vtu_file <- function(d, file, name) {
 #' f <- tempfile(fileext = ".pvd")
 #' write_pvd(s, f)
 #' @export
-write_pvd <- function(x, file, name = "u") {
+write_pvd <- function(x, file, name = "u", format = c("binary", "ascii")) {
+  format <- match.arg(format)
   if (!inherits(x, "pde_transient")) stopf("`x` must be a time-dependent solution.")
   stem <- sub("\\.pvd$", "", file, ignore.case = TRUE)
   files <- sprintf("%s_%04d.vtu", stem, seq_along(x$times))
-  for (i in seq_along(x$times)) write_vtk(x, files[i], name = name, time = x$times[i])
+  for (i in seq_along(x$times)) write_vtk(x, files[i], name = name, time = x$times[i], format = format)
   ds <- sprintf('<DataSet timestep="%.17g" part="0" file="%s"/>', x$times, basename(files))
   writeLines(c('<?xml version="1.0"?>', '<VTKFile type="Collection" version="0.1">', "<Collection>", ds,
                "</Collection>", "</VTKFile>"), file)
