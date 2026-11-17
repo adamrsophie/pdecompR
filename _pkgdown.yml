@@ -54,6 +54,8 @@ reference:
   - mesh_size
   - boundary_markers
   - set_boundary_marker
+  - mesh_regions
+  - region_coefficient
   - refine_uniform
   - read_gmsh
   - write_vtk
@@ -80,6 +82,7 @@ reference:
   - reaction_diffusion_problem
   - nonlinear_problem
   - elasticity_problem
+  - elasticity_stress
   - displacement_bc
   - trial_function
   - variational_problem
@@ -91,6 +94,7 @@ reference:
   contents:
   - errornorm
   - convergence_study
+  - manufactured_solution
   - estimate_error
   - mark_elements
   - adaptive_solve

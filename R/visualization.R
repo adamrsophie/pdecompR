@@ -3,8 +3,8 @@
 #' Base-graphics plots that work in any R session (the solvers themselves
 #' never need a graphics device).
 #'
-#' * `plot.pde_mesh()` draws the triangles and colors boundary edges by
-#'   marker.
+#' * `plot.pde_mesh()` draws the triangles, colors boundary edges by
+#'   marker and, when the mesh has several regions, fills triangles by region.
 #' * `plot.fe_function()` draws a filled plot (each triangle colored by the
 #'   mean of its vertex values, with a color bar beside the domain; P2
 #'   functions are drawn on the four subtriangles of each element, using the
@@ -42,6 +42,15 @@ plot.pde_mesh <- function(x, markers = TRUE, main = "Mesh", ...) {
   P <- x$nodes; T <- x$triangles
   plot(range(P[, 1]), range(P[, 2]), type = "n", asp = 1, xlab = "x", ylab = "y",
        main = main, ...)
+  reg <- mesh_regions(x)
+  ur <- unique(reg)
+  if (length(ur) > 1L) {
+    fill <- grDevices::hcl.colors(length(ur), "Pastel 1")
+    px <- rbind(P[T[, 1], 1], P[T[, 2], 1], P[T[, 3], 1], NA)
+    py <- rbind(P[T[, 1], 2], P[T[, 2], 2], P[T[, 3], 2], NA)
+    polygon(as.vector(px), as.vector(py), col = fill[match(reg, ur)], border = NA)
+    legend("topleft", legend = ur, fill = fill, bty = "n", cex = 0.8, inset = c(0, -0.02))
+  }
   E <- x$edges
   segments(P[E[, 1], 1], P[E[, 1], 2], P[E[, 2], 1], P[E[, 2], 2], col = "grey55", lwd = 0.6)
   if (markers) {

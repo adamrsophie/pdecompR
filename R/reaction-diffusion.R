@@ -256,6 +256,8 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
                          max_relative_residual = max_rel,
                          newton_iterations = if (length(newton_its)) newton_its else NULL,
                          newton_relative_residual = if (length(newton_res)) newton_res else NULL,
+                         integral = { one <- assemble_vector(V, 1)
+                                      sapply(store, function(S) as.numeric(crossprod(one, S))) },
                          assembly_time = assembly_time,
                          solve_time = proc.time()[["elapsed"]] - ts),
                     class = "pde_diagnostics")

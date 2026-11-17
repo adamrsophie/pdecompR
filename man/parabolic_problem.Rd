@@ -66,8 +66,13 @@ An object of class \code{parabolic_problem}.
 \verb{du/dt - div(k grad u) + b . grad u + c u = f(x, y, t)} for \code{t} in
 \verb{(time[1], time[2])}, with \code{u(x, y, time[1]) = initial(x, y)} and
 boundary conditions whose data may depend on time (\verb{function(x, y, t)}).
-The diffusion, advection and reaction coefficients are time independent,
-so the system matrices are assembled once.
+Scalar diffusion, advection and reaction coefficients may also depend on
+time (\verb{function(x, y, t)}); the operator is then reassembled and
+refactorized at every step, with \verb{A(t_\{n+1\})} on the implicit side and
+\code{A(t_n)} on the explicit side of the theta scheme (second order for
+Crank-Nicolson). Otherwise the matrices are assembled and factorized once.
+The Rannacher startup steps are skipped for time-dependent coefficients.
+SUPG requires time-independent coefficients.
 
 \code{heat_problem()} is the heat equation \verb{du/dt - kappa Laplace(u) = f}.
 

@@ -1,0 +1,21 @@
+test_that("manufactured solutions give correct sources and gradients", {
+  skip_if_not_installed("symcompR")
+  ms <- manufactured_solution("sin(pi*x)*sin(pi*y)", diffusion = "1 + x", advection = c("1", "0.5"),
+                              reaction = 2)
+  x <- c(0.3, 0.7); y <- c(0.2, 0.6)
+  u <- function(x, y) sin(pi * x) * sin(pi * y)
+  ux <- function(x, y) pi * cos(pi * x) * sin(pi * y)
+  uy <- function(x, y) pi * sin(pi * x) * cos(pi * y)
+  f <- -(ux(x, y) + (1 + x) * (-2 * pi^2) * u(x, y)) + ux(x, y) + 0.5 * uy(x, y) + 2 * u(x, y)
+  expect_equal(ms$source(x, y), f, tolerance = 1e-12)
+  expect_equal(ms$gradient(x, y), cbind(ux(x, y), uy(x, y)), tolerance = 1e-12)
+  expect_output(print(ms), "stationary")
+  p <- elliptic_problem(pde_mesh_rectangle(nx = 4), diffusion = ms$diffusion, advection = ms$advection,
+                        reaction = ms$reaction, source = ms$source, bcs = dirichlet_bc(0))
+  cs <- convergence_study(p, ms$exact, ms$gradient, mesh_sizes = c(8, 16))
+  expect_gt(cs$rate_L2[2], 1.9)
+  mt <- manufactured_solution("exp(-t)*(x + 2*y)")
+  expect_true(mt$time_dependent)
+  expect_equal(mt$source(0.2, 0.3, 0.5), -mt$exact(0.2, 0.3, 0.5))
+  expect_error(manufactured_solution("x", diffusion = "1 + t"), "time")
+})

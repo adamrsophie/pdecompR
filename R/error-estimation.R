@@ -259,7 +259,8 @@ estimate_error <- function(solution) {
   if (is.function(k) || inherits(k, "fe_function")) {
     kq <- coef_qp(k, geo, name = "diffusion")
     xx <- as.vector(geo$x); yy <- as.vector(geo$y)
-    gk <- if (is.function(k)) fd_gradient(k)(xx, yy)
+    gk <- if (inherits(k, "pde_region_coefficient")) matrix(0, length(xx), 2)  # constant per element
+          else if (is.function(k)) fd_gradient(k)(xx, yy)
           else as.matrix(evaluate(k, xx, yy, gradient = TRUE)[, 2:3])
     R <- R + matrix(gk[, 1], geo$m) * uh$dx + matrix(gk[, 2], geo$m) * uh$dy
   } else if (is.null(Kt)) {

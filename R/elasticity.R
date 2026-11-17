@@ -258,3 +258,65 @@ vector_errornorm <- function(u, exact, type, gradient) {
   attr(out, "gradient") <- attr(ex, "gradient")
   out
 }
+
+#' Stresses and strains of an elasticity solution
+#'
+#' Computes the strain `eps = (grad u + grad u^T) / 2`, the stress
+#' `sigma = lambda tr(eps) I + 2 mu eps` and the von Mises stress
+#' `sqrt(((s_xx - s_yy)^2 + (s_yy - s_zz)^2 + (s_zz - s_xx)^2) / 2 + 3 s_xy^2)`
+#' of a solution of [elasticity_problem()]. The out-of-plane stress is
+#' `s_zz = nu (s_xx + s_yy)` in plane strain and zero in plane stress.
+#'
+#' Displacement gradients are discontinuous across elements. With
+#' `at = "elements"` the fields are evaluated at element centroids (exact for
+#' P1, where they are constant per element). With `at = "nodes"` the centroid
+#' values are averaged over the elements around each vertex with area weights
+#' and returned as P1 functions, which suits plotting and VTK output; this
+#' recovery is not a higher-order stress approximation.
+#'
+#' @param solution A `pde_vector_solution` from [solve_pde()] on an
+#'   [elasticity_problem()].
+#' @param at `"elements"` or `"nodes"`.
+#' @return For `"elements"`, a data frame with one row per element and
+#'   columns `x`, `y` (centroid), `exx`, `eyy`, `exy`, `sxx`, `syy`, `sxy`,
+#'   `szz` and `von_mises`. For `"nodes"`, a named list of P1
+#'   [fe_function()] objects with the same fields.
+#' @examples
+#' mesh <- pde_mesh_rectangle(c(0, 4), c(0, 1), nx = 16, ny = 4)
+#' prob <- elasticity_problem(mesh, E = 100, nu = 0.3,
+#'                            bcs = list(displacement_bc(0, "left"),
+#'                                       traction_bc(c(0, -1), "right")))
+#' st <- elasticity_stress(solve_pde(prob))
+#' summary(st$von_mises)
+#' @export
+elasticity_stress <- function(solution, at = c("elements", "nodes")) {
+  at <- match.arg(at)
+  if (!inherits(solution, "pde_vector_solution")) stopf("`solution` must come from an elasticity problem.")
+  prob <- solution$problem
+  mesh <- solution$space$mesh; P <- mesh$nodes; T <- mesh$triangles
+  m <- nrow(T); e <- seq_len(m)
+  cx <- (P[T[, 1], 1] + P[T[, 2], 1] + P[T[, 3], 1]) / 3
+  cy <- (P[T[, 1], 2] + P[T[, 2], 2] + P[T[, 3], 2]) / 3
+  gx <- grad_in_elements(solution$ux, e, cx, cy)
+  gy <- grad_in_elements(solution$uy, e, cx, cy)
+  E <- eval_spatial(prob$E, cx, cy, name = "E")
+  nu <- eval_spatial(prob$nu, cx, cy, name = "nu")
+  lm <- lame_parameters(E, nu, prob$plane)
+  exx <- gx$dx; eyy <- gy$dy; exy <- (gx$dy + gy$dx) / 2
+  tr <- exx + eyy
+  sxx <- lm$lambda * tr + 2 * lm$mu * exx
+  syy <- lm$lambda * tr + 2 * lm$mu * eyy
+  sxy <- 2 * lm$mu * exy
+  szz <- if (prob$plane == "strain") nu * (sxx + syy) else 0 * sxx
+  vm <- sqrt(((sxx - syy)^2 + (syy - szz)^2 + (szz - sxx)^2) / 2 + 3 * sxy^2)
+  out <- data.frame(x = cx, y = cy, exx = exx, eyy = eyy, exy = exy, sxx = sxx, syy = syy,
+                    sxy = sxy, szz = szz, von_mises = vm)
+  if (at == "elements") return(out)
+  area <- abs(tri_det(P, T)) / 2
+  w <- tabulate_sum(as.vector(T), rep(area, 3), nrow(P))
+  V1 <- fe_space(mesh, 1)
+  lapply(stats::setNames(names(out)[-(1:2)], names(out)[-(1:2)]), function(nm) {
+    v <- tabulate_sum(as.vector(T), rep(out[[nm]] * area, 3), nrow(P)) / w
+    fe_function(V1, v, nm)
+  })
+}

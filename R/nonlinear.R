@@ -98,6 +98,10 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
   nat <- natural_bc_terms(V, problem$bcs)
   b_nat <- global_vector(V, local_linear(geo, f = fq)) + nat$b
   dd <- dirichlet_data(V, problem$bcs)
+  if (!length(dd$dofs) && is.null(problem$reaction) && is.null(nat$A)) {
+    stopf(paste0("The nonlinear problem has no Dirichlet, Robin or reaction term, so its solution ",
+                 "is not unique (pure Neumann); add a Dirichlet condition."))
+  }
   free <- setdiff(seq_len(V$ndof), dd$dofs)
   plap <- identical(problem$type, "p-laplace")
   k <- as_fun_u(problem$diffusion)

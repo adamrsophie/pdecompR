@@ -77,8 +77,8 @@ never need a graphics device).
 }
 \details{
 \itemize{
-\item \code{plot.pde_mesh()} draws the triangles and colors boundary edges by
-marker.
+\item \code{plot.pde_mesh()} draws the triangles, colors boundary edges by
+marker and, when the mesh has several regions, fills triangles by region.
 \item \code{plot.fe_function()} draws a filled plot (each triangle colored by the
 mean of its vertex values, with a color bar beside the domain; P2
 functions are drawn on the four subtriangles of each element, using the

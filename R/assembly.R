@@ -26,6 +26,12 @@ element_geometry <- function(space, quad_degree = NULL) {
 # Evaluate a scalar coefficient at all quadrature points (m by nq matrix).
 coef_qp <- function(coef, geo, t = NULL, name = "coefficient") {
   if (is.null(coef)) return(NULL)
+  if (inherits(coef, "pde_region_coefficient")) {
+    m0 <- attr(coef, "mesh")
+    if (identical(m0$nodes, geo$space$mesh$nodes) && identical(m0$triangles, geo$space$mesh$triangles)) {
+      return(matrix(attr(coef, "element_values"), geo$m, geo$nq))
+    }
+  }
   if (inherits(coef, "fe_function")) {
     if (same_space(coef$space, geo$space)) return(fe_qp(coef, geo)$value)
     # Another degree or another mesh: evaluate the function at the points.

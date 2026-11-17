@@ -96,6 +96,26 @@ cs <- convergence_study(poisson_problem(L, source = 0, boundary = dirichlet_bc(e
 cs
 ```
 
+## Symbolic manufactured solutions
+
+Deriving the source term of a manufactured solution by hand is a common
+source of mistakes. With the optional
+[symcompR](https://github.com/adamrsophie/symcompR) package,
+`manufactured_solution()` differentiates the exact solution and the
+coefficients symbolically and returns R functions for $u$, $\nabla u$ and
+$f = -\nabla\cdot(k\nabla u) + b\cdot\nabla u + c u$ (plus
+$\partial_t u$ when $u$ depends on $t$):
+
+```{r, eval = requireNamespace("symcompR", quietly = TRUE)}
+ms <- manufactured_solution("exp(x) * sin(pi * y)", diffusion = "1 + x * y",
+                            advection = c("1", "-y"), reaction = 1)
+ms
+p <- elliptic_problem(pde_mesh_rectangle(nx = 4), diffusion = ms$diffusion,
+                      advection = ms$advection, reaction = ms$reaction,
+                      source = ms$source, bcs = dirichlet_bc(ms$exact))
+convergence_study(p, ms$exact, ms$gradient, mesh_sizes = c(8, 16, 32))
+```
+
 ## The validation suite
 
 The package tests encode these verifications permanently:

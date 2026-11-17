@@ -30,6 +30,9 @@
 #'   `boundary_edges`. Ignored when `boundary_edges` is `NULL`; all boundary
 #'   edges are then marked `"boundary"`.
 #' @param fix_orientation Reorder clockwise triangles instead of failing.
+#' @param regions Optional character vector with one region (subdomain) name
+#'   per triangle, for piecewise coefficients ([region_coefficient()]).
+#'   Default: every triangle belongs to region `"domain"`.
 #' @return An object of class `pde_mesh` with components `nodes`, `triangles`,
 #'   `edges`, `element_edges`, `edge_elements`, `boundary` (a data frame of
 #'   boundary edges) and `info`.
@@ -40,7 +43,7 @@
 #' mesh
 #' @export
 pde_mesh <- function(nodes, triangles, boundary_edges = NULL,
-                     boundary_markers = NULL, fix_orientation = FALSE) {
+                     boundary_markers = NULL, fix_orientation = FALSE, regions = NULL) {
   nodes <- as.matrix(nodes)
   if (!is.numeric(nodes) || ncol(nodes) != 2L) {
     stopf("`nodes` must be a numeric matrix with two columns.")
@@ -95,8 +98,70 @@ pde_mesh <- function(nodes, triangles, boundary_edges = NULL,
   }
   mesh <- build_topology(nodes, tris)
   mesh$boundary <- assign_boundary(mesh, boundary_edges, boundary_markers)
+  if (is.null(regions)) regions <- "domain"
+  if (length(regions) == 1L) regions <- rep(regions, nrow(tris))
+  if (!is.character(regions) || length(regions) != nrow(tris) || anyNA(regions) || any(!nzchar(regions))) {
+    stopf("`regions` must be one nonempty name or one name per triangle.")
+  }
+  mesh$regions <- regions
   mesh$info <- list(reoriented = n_fixed, generator = "user")
   mesh
+}
+
+#' Subdomains (regions) of a mesh
+#'
+#' Every triangle of a mesh belongs to a named region (subdomain); by default
+#' all triangles belong to `"domain"`. `mesh_regions()` returns the region of
+#' each triangle, `set_region()` assigns a region to the triangles whose
+#' centroids satisfy a predicate, and [read_gmsh()] takes regions from
+#' physical surfaces. Refinement keeps the region of the parent triangle.
+#' Regions carry piecewise coefficients through [region_coefficient()].
+#'
+#' @param mesh A [pde_mesh()].
+#' @param region Region name.
+#' @param which A function `function(x, y)` returning `TRUE` for the
+#'   centroids of the triangles to assign.
+#' @return `mesh_regions()`: a character vector with one entry per triangle.
+#'   `set_region()`: the updated mesh.
+#' @examples
+#' mesh <- pde_mesh_rectangle(nx = 4)
+#' mesh <- set_region(mesh, "inclusion", function(x, y) (x - 0.5)^2 + (y - 0.5)^2 < 0.1)
+#' table(mesh_regions(mesh))
+#' @export
+mesh_regions <- function(mesh) {
+  stopifnot(inherits(mesh, "pde_mesh"))
+  if (is.null(mesh$regions)) rep("domain", nrow(mesh$triangles)) else mesh$regions
+}
+
+#' @rdname mesh_regions
+#' @export
+set_region <- function(mesh, region, which) {
+  stopifnot(inherits(mesh, "pde_mesh"), is.character(region), length(region) == 1L, nzchar(region))
+  P <- mesh$nodes; T <- mesh$triangles
+  cx <- (P[T[, 1], 1] + P[T[, 2], 1] + P[T[, 3], 1]) / 3
+  cy <- (P[T[, 1], 2] + P[T[, 2], 2] + P[T[, 3], 2]) / 3
+  sel <- which(cx, cy)
+  if (!is.logical(sel) || length(sel) != nrow(T) || anyNA(sel)) {
+    stopf("`which` must return one logical value per triangle.")
+  }
+  r <- mesh_regions(mesh)
+  r[sel] <- region
+  mesh$regions <- r
+  mesh
+}
+
+# Give the triangles of a nested (refined) mesh the regions of their parents.
+inherit_regions <- function(child, parent) {
+  r <- mesh_regions(parent)
+  if (length(unique(r)) <= 1L) {
+    child$regions <- rep(r[1], nrow(child$triangles))
+    return(child)
+  }
+  P <- child$nodes; T <- child$triangles
+  cx <- (P[T[, 1], 1] + P[T[, 2], 1] + P[T[, 3], 1]) / 3
+  cy <- (P[T[, 1], 2] + P[T[, 2], 2] + P[T[, 3], 2]) / 3
+  child$regions <- r[locate_points(parent, cx, cy)$element]
+  child
 }
 
 # Edge structures for a valid, counterclockwise triangulation.
@@ -469,6 +534,8 @@ print.pde_mesh <- function(x, ...) {
       " edges:", nrow(x$edges), " boundary edges:", nrow(x$boundary), "\n")
   cat("  h =", fmt_num(mesh_size(x)), "\n")
   cat("  markers:", paste(boundary_markers(x), collapse = ", "), "\n")
+  r <- unique(mesh_regions(x))
+  if (length(r) > 1L) cat("  regions:", paste(r, collapse = ", "), "\n")
   invisible(x)
 }
 
@@ -497,5 +564,59 @@ print.summary.pde_mesh <- function(x, ...) {
       fmt_num(x$shape_ratio[2]), " max", fmt_num(x$shape_ratio[3]), "\n")
   cat("  boundary edges by marker:\n")
   for (nm in names(x$markers)) cat("    ", nm, ": ", x$markers[[nm]], "\n", sep = "")
+  invisible(x)
+}
+
+#' Piecewise coefficients by region
+#'
+#' `region_coefficient()` builds a coefficient that takes one value per mesh
+#' region ([mesh_regions()]), for example the conductivities of different
+#' materials. The result is a vectorized `function(x, y)`, so it can be used
+#' wherever a coefficient is accepted (diffusion, reaction, source, Young's
+#' modulus, error norms). On the mesh it was built from, assembly reads the
+#' element values directly; on other meshes (refined or not) the value at a
+#' point is that of the region containing it in the original mesh, so the
+#' coefficient keeps its geometry under refinement.
+#'
+#' At points on an interface between regions the value of one adjacent region
+#' is returned; quadrature points and the error estimator never evaluate
+#' exactly on element edges.
+#'
+#' @param mesh The [pde_mesh()] whose regions define the pieces.
+#' @param values A named numeric vector or list with one value per region
+#'   (all regions of the mesh must be covered).
+#' @return A function of class `pde_region_coefficient`.
+#' @examples
+#' mesh <- pde_mesh_rectangle(nx = 8)
+#' mesh <- set_region(mesh, "right", function(x, y) x > 0.5)
+#' k <- region_coefficient(mesh, c(domain = 1, right = 100))
+#' prob <- poisson_problem(mesh, diffusion = k, source = 1, boundary = dirichlet_bc(0))
+#' range(solve_pde(prob)$u$values)
+#' @export
+region_coefficient <- function(mesh, values) {
+  stopifnot(inherits(mesh, "pde_mesh"))
+  values <- unlist(values)
+  r <- mesh_regions(mesh)
+  if (!is.numeric(values) || is.null(names(values)) || any(!is.finite(values))) {
+    stopf("`values` must be finite numbers named by region.")
+  }
+  miss <- setdiff(unique(r), names(values))
+  if (length(miss)) stopf("No value for region(s): %s.", paste(miss, collapse = ", "))
+  unknown <- setdiff(names(values), unique(r))
+  if (length(unknown)) stopf("Unknown region(s): %s.", paste(unknown, collapse = ", "))
+  elem <- as.numeric(values[r])
+  f <- function(x, y) {
+    e <- locate_points(mesh, x, y)$element
+    if (anyNA(e)) stopf("A region coefficient was evaluated outside its mesh.")
+    elem[e]
+  }
+  structure(f, class = c("pde_region_coefficient", "function"), mesh = mesh, element_values = elem,
+            values = values)
+}
+
+#' @export
+print.pde_region_coefficient <- function(x, ...) {
+  v <- attr(x, "values")
+  cat("<pde_region_coefficient>", paste(names(v), "=", fmt_num(v), collapse = ", "), "\n")
   invisible(x)
 }

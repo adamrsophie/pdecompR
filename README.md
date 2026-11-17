@@ -2,9 +2,12 @@
 
 <!-- badges: start -->
 [![R-CMD-check](https://github.com/adamrsophie/pdecompR/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/adamrsophie/pdecompR/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/adamrsophie/pdecompR/graph/badge.svg)](https://app.codecov.io/gh/adamrsophie/pdecompR)
 [![pkgdown](https://github.com/adamrsophie/pdecompR/actions/workflows/pkgdown.yaml/badge.svg)](https://adamrsophie.github.io/pdecompR/)
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+<!-- DOI badge: Zenodo mints a concept DOI on the first GitHub release; replace XXXXXXXX and uncomment. -->
+<!-- [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.XXXXXXXX.svg)](https://doi.org/10.5281/zenodo.XXXXXXXX) -->
 <!-- badges: end -->
 
 ***pdecompR*** is an R-native framework for defining, discretizing, solving
@@ -74,21 +77,20 @@ solve_pde(variational_problem(a, L, dirichlet_bc(0)))
 
 | Area | Functionality |
 |------|---------------|
-| Geometry and meshes | rectangles and simple polygons; structured meshes (three diagonal patterns); polygon meshes (ear clipping, Delaunay flips, refinement); validation of connectivity, orientation, degeneracy and boundary markers; quality measures; Gmsh 2.2 and 4.1 import; VTK export |
+| Geometry and meshes | rectangles and simple polygons; structured meshes (three diagonal patterns); polygon meshes (ear clipping, Delaunay flips, refinement); validation of connectivity, orientation, degeneracy and boundary markers; quality measures; subdomain regions with piecewise coefficients; Gmsh 2.2 and 4.1 import (physical lines and surfaces); VTK export (P1 and quadratic P2 cells, vectors, stresses) |
 | Finite elements | continuous Lagrange P1 and P2 on triangles, scalar and vector valued; interpolation, point evaluation, observation matrices |
 | Quadrature | Gauss-Legendre on intervals; triangle rules exact to any degree |
 | Assembly | sparse triplet assembly of stiffness, mass, advection and boundary matrices, load vectors, constant tensor diffusion |
 | Boundary conditions | Dirichlet (by elimination, keeps SPD), Neumann, Robin; pure Neumann problems with compatibility check and zero-mean gauge |
 | Linear solvers | sparse Cholesky and LU; preconditioned CG, BiCGSTAB and GMRES; residual diagnostics |
-| PDE classes | elliptic (diffusion, advection, reaction), linear elasticity (vector P1/P2, plane strain and stress), SUPG stabilization, heat and parabolic problems (backward Euler, Crank-Nicolson), reaction-diffusion systems (IMEX, Newton), quasilinear diffusion, semilinear reaction, p-Laplacian |
+| PDE classes | elliptic (diffusion, advection, reaction), linear elasticity (vector P1/P2, plane strain and stress, stress and von Mises output), SUPG stabilization, heat and parabolic problems (backward Euler, Crank-Nicolson, time-dependent coefficients, mass diagnostics), reaction-diffusion systems (IMEX, Newton), quasilinear diffusion, semilinear reaction, p-Laplacian |
 | Weak forms | `trial_function()`, `test_function()`, `grad()`, `dot()`, `integrate_domain()`, `integrate_boundary()` |
-| Verification | L2, H1 and energy errors, convergence studies with observed orders |
+| Verification | L2, H1 and energy errors, convergence studies with observed orders, symbolic manufactured solutions through symcompR, a reference benchmark suite |
 | Adaptivity | residual error estimator, Doerfler marking, newest vertex bisection, adaptive loop |
 | Inference | discrete forward and adjoint sensitivities, parameter estimation with adjoint gradients, distributed optimal control |
 
-Not available yet: three-dimensional and one-dimensional meshes, subdomain
-markers and holes, mixed elements (Stokes), discontinuous Galerkin methods,
-time-dependent coefficients in parabolic problems, nonlinear weak forms,
+Not available yet: three-dimensional and one-dimensional meshes, holes,
+mixed elements (Stokes), discontinuous Galerkin methods, nonlinear weak forms,
 adjoints for nonlinear and transient problems, and parallel or GPU backends.
 
 ## Validation

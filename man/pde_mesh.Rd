@@ -9,7 +9,8 @@ pde_mesh(
   triangles,
   boundary_edges = NULL,
   boundary_markers = NULL,
-  fix_orientation = FALSE
+  fix_orientation = FALSE,
+  regions = NULL
 )
 }
 \arguments{
@@ -25,6 +26,10 @@ boundary. When given, it must list every boundary edge exactly once.}
 edges are then marked \code{"boundary"}.}
 
 \item{fix_orientation}{Reorder clockwise triangles instead of failing.}
+
+\item{regions}{Optional character vector with one region (subdomain) name
+per triangle, for piecewise coefficients (\code{\link[=region_coefficient]{region_coefficient()}}).
+Default: every triangle belongs to region \code{"domain"}.}
 }
 \value{
 An object of class \code{pde_mesh} with components \code{nodes}, \code{triangles},

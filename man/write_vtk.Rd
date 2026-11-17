@@ -4,7 +4,7 @@
 \alias{write_vtk}
 \title{Write a VTK file}
 \usage{
-write_vtk(x, file, name = "u", time = NULL)
+write_vtk(x, file, name = "u", time = NULL, stress = FALSE)
 }
 \arguments{
 \item{x}{A \code{\link[=pde_mesh]{pde_mesh()}}, \code{\link[=fe_function]{fe_function()}}, \code{pde_solution},
@@ -15,18 +15,23 @@ write_vtk(x, file, name = "u", time = NULL)
 \item{name}{Name of the point data array (scalar data and displacements).}
 
 \item{time}{Stored time to write for a \code{pde_transient} (default: the last).}
+
+\item{stress}{For elasticity solutions, also write \code{sxx}, \code{syy}, \code{sxy} and
+\code{von_mises} (P1 solutions only, since the stresses are vertex values).}
 }
 \value{
 The file path, invisibly.
 }
 \description{
 Writes a mesh, finite-element function or solution in the legacy ASCII VTK
-unstructured-grid format, readable by ParaView and VisIt. Point data are
-the vertex values; for P2 functions only the vertex values are written
-(the triangles are linear cells). A displacement solution of
-\code{\link[=elasticity_problem]{elasticity_problem()}} is written as a \code{VECTORS} array; a time-dependent
+unstructured-grid format, readable by ParaView and VisIt. P1 data are
+written on linear triangles; P2 data on quadratic triangles (VTK cell type
+22) with all six nodal values, which ParaView renders with curved
+interpolation. A displacement solution of \code{\link[=elasticity_problem]{elasticity_problem()}} is written
+as a \code{VECTORS} array, optionally with the nodal stresses of
+\code{\link[=elasticity_stress]{elasticity_stress()}} (on the vertices, as P1 data). A time-dependent
 solution is written at one stored time (all species for reaction-diffusion
-systems). Call it once per time to write a series.
+systems); call it once per time to write a series.
 }
 \examples{
 f <- tempfile(fileext = ".vtk")

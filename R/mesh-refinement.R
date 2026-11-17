@@ -41,6 +41,7 @@ refine_uniform <- function(mesh) {
   bm <- n + bd$edge
   be <- rbind(cbind(bd$n1, bm), cbind(bm, bd$n2))
   out <- pde_mesh(nodes, tris, be, c(bd$marker, bd$marker))
+  out <- inherit_regions(out, mesh)
   out$info <- refined_info(mesh, E, nvb = FALSE)
   out
 }
@@ -102,6 +103,7 @@ refine_mesh <- function(mesh, marked) {
               cbind(bmid, bd$n2)[split, , drop = FALSE])
   bmk <- c(bd$marker[!split], bd$marker[split], bd$marker[split])
   out <- pde_mesh(nodes, tris, be, bmk)
+  out <- inherit_regions(out, mesh)
   out$info <- refined_info(mesh, E[emark, , drop = FALSE], nvb = TRUE)
   out
 }
@@ -128,7 +130,7 @@ nvb_initial_labeling <- function(mesh) {
   T2[s2, ] <- T[s2, c(2, 3, 1), drop = FALSE]
   T2[s3, ] <- T[s3, c(3, 1, 2), drop = FALSE]
   bd <- mesh$boundary
-  out <- pde_mesh(P, T2, cbind(bd$n1, bd$n2), bd$marker)
+  out <- pde_mesh(P, T2, cbind(bd$n1, bd$n2), bd$marker, regions = mesh_regions(mesh))
   out$info <- mesh$info
   out$info$nvb <- TRUE
   out

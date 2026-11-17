@@ -19,7 +19,10 @@
 #'
 #' Iterative methods use Jacobi (diagonal) preconditioning by default and stop
 #' when `||b - A x|| <= tol * ||b||`. Direct methods report the same relative
-#' residual. A small residual says the linear system was solved accurately;
+#' residual, and status `"singular"` when the ratio of the smallest to the
+#' largest pivot of the factorization is below about `2e-13` (the matrix is
+#' singular to working precision, for example a stiffness matrix without
+#' boundary conditions). A small residual says the linear system was solved accurately;
 #' it says nothing about the discretization error of the PDE.
 #'
 #' @param A A square sparse matrix (`Matrix` class) or base matrix.
@@ -104,6 +107,17 @@ linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgsta
     }
   }
   if (used == "cg" && !sym) stopf("Conjugate gradients require a symmetric matrix.")
+  # Pivot ratio of the factorization: a tiny ratio means the matrix is
+  # singular to working precision even though the factorization succeeded.
+  singular <- FALSE
+  if (!is.null(factor)) {
+    piv <- tryCatch(abs(as.numeric(if (used == "lu") Matrix::diag(factor@U) else Matrix::diag(factor))),
+                    error = function(e) NULL)
+    if (length(piv) && max(piv) > 0) {
+      ratio <- min(piv) / max(piv)
+      singular <- !is.finite(ratio) || ratio < 1e3 * .Machine$double.eps
+    }
+  }
   dinv <- if (preconditioner == "jacobi") {
     d <- Matrix::diag(A)
     ifelse(d != 0, 1 / d, 1)
@@ -129,6 +143,7 @@ linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgsta
     nb <- sqrt(sum(b^2))
     rel <- if (nb > 0) r / nb else r
     if (used %in% c("cholesky", "lu") && !(is.finite(rel) && rel < 1e-6)) status <- "inaccurate"
+    if (singular && status == "solved") status <- "singular"
     if (!all(is.finite(x))) status <- "failed"
     info <- c(list(method = used, status = status, residual = r, relative_residual = rel,
                    iterations = it), base)

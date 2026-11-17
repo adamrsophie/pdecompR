@@ -47,3 +47,25 @@
     displacement vectors and time-dependent solutions;
   * stricter input checks for reaction-diffusion species, boundary edges,
     observations, Dirichlet values, polygon size and Gmsh files.
+
+## Additional features
+
+* `manufactured_solution()` derives source terms and gradients
+  symbolically with 'symcompR' (optional) for verification studies.
+* Mesh regions: `pde_mesh(regions = )`, `set_region()`, `mesh_regions()`,
+  Gmsh physical surfaces, and `region_coefficient()` for piecewise
+  coefficients that keep their geometry under refinement.
+* `elasticity_stress()` returns strains, stresses and the von Mises stress
+  per element or averaged to vertices; `write_vtk(stress = TRUE)` writes them.
+* `write_vtk()` writes P2 data on quadratic triangles (VTK cell type 22).
+* Parabolic problems accept time-dependent diffusion, advection and
+  reaction coefficients (reassembled each step, second order with
+  Crank-Nicolson).
+* Heat and reaction-diffusion solutions record the integral of each
+  species at the stored times (`diagnostics$integral`), shown by
+  `summary()`.
+* Direct solvers report `"singular"` when the factorization has a pivot
+  ratio near machine precision; nonlinear problems without Dirichlet,
+  Robin or reaction terms stop with a message.
+* `benchmarks/reference-problems.R` runs the ten reference problems and
+  records errors, observed orders, timings and peak memory.

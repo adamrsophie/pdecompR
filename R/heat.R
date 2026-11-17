@@ -5,8 +5,13 @@
 #' `du/dt - div(k grad u) + b . grad u + c u = f(x, y, t)` for `t` in
 #' `(time[1], time[2])`, with `u(x, y, time[1]) = initial(x, y)` and
 #' boundary conditions whose data may depend on time (`function(x, y, t)`).
-#' The diffusion, advection and reaction coefficients are time independent,
-#' so the system matrices are assembled once.
+#' Scalar diffusion, advection and reaction coefficients may also depend on
+#' time (`function(x, y, t)`); the operator is then reassembled and
+#' refactorized at every step, with `A(t_{n+1})` on the implicit side and
+#' `A(t_n)` on the explicit side of the theta scheme (second order for
+#' Crank-Nicolson). Otherwise the matrices are assembled and factorized once.
+#' The Rannacher startup steps are skipped for time-dependent coefficients.
+#' SUPG requires time-independent coefficients.
 #'
 #' `heat_problem()` is the heat equation `du/dt - kappa Laplace(u) = f`.
 #'
@@ -60,11 +65,17 @@ parabolic_operators <- function(problem) {
   t0 <- proc.time()[["elapsed"]]
   V <- fe_space(problem$mesh, problem$degree)
   geo <- element_geometry(V, problem$quad_degree)
-  D <- diffusion_qp(problem$diffusion, geo)
+  coef_td <- is_time_function(problem$diffusion) || is_time_function(problem$reaction) ||
+    is_time_function(problem$advection)
+  if (coef_td && problem$stabilization == "supg") {
+    stopf("SUPG with time-dependent coefficients is not supported.")
+  }
+  t_init <- problem$time[1]
+  D <- diffusion_qp(problem$diffusion, geo, t_init)
   if (!is.list(D) && min(D) <= 0) stopf("The diffusion coefficient must be positive.")
-  cq <- coef_qp(problem$reaction, geo, name = "reaction")
+  cq <- coef_qp(problem$reaction, geo, t_init, name = "reaction")
   if (all(cq == 0)) cq <- NULL
-  bq <- vec_qp(problem$advection, geo)
+  bq <- vec_qp(problem$advection, geo, t_init)
   tq <- NULL
   advt <- NULL; madvt <- NULL
   if (problem$stabilization == "supg") {
@@ -81,6 +92,17 @@ parabolic_operators <- function(problem) {
   }
   robin <- natural_bc_terms(V, rb, problem$time[1])$A
   if (!is.null(robin)) A <- A + robin
+  # Operator at time t, reassembled when a coefficient depends on time.
+  A_at <- function(t) {
+    if (!coef_td) return(A)
+    Dt <- diffusion_qp(problem$diffusion, geo, t)
+    if (!is.list(Dt) && min(Dt) <= 0) stopf("The diffusion coefficient must be positive (t = %s).", fmt_num(t))
+    ct <- coef_qp(problem$reaction, geo, t, name = "reaction")
+    if (all(ct == 0)) ct <- NULL
+    At <- global_matrix(V, local_bilinear(geo, mass = ct, adv = vec_qp(problem$advection, geo, t), diff = Dt))
+    if (!is.null(robin)) At <- At + robin
+    At
+  }
   load <- function(t) {
     fq <- coef_qp(problem$source, geo, t, "source")
     g <- if (!is.null(tq)) list(x = tq * fq * bq$x, y = tq * fq * bq$y) else NULL
@@ -89,7 +111,8 @@ parabolic_operators <- function(problem) {
   }
   time_dep <- is_time_function(problem$source) ||
     any(vapply(problem$bcs, function(b) is_time_function(b$value), logical(1)))
-  list(V = V, M = M, A = A, load = load, time_dependent = time_dep,
+  list(V = V, M = M, A = A, A_at = A_at, coef_time_dependent = coef_td, load = load,
+       time_dependent = time_dep,
        assembly_time = proc.time()[["elapsed"]] - t0)
 }
 
@@ -133,7 +156,8 @@ solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson"
   ts <- proc.time()[["elapsed"]]
   slv <- linear_solver(L[free, free, drop = FALSE], solver, ...)
   Lfd <- L[free, bdofs, drop = FALSE]
-  if (startup > 0L) {
+  A_old <- ops$A
+  if (startup > 0L && !ops$coef_time_dependent) {
     Lbe <- ops$M + dt * ops$A
     slv_be <- linear_solver(Lbe[free, free, drop = FALSE], solver, ...)
     Lfd_be <- Lbe[free, bdofs, drop = FALSE]
@@ -148,7 +172,19 @@ solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson"
     tn <- grid[n + 1L]
     F_new <- if (ops$time_dependent) ops$load(tn) else F_old
     be <- n <= startup
+    if (ops$coef_time_dependent) {
+      # Theta scheme with A(t_{n+1}) on the left and A(t_n) on the right.
+      A_new <- ops$A_at(tn)
+      th <- if (be) 1 else theta
+      Ln <- ops$M + (th * dt) * A_new
+      slv <- linear_solver(Ln[free, free, drop = FALSE], solver, ...)
+      Lfd <- Ln[free, bdofs, drop = FALSE]
+      R <- ops$M - ((1 - th) * dt) * A_old
+      A_old <- A_new
+      be <- FALSE
+    }
     rhs <- if (be) as.numeric(ops$M %*% u) + dt * F_new
+           else if (ops$coef_time_dependent) as.numeric(R %*% u) + dt * (th * F_new + (1 - th) * F_old)
            else as.numeric(R %*% u) + dt * (theta * F_new + (1 - theta) * F_old)
     rhs <- rhs[free]
     ud <- if (length(bdofs)) dirichlet_data(V, problem$bcs, tn)$values else numeric()
@@ -166,6 +202,7 @@ solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson"
   if (!is.null(bad)) warn_solver(bad, "linear solve of at least one time step")
   diag <- structure(list(ndof = V$ndof, free = length(free), steps = N, dt = dt,
                          method = method, theta = theta, startup = startup, solver = slv$info,
+                         integral = as.numeric(crossprod(assemble_vector(V, 1), U)),
                          max_relative_residual = max_rel,
                          assembly_time = ops$assembly_time,
                          solve_time = proc.time()[["elapsed"]] - ts),
@@ -243,6 +280,12 @@ summary.pde_transient <- function(object, ...) {
   if (!is.null(d$newton_iterations)) {
     cat("  Newton iterations per step: max", max(d$newton_iterations), " mean",
         fmt_num(mean(d$newton_iterations)), "\n")
+  }
+  if (!is.null(d$integral)) {
+    I <- as.matrix(d$integral)
+    if (nrow(I) == 1L && ncol(I) > 1L && is.null(colnames(I))) I <- t(I)
+    cat("  integral of the solution, first and last stored time:",
+        paste(fmt_num(I[1, ]), "to", fmt_num(I[nrow(I), ]), collapse = "; "), "\n")
   }
   cat("  assembly", fmt_num(d$assembly_time, 3), "s, time stepping", fmt_num(d$solve_time, 3), "s\n")
   invisible(object)
