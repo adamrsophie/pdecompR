@@ -208,29 +208,31 @@ Without a mesh hierarchy, or for P2 spaces,
 [`amg_preconditioner()`](https://adamrsophie.github.io/pdecompR/reference/amg_preconditioner.md)
 builds the hierarchy from the matrix by smoothed aggregation. On an
 unstructured L-shaped mesh with P2 elements its iteration count barely
-moves while Jacobi’s doubles with each halving of `h`:
+moves while Jacobi’s doubles with each halving of `h` (at `h = 0.025`,
+about 130,000 unknowns, Jacobi CG reaches its iteration limit while AMG
+needs 37 iterations):
 
 ``` r
 
 L <- pde_domain("polygon", vertices = cbind(c(0, 2, 2, 1, 1, 0), c(0, 0, 1, 1, 2, 2)))
-sapply(c(0.1, 0.05, 0.025), function(h) {
+sapply(c(0.1, 0.05), function(h) {
   p <- poisson_problem(pde_mesh_polygon(L, h = h), source = 1, boundary = dirichlet_bc(0), degree = 2)
   c(h = h, jacobi = solve_pde(p, method = "cg")$diagnostics$solver$iterations,
     amg = solve_pde(p, method = "cg", preconditioner = amg_preconditioner())$diagnostics$solver$iterations)
 })
-#> Warning: The linear solve finished with status "not converged" (relative
-#> residual 1.031e-10).
-#>         [,1]   [,2]     [,3]
-#> h        0.1   0.05    0.025
-#> jacobi 337.0 682.00 1374.000
-#> amg     32.0  35.00   37.000
+#>         [,1]   [,2]
+#> h        0.1   0.05
+#> jacobi 337.0 682.00
+#> amg     32.0  35.00
 ```
 
-In two dimensions the sparse Cholesky factorization is still as fast as
-AMG preconditioned CG up to about 10^5 unknowns (measured: 1.2 s each
-for 130,000 P2 unknowns, with 0.5 s of AMG setup); AMG’s advantages are
-memory, which grows linearly, and systems where a factorization is not
-available.
+In two dimensions the sparse Cholesky factorization remains faster than
+AMG preconditioned CG at every size measured (0.53 s against 0.82 s for
+66,000 P2 unknowns on the unit square, with similar peak memory), so the
+direct solver stays the default. AMG is the choice among the iterative
+methods: far fewer iterations than Jacobi or SSOR, and it applies where
+geometric multigrid cannot (P2 spaces, unstructured meshes without a
+refinement hierarchy).
 
 ## Cost
 

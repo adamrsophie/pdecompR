@@ -51,9 +51,11 @@ longer cover the same domain as their parents,
 against a finite-element reference from another mesh of the sequence and
 [`l2_project()`](https://adamrsophie.github.io/pdecompR/reference/l2_project.md)
 between them stop with an error; compare with exact functions instead.
-Multigrid prolongation and
+Multigrid prolongation and the one-step P1 path of
 [`transfer_function()`](https://adamrsophie.github.io/pdecompR/reference/transfer_function.md)
-use the chord average at projected nodes.
+use the chord average at projected nodes; other transfers between meshes
+of a curved sequence (P2, or across several refinements) stop with an
+error because the projected nodes lie outside the coarser mesh.
 
 ## Examples
 

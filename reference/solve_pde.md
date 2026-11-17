@@ -146,10 +146,14 @@ solve_pde(
   continues from its final state (stored in `$state`: time, values and
   the extra state of multistep and Newmark schemes, the adaptive step
   size and the number of steps already taken) to `time[2]` of `problem`;
-  the initial condition of `problem` is then ignored. With the same step
+  the initial condition of `problem` is then ignored. With a fixed step
   size, a run split by restarts reproduces one uninterrupted run up to
-  rounding. Save the solution with
-  [`saveRDS()`](https://rdrr.io/r/base/readRDS.html) for checkpointing.
+  rounding. Adaptive SDIRK2 resumes with the stored next step size; it
+  matches an uninterrupted run that also stops at the restart time
+  (include it in `output_times`), and otherwise differs by about the
+  error tolerance because the step sequences differ. Save the solution
+  with [`saveRDS()`](https://rdrr.io/r/base/readRDS.html) for
+  checkpointing.
 
 - maxit:
 
@@ -182,7 +186,7 @@ summary(sol)
 #>   matrix nonzeros: 497
 #>   solver: cholesky, status solved
 #>   linear residual: 1.55e-16 (relative 1.42e-15)
-#>   assembly 0.002 s, solve 0.002 s
+#>   assembly 0.001 s, solve 0.002 s
 #>   solution range [    0, 0.07278]
 #>   (the linear residual measures the algebraic solve, not the discretization error)
 ```

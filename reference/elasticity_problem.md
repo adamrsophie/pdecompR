@@ -92,9 +92,10 @@ Low-order elements lock for nearly incompressible materials (`nu` close
 to 1/2 in plane strain); P2 elements reduce but do not remove the
 effect.
 
-`formulation = "mixed"` removes locking with the displacement-pressure
-formulation: the pressure `p = lambda div u` becomes a separate unknown,
-`sigma = 2 mu eps(u) + p I`, and the weak form is
+`formulation = "mixed"` (for `nu > 0`) removes locking with the
+displacement-pressure formulation: the pressure `p = lambda div u`
+becomes a separate unknown, `sigma = 2 mu eps(u) + p I`, and the weak
+form is
 `int 2 mu eps(u) : eps(v) + int p div v = int f . v + int_N g . v`,
 `int q div u - int p q / lambda = 0`, discretized with P2 displacements
 and P1 pressure (the Taylor-Hood pair, stable as `lambda` grows without
