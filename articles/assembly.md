@@ -222,5 +222,5 @@ for (n in c(16, 32, 64)) {
 }
 #> n =  16  dofs =    289  assembly 0.00s  solve 0.00s
 #> n =  32  dofs =   1089  assembly 0.00s  solve 0.00s
-#> n =  64  dofs =   4225  assembly 0.01s  solve 0.00s
+#> n =  64  dofs =   4225  assembly 0.01s  solve 0.01s
 ```

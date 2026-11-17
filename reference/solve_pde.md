@@ -106,19 +106,20 @@ solve_pde(problem, dt, output_times = NULL, solver = "auto", ...)
 
 - tol:
 
-  Error tolerance per step for adaptive stepping, relative to
-  `max(1, ||u||)`.
+  Tolerance. Time-dependent problems: error tolerance per step for
+  adaptive stepping, relative to `max(1, ||u||)`. Nonlinear problems:
+  Newton tolerance on the free residual norm, relative to the initial
+  residual with an absolute floor of `1e-12`. Stokes problems: GMRES
+  relative residual tolerance.
+
+- maxit:
+
+  Maximum number of Newton iterations.
 
 - newton_tol, newton_maxit:
 
   Newton tolerance (on the residual norm relative to its initial value,
   or absolute `1e-12`) and maximum iterations per step.
-
-- tol, maxit:
-
-  Newton tolerance on the free residual norm (relative to the initial
-  residual, with an absolute floor of `1e-12`) and maximum number of
-  Newton iterations.
 
 ## Value
 
@@ -142,7 +143,7 @@ summary(sol)
 #>   matrix nonzeros: 497
 #>   solver: cholesky, status solved
 #>   linear residual: 1.55e-16 (relative 1.42e-15)
-#>   assembly 0.002 s, solve 0.001 s
+#>   assembly 0.001 s, solve 0.001 s
 #>   solution range [    0, 0.07278]
 #>   (the linear residual measures the algebraic solve, not the discretization error)
 ```

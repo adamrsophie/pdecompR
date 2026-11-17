@@ -176,20 +176,21 @@ from <code>dt</code>. Steps whose estimate exceeds <code>tol</code> are rejected
 
 
 <dt id="arg-tol">tol<a class="anchor" aria-label="anchor" href="#arg-tol"></a></dt>
-<dd><p>Error tolerance per step for adaptive stepping, relative to
-<code>max(1, ||u||)</code>.</p></dd>
+<dd><p>Tolerance. Time-dependent problems: error tolerance per step
+for adaptive stepping, relative to <code>max(1, ||u||)</code>. Nonlinear problems:
+Newton tolerance on the free residual norm, relative to the initial
+residual with an absolute floor of <code>1e-12</code>. Stokes problems: GMRES
+relative residual tolerance.</p></dd>
+
+
+<dt id="arg-maxit">maxit<a class="anchor" aria-label="anchor" href="#arg-maxit"></a></dt>
+<dd><p>Maximum number of Newton iterations.</p></dd>
 
 
 <dt id="arg-newton-tol-newton-maxit">newton_tol, newton_maxit<a class="anchor" aria-label="anchor" href="#arg-newton-tol-newton-maxit"></a></dt>
 <dd><p>Newton tolerance (on the residual norm
 relative to its initial value, or absolute <code>1e-12</code>) and maximum
 iterations per step.</p></dd>
-
-
-<dt id="arg-tol-maxit">tol, maxit<a class="anchor" aria-label="anchor" href="#arg-tol-maxit"></a></dt>
-<dd><p>Newton tolerance on the free residual norm (relative to the
-initial residual, with an absolute floor of <code>1e-12</code>) and maximum number
-of Newton iterations.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -214,7 +215,7 @@ problems with irregular data. <em>Numerische Mathematik</em>, 43, 309-327.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   matrix nonzeros: 497</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   solver: cholesky, status solved</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   linear residual: 1.55e-16 (relative 1.42e-15)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   assembly 0.002 s, solve 0.001 s</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   assembly 0.001 s, solve 0.001 s</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   solution range [    0, 0.07278]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   (the linear residual measures the algebraic solve, not the discretization error)</span>
 </code></pre></div>
