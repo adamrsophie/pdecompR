@@ -78,7 +78,7 @@
 <ul><li>Continuous Lagrange P1 and P2 elements on triangles, scalar and vector valued, with Gaussian quadrature on intervals and triangles.</li>
 <li>Sparse assembly of stiffness, mass, advection and boundary operators and load vectors. Terms with coefficients that are constant on each element are assembled from reference-element matrices, exactly and without a quadrature loop.</li>
 <li>Coefficients given as numbers, functions of <code>(x, y)</code> or <code>(x, y, t)</code>, finite-element functions, constant symmetric tensors or piecewise values by region (<code><a href="../reference/region_coefficient.html">region_coefficient()</a></code>).</li>
-<li>Dirichlet, Neumann and Robin conditions; pure Neumann problems with a compatibility check and a zero-mean gauge.</li>
+<li>Dirichlet, Neumann and Robin conditions; pure Neumann problems with a compatibility check and a zero-mean gauge on each connected component.</li>
 <li>A weak-form language (<code><a href="../reference/trial_function.html">trial_function()</a></code>, <code><a href="../reference/trial_function.html">test_function()</a></code>, <code><a href="../reference/trial_function.html">grad()</a></code>, <code><a href="../reference/trial_function.html">dot()</a></code>, <code><a href="../reference/trial_function.html">integrate_domain()</a></code>, <code><a href="../reference/trial_function.html">integrate_boundary()</a></code>) for linear scalar problems.</li>
 </ul></div>
 <div class="section level3">
@@ -91,19 +91,20 @@
 </ul></div>
 <div class="section level3">
 <h3 id="solvers-0-1-0">Solvers<a class="anchor" aria-label="anchor" href="#solvers-0-1-0"></a></h3>
-<ul><li>Sparse Cholesky and LU, and preconditioned conjugate gradients, BiCGSTAB and GMRES, with residual and conditioning diagnostics and an explicit status for every solve.</li>
+<ul><li>Sparse Cholesky and LU with symmetric equilibration, and preconditioned conjugate gradients, BiCGSTAB and GMRES, with residual and conditioning diagnostics and an explicit status for every solve. Several right-hand sides are solved with one factorization, and time stepping warm starts iterative solvers.</li>
+<li>Jacobi, symmetric Gauss-Seidel (SSOR) and user-supplied preconditioners, and a geometric multigrid V-cycle on nested meshes (<code><a href="../reference/multigrid_preconditioner.html">multigrid_preconditioner()</a></code>) with mesh-independent iteration counts.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="verification-and-adaptivity-0-1-0">Verification and adaptivity<a class="anchor" aria-label="anchor" href="#verification-and-adaptivity-0-1-0"></a></h3>
-<ul><li>L2, H1 and energy error norms against exact or finite-element reference solutions, and convergence studies with observed orders.</li>
+<ul><li>L2, H1 and energy error norms against exact or finite-element reference solutions on nested or unrelated meshes (integrated on the mesh overlay), and convergence studies with observed orders.</li>
 <li>Symbolic manufactured solutions through the optional ‘symcompR’ package.</li>
 <li>A residual a posteriori error estimator, Doerfler marking and an adaptive solve loop.</li>
 <li>A benchmark suite of ten reference problems in <code>benchmarks/</code>.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="inference-and-control-0-1-0">Inference and control<a class="anchor" aria-label="anchor" href="#inference-and-control-0-1-0"></a></h3>
-<ul><li>Discrete forward and adjoint sensitivities of linear elliptic problems.</li>
-<li>Parameter estimation with adjoint gradients, bounds (including fixed parameters) and Gauss-Newton standard errors.</li>
+<ul><li>Discrete forward and adjoint sensitivities of linear elliptic problems, with finite-difference or exact operator derivatives (<code><a href="../reference/affine_derivative.html">affine_derivative()</a></code>) and Taylor remainder checks (<code><a href="../reference/taylor_test.html">taylor_test()</a></code>).</li>
+<li>Parameter estimation with adjoint gradients, bounds (including fixed parameters), Gauss-Newton standard errors and identifiability diagnostics.</li>
 <li>Distributed optimal control with optional control bounds.</li>
 </ul></div>
 </div>

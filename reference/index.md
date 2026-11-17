@@ -67,6 +67,8 @@
 - [`solve_linear_system()`](https://adamrsophie.github.io/pdecompR/reference/solve_linear_system.md)
   [`linear_solver()`](https://adamrsophie.github.io/pdecompR/reference/solve_linear_system.md)
   : Sparse linear solvers
+- [`multigrid_preconditioner()`](https://adamrsophie.github.io/pdecompR/reference/multigrid_preconditioner.md)
+  : Geometric multigrid preconditioner
 
 ## Problems and solvers
 

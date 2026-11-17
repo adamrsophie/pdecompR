@@ -14,7 +14,7 @@ solve_linear_system(
   method = c("auto", "cholesky", "lu", "cg", "bicgstab", "gmres"),
   tol = 1e-10,
   maxit = 10 * length(b),
-  preconditioner = c("jacobi", "none"),
+  preconditioner = "jacobi",
   restart = 50,
   x0 = NULL
 )
@@ -24,7 +24,7 @@ linear_solver(
   method = c("auto", "cholesky", "lu", "cg", "bicgstab", "gmres"),
   tol = 1e-10,
   maxit = NULL,
-  preconditioner = c("jacobi", "none"),
+  preconditioner = "jacobi",
   restart = 50
 )
 ```
@@ -37,7 +37,8 @@ linear_solver(
 
 - b:
 
-  Right-hand side vector.
+  Right-hand side vector, or a matrix of right-hand sides (one per
+  column; direct methods solve all columns with one factorization).
 
 - method:
 
@@ -53,7 +54,9 @@ linear_solver(
 
 - preconditioner:
 
-  `"jacobi"` or `"none"`.
+  `"jacobi"`, `"ssor"`, `"none"`, a `function(r)`, or a preconditioner
+  from
+  [`multigrid_preconditioner()`](https://adamrsophie.github.io/pdecompR/reference/multigrid_preconditioner.md).
 
 - restart:
 
@@ -89,20 +92,25 @@ Methods:
 - `"bicgstab"`, `"gmres"`: preconditioned BiCGSTAB and restarted GMRES
   for general matrices.
 
-Iterative methods use Jacobi (diagonal) preconditioning by default and
-iterate on the scaled system `A y = b / max|b|`, which avoids overflow
-and underflow. They report `"converged"` only when the true residual of
-the returned solution satisfies `||b - A x|| <= tol * ||b||`, and
-`"not converged"` otherwise. Direct methods report the same relative
-residual, status `"inaccurate"` when the normwise backward error
-`||b - A x|| / (||A|| ||x|| + ||b||)` exceeds `1e-8`, and status
-`"near-singular"` when the ratio of the smallest to the largest pivot of
-the factorization is below about `2e-13`. That ratio is a conditioning
-diagnostic: the matrix is singular or nearly singular to working
-precision, for example a stiffness matrix without boundary conditions. A
-system with no unknowns returns method `"none"`. A small residual says
-the linear system was solved accurately; it says nothing about the
-discretization error of the PDE.
+Iterative methods use Jacobi (diagonal) preconditioning by default;
+`"ssor"` is symmetric Gauss-Seidel (two sparse triangular solves per
+application, symmetric for symmetric matrices, so usable with CG); a
+[`multigrid_preconditioner()`](https://adamrsophie.github.io/pdecompR/reference/multigrid_preconditioner.md)
+gives mesh-independent iteration counts on nested meshes; and any
+`function(r)` returning an approximation of `A^{-1} r` can be passed.
+Iterative methods iterate on the scaled system `A y = b / max|b|`, which
+avoids overflow and underflow. They report `"converged"` only when the
+true residual of the returned solution satisfies
+`||b - A x|| <= tol * ||b||`, and `"not converged"` otherwise. Direct
+methods report the same relative residual, status `"inaccurate"` when
+the normwise backward error `||b - A x|| / (||A|| ||x|| + ||b||)`
+exceeds `1e-8`, and status `"near-singular"` when the ratio of the
+smallest to the largest pivot of the factorization is below about
+`2e-13`. That ratio is a conditioning diagnostic: the matrix is singular
+or nearly singular to working precision, for example a stiffness matrix
+without boundary conditions. A system with no unknowns returns method
+`"none"`. A small residual says the linear system was solved accurately;
+it says nothing about the discretization error of the PDE.
 
 ## References
 

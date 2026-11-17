@@ -31,7 +31,7 @@ of the sparse matrix classes of ‘Matrix’.
   values by region
   ([`region_coefficient()`](https://adamrsophie.github.io/pdecompR/reference/region_coefficient.md)).
 - Dirichlet, Neumann and Robin conditions; pure Neumann problems with a
-  compatibility check and a zero-mean gauge.
+  compatibility check and a zero-mean gauge on each connected component.
 - A weak-form language
   ([`trial_function()`](https://adamrsophie.github.io/pdecompR/reference/trial_function.md),
   [`test_function()`](https://adamrsophie.github.io/pdecompR/reference/trial_function.md),
@@ -58,14 +58,21 @@ of the sparse matrix classes of ‘Matrix’.
 
 ### Solvers
 
-- Sparse Cholesky and LU, and preconditioned conjugate gradients,
-  BiCGSTAB and GMRES, with residual and conditioning diagnostics and an
-  explicit status for every solve.
+- Sparse Cholesky and LU with symmetric equilibration, and
+  preconditioned conjugate gradients, BiCGSTAB and GMRES, with residual
+  and conditioning diagnostics and an explicit status for every solve.
+  Several right-hand sides are solved with one factorization, and time
+  stepping warm starts iterative solvers.
+- Jacobi, symmetric Gauss-Seidel (SSOR) and user-supplied
+  preconditioners, and a geometric multigrid V-cycle on nested meshes
+  ([`multigrid_preconditioner()`](https://adamrsophie.github.io/pdecompR/reference/multigrid_preconditioner.md))
+  with mesh-independent iteration counts.
 
 ### Verification and adaptivity
 
 - L2, H1 and energy error norms against exact or finite-element
-  reference solutions, and convergence studies with observed orders.
+  reference solutions on nested or unrelated meshes (integrated on the
+  mesh overlay), and convergence studies with observed orders.
 - Symbolic manufactured solutions through the optional ‘symcompR’
   package.
 - A residual a posteriori error estimator, Doerfler marking and an
@@ -75,7 +82,11 @@ of the sparse matrix classes of ‘Matrix’.
 ### Inference and control
 
 - Discrete forward and adjoint sensitivities of linear elliptic
-  problems.
+  problems, with finite-difference or exact operator derivatives
+  ([`affine_derivative()`](https://adamrsophie.github.io/pdecompR/reference/affine_derivative.md))
+  and Taylor remainder checks
+  ([`taylor_test()`](https://adamrsophie.github.io/pdecompR/reference/taylor_test.md)).
 - Parameter estimation with adjoint gradients, bounds (including fixed
-  parameters) and Gauss-Newton standard errors.
+  parameters), Gauss-Newton standard errors and identifiability
+  diagnostics.
 - Distributed optimal control with optional control bounds.

@@ -82,7 +82,7 @@ Cholesky factorization) for repeated right-hand sides, as in time stepping.</p>
 <span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"cholesky"</span>, <span class="st">"lu"</span>, <span class="st">"cg"</span>, <span class="st">"bicgstab"</span>, <span class="st">"gmres"</span><span class="op">)</span>,</span>
 <span>  tol <span class="op">=</span> <span class="fl">1e-10</span>,</span>
 <span>  maxit <span class="op">=</span> <span class="fl">10</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">b</span><span class="op">)</span>,</span>
-<span>  preconditioner <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"jacobi"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
+<span>  preconditioner <span class="op">=</span> <span class="st">"jacobi"</span>,</span>
 <span>  restart <span class="op">=</span> <span class="fl">50</span>,</span>
 <span>  x0 <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span>
@@ -92,7 +92,7 @@ Cholesky factorization) for repeated right-hand sides, as in time stepping.</p>
 <span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"cholesky"</span>, <span class="st">"lu"</span>, <span class="st">"cg"</span>, <span class="st">"bicgstab"</span>, <span class="st">"gmres"</span><span class="op">)</span>,</span>
 <span>  tol <span class="op">=</span> <span class="fl">1e-10</span>,</span>
 <span>  maxit <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  preconditioner <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"jacobi"</span>, <span class="st">"none"</span><span class="op">)</span>,</span>
+<span>  preconditioner <span class="op">=</span> <span class="st">"jacobi"</span>,</span>
 <span>  restart <span class="op">=</span> <span class="fl">50</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -106,7 +106,8 @@ Cholesky factorization) for repeated right-hand sides, as in time stepping.</p>
 
 
 <dt id="arg-b">b<a class="anchor" aria-label="anchor" href="#arg-b"></a></dt>
-<dd><p>Right-hand side vector.</p></dd>
+<dd><p>Right-hand side vector, or a matrix of right-hand sides (one per
+column; direct methods solve all columns with one factorization).</p></dd>
 
 
 <dt id="arg-method">method<a class="anchor" aria-label="anchor" href="#arg-method"></a></dt>
@@ -122,7 +123,8 @@ Cholesky factorization) for repeated right-hand sides, as in time stepping.</p>
 
 
 <dt id="arg-preconditioner">preconditioner<a class="anchor" aria-label="anchor" href="#arg-preconditioner"></a></dt>
-<dd><p><code>"jacobi"</code> or <code>"none"</code>.</p></dd>
+<dd><p><code>"jacobi"</code>, <code>"ssor"</code>, <code>"none"</code>, a <code>function(r)</code>, or
+a preconditioner from <code><a href="multigrid_preconditioner.html">multigrid_preconditioner()</a></code>.</p></dd>
 
 
 <dt id="arg-restart">restart<a class="anchor" aria-label="anchor" href="#arg-restart"></a></dt>
@@ -152,7 +154,12 @@ symmetric positive definite.</p></li>
 matrices only).</p></li>
 <li><p><code>"bicgstab"</code>, <code>"gmres"</code>: preconditioned BiCGSTAB and restarted GMRES for
 general matrices.</p></li>
-</ul><p>Iterative methods use Jacobi (diagonal) preconditioning by default and
+</ul><p>Iterative methods use Jacobi (diagonal) preconditioning by default;
+<code>"ssor"</code> is symmetric Gauss-Seidel (two sparse triangular solves per
+application, symmetric for symmetric matrices, so usable with CG); a
+<code><a href="multigrid_preconditioner.html">multigrid_preconditioner()</a></code> gives mesh-independent iteration counts on
+nested meshes; and any <code>function(r)</code> returning an approximation of
+<code>A^{-1} r</code> can be passed. Iterative methods
 iterate on the scaled system <code>A y = b / max|b|</code>, which avoids overflow and
 underflow. They report <code>"converged"</code> only when the true residual of the
 returned solution satisfies <code>||b - A x|| &lt;= tol * ||b||</code>, and
