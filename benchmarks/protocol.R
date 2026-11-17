@@ -45,8 +45,12 @@ if (length(args) && args[1] == "--worker") {
       s <- solve_pde(poisson_problem(mesh, source = f, boundary = dirichlet_bc(0), degree = degree),
                      method = method, preconditioner = pc)
       t1 <- el()
-      list(time = c(total = t1 - t0, assembly = s$diagnostics$assembly_time, solve = s$diagnostics$solve_time),
-           s = s)
+      # Only scalars leave run(), so no solution of an earlier repeat stays
+      # alive and inflates the peak RSS; the error is computed off the clock.
+      out <- list(time = c(total = t1 - t0, assembly = s$diagnostics$assembly_time, solve = s$diagnostics$solve_time),
+                  extra = c(error = as.numeric(errornorm(s, u, "L2")), ndof = s$space$ndof))
+      rm(s, mesh)
+      out
     }
   } else {
     V <- fe_space(pde_mesh_rectangle(nx = n), degree)
@@ -57,16 +61,13 @@ if (length(args) && args[1] == "--worker") {
       t1 <- el()
       invisible(global_matrix(V, loc))
       t2 <- el()
-      list(time = c(total = t2 - t0, local = t1 - t0, sparse = t2 - t1))
+      list(time = c(total = t2 - t0, local = t1 - t0, sparse = t2 - t1), extra = c(error = NA_real_, ndof = V$ndof))
     }
   }
   invisible(run()); invisible(run())
   r <- lapply(seq_len(reps), function(i) { gc(); run() })
   tm <- do.call(rbind, lapply(r, `[[`, "time"))
-  extra <- if (kind == "solve") {
-    s <- r[[reps]]$s
-    c(error = as.numeric(errornorm(s, u, "L2")), ndof = s$space$ndof)
-  } else c(error = NA_real_, ndof = V$ndof)
+  extra <- r[[reps]]$extra
   for (i in seq_len(nrow(tm))) {
     cat("REPEAT", paste(c("repeat", colnames(tm)), c(i, tm[i, ]), sep = "=", collapse = ";"), "\n")
   }

@@ -267,7 +267,7 @@ solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson"
                     class = "pde_diagnostics")
   structure(list(times = grid[out_idx], values = U, space = V, problem = problem, diagnostics = diag,
                  state = list(kind = "parabolic", t = t1, u = u, step = done + N, method = method,
-                              space = space_id(V))),
+                              version = state_version, space = space_id(V))),
             class = "pde_transient")
 }
 
@@ -297,6 +297,10 @@ restart_values <- function(s, n, V) {
   s$u
 }
 
+# Layout version of the restart state; a state of another layout is
+# rejected instead of being read wrongly.
+state_version <- 1L
+
 # Identity of a finite-element space for checkpoints: degree and the
 # coordinates of the degrees of freedom in their numbering.
 space_id <- function(V) list(degree = V$degree, coords = V$dof_coords)
@@ -305,7 +309,10 @@ space_id <- function(V) list(degree = V$degree, coords = V$dof_coords)
 # degrees of freedom; the data (loads, boundary values) may change.
 check_restart_space <- function(s, V) {
   id <- s$space
-  if (is.null(id)) stopf("`restart` does not record its finite-element space; recompute it with this version.")
+  if (!identical(s$version, state_version) || is.null(id)) {
+    stopf("`restart` was saved with another state layout (version %s, expected %d); recompute it with this version.",
+          if (is.null(s$version)) "none" else format(s$version), state_version)
+  }
   X <- V$dof_coords
   diam <- max(apply(X, 2, function(z) diff(range(z))))
   if (!identical(as.integer(id$degree), as.integer(V$degree)) || !identical(dim(id$coords), dim(X)) ||
@@ -541,7 +548,10 @@ solve_parabolic_multistage <- function(problem, dt, method, output_times, solver
                          range = rng, max_relative_residual = max_rel, assembly_time = ops$assembly_time,
                          solve_time = proc.time()[["elapsed"]] - ts),
                     class = "pde_diagnostics")
-  state <- list(kind = "parabolic", t = t1, u = u, step = done + steps, method = method, space = space_id(V),
+  # The adaptive loop ends on the endpoint itself (the last step is cut to
+  # it), so the state time is the time actually reached.
+  state <- list(kind = "parabolic", t = if (adaptive) tt else t1, u = u, step = done + steps, method = method,
+                version = state_version, space = space_id(V),
                 u_old = if (method == "bdf2") u_old, dt = if (!adaptive) dt, h = h_next)
   structure(list(times = times, values = U, space = V, problem = problem, diagnostics = diag, state = state),
             class = "pde_transient")

@@ -96,15 +96,39 @@ test_that("one-step waves do not query boundary data after the end time", {
 })
 
 test_that("identifiability is full rank with enough informative observations", {
-  m <- pde_mesh_rectangle(nx = 4)
-  pf <- function(th) poisson_problem(m, diffusion = th[1], source = th[2], boundary = dirichlet_bc(0))
-  obs <- pde_observations(c(.3, .5, .7), c(.5, .5, .3), rep(.1, 3))
-  e <- estimate_parameters(pf, c(1, 1), obs, lower = .1, upper = 10, regularization = .01)
+  m <- pde_mesh_rectangle(nx = 6)
+  pf <- function(th) elliptic_problem(m, diffusion = th[1], reaction = th[2], source = 1, bcs = dirichlet_bc(0))
+  xo <- c(.2, .5, .7, .4); yo <- c(.5, .5, .3, .8)
+  truth <- solve_pde(pf(c(1, 5)))
+  obs <- pde_observations(xo, yo, evaluate(truth$u, xo, yo), sd = 0.01)
+  e <- estimate_parameters(pf, c(1.5, 3), obs, lower = c(.1, .1), upper = c(10, 50))
   id <- e$identifiability
-  expect_identical(id$free_parameters, 2L)
-  expect_lte(id$rank, 2L)
-  expect_identical(ncol(id$null_space), 2L - id$rank)
-  expect_length(id$singular_values, 2L)
+  expect_identical(id$rank, 2L)
+  expect_true(is.finite(id$condition))
+  expect_identical(ncol(id$null_space), 0L)
+  expect_false(is.null(id$correlation))
+})
+
+test_that("transient SUPG adjoint gradients hold for diffusion and with checkpoints", {
+  m <- pde_mesh_rectangle(nx = 8)
+  ob <- function(u) list(value = sum(u^2) / 2, gradient = u)
+  pf <- function(th) parabolic_problem(m, diffusion = .01 * th[2], advection = c(th[1], .2), source = 0,
+    initial = function(x, y) sin(pi * x) * sin(pi * y), bcs = dirichlet_bc(0), time = c(0, .2),
+    stabilization = "supg")
+  for (me in c("backward-euler", "crank-nicolson")) {
+    J <- function(th) ob(solve_pde(pf(th), dt = .02, method = me, startup = 0)$state$u)$value
+    fd <- sapply(1:2, function(j) { e <- c(0, 0); e[j] <- 1e-5; (J(c(1, 1) + e) - J(c(1, 1) - e)) / 2e-5 })
+    g <- transient_sensitivity(pf, c(1, 1), ob, dt = .02, method = me, checkpoint = 3L)$gradient
+    expect_equal(g, fd, tolerance = 1e-6, info = me)
+  }
+})
+
+test_that("old restart states without a layout version are rejected", {
+  p <- heat_problem(pde_mesh_rectangle(nx = 2), initial = 0, time = c(0, .1))
+  a <- solve_pde(p, dt = .05)
+  a$state$version <- NULL
+  expect_error(solve_pde(heat_problem(pde_mesh_rectangle(nx = 2), initial = 0, time = c(0, .2)), dt = .05,
+                         restart = a), "state layout")
 })
 
 test_that("Newmark startup stays second order with moving boundary data", {

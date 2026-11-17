@@ -310,6 +310,6 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
                     class = "pde_diagnostics")
   structure(list(times = grid[out_idx], values = store, space = V, problem = problem, diagnostics = diag,
                  state = list(kind = "reaction-diffusion", t = t1, u = U, step = N, method = method,
-                              space = space_id(V))),
+                              version = state_version, space = space_id(V))),
             class = "pde_transient")
 }

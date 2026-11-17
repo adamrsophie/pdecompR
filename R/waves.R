@@ -97,7 +97,7 @@ solve_pde.wave_problem <- function(problem, dt, output_times = NULL, solver = "a
                  dt, output_times, solver, callback = callback, a0 = st0$a, ...)
   out$diagnostics$assembly_time <- ops$assembly_time
   structure(list(times = out$times, values = out$U, velocity = out$Vel, space = V, problem = problem,
-                 diagnostics = out$diagnostics, state = c(list(kind = "wave", space = space_id(V)), out$state)),
+                 diagnostics = out$diagnostics, state = c(list(kind = "wave", version = state_version, space = space_id(V)), out$state)),
             class = "pde_transient")
 }
 
@@ -127,7 +127,7 @@ solve_pde.elastodynamics_problem <- function(problem, dt, output_times = NULL, s
   out$diagnostics$assembly_time <- disc$assembly_time
   split <- function(U) list(ux = U[seq_len(n), , drop = FALSE], uy = U[n + seq_len(n), , drop = FALSE])
   structure(list(times = out$times, values = split(out$U), velocity = split(out$Vel), space = V,
-                 problem = problem, diagnostics = out$diagnostics, state = c(list(kind = "elastodynamics", space = space_id(V)), out$state)),
+                 problem = problem, diagnostics = out$diagnostics, state = c(list(kind = "elastodynamics", version = state_version, space = space_id(V)), out$state)),
             class = "pde_transient")
 }
 

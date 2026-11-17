@@ -122,7 +122,7 @@ estimate_parameters <- function(problem_fun, theta0, observations, mesh = NULL,
   }
   ident <- list(singular_values = d, rank = rank, free_parameters = nfree,
                 condition = if (rank < nfree) Inf else max(d) / min(d),
-                directions = sv$v, null_space = sv$v[, seq_len(nfree)[-seq_len(rank)], drop = FALSE],
+                directions = sv$v, null_space = sv$v[, seq_len(nfree) > rank, drop = FALSE],
                 correlation = cor_m)
   H <- G + diag(regularization, length(est))
   se <- tryCatch({

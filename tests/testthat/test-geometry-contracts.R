@@ -83,3 +83,24 @@ test_that("relabeling generic boundary drops its curve as documented", {
   midpoint <- (m$nodes[E[,1],]+m$nodes[E[,2],])/2
   expect_equal(fine$nodes[n+seq_len(nrow(E)),],midpoint,tolerance=1e-12)
 })
+
+test_that("curves follow their edges through local refinement and partial relabeling", {
+  th <- 2 * pi * (1:8) / 8
+  m <- curved_boundary(pde_mesh_polygon(cbind(cos(th), sin(th))), "boundary",
+                       function(x, y) cbind(x, y) / sqrt(x * x + y * y))
+  near <- function(f) which(rowSums(matrix(sqrt(rowSums(f$nodes[f$triangles, ]^2)) > 0.99, ncol = 3)) >= 2)
+  f <- refine_mesh(refine_mesh(m, near(m)[1:2]), near(m)[1:3])
+  bd <- f$boundary
+  expect_false(anyNA(bd$curve))
+  expect_equal(sqrt(rowSums(f$nodes[unique(c(bd$n1, bd$n2)), ]^2)), rep(1, length(unique(c(bd$n1, bd$n2)))),
+               tolerance = 1e-12)
+  # Relabel the edges in the upper half straight; only the lower half stays curved.
+  s <- set_boundary_marker(m, "flat", function(x, y) y > 1e-9)
+  r <- refine_uniform(s); n <- nrow(s$nodes); E <- s$edges
+  rad <- sqrt(rowSums(r$nodes[n + seq_len(nrow(E)), ]^2))
+  bmid <- match(paste(pmin(s$boundary$n1, s$boundary$n2), pmax(s$boundary$n1, s$boundary$n2)),
+                paste(pmin(E[, 1], E[, 2]), pmax(E[, 1], E[, 2])))
+  upper <- s$boundary$marker == "flat"
+  expect_equal(rad[bmid[!upper]], rep(1, sum(!upper)), tolerance = 1e-12)
+  expect_true(all(rad[bmid[upper]] < 1 - 1e-3))
+})

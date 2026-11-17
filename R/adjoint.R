@@ -113,7 +113,7 @@ transient_sensitivity <- function(problem_fun, theta, objective, dt,
         if (c1 == c0) { seg <<- ck[, match(c0, keep), drop = FALSE]; seg_lo <<- c0; return(seg[, 1]) }
         pr <- prob; pr$time <- c(t0, grid[c1])
         rs <- structure(list(state = list(kind = "parabolic", t = grid[c0], u = ck[, match(c0, keep)],
-                                          step = c0 - 1L, method = method, space = space_id(V))),
+                                          step = c0 - 1L, method = method, version = state_version, space = space_id(V))),
                        class = "pde_transient")
         sg <- solve_pde(pr, dt = dt, method = method, startup = 0L, restart = rs, ...)
         seg <<- sg$values; seg_lo <<- c0
