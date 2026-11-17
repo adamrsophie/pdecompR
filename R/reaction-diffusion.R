@@ -151,7 +151,15 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
     dimnames(r) <- list(NULL, sp)
     r
   }
-  natload <- function(s, t) natural_bc_terms(V, problem$bcs[[s]], t)$b
+  # Boundary loads: assembled once per species unless the data depend on t.
+  nat_const <- lapply(sp, function(s) {
+    if (any(vapply(problem$bcs[[s]], function(b) is_time_function(b$value), logical(1)))) NULL
+    else natural_bc_terms(V, problem$bcs[[s]], problem$time[1], matrix = FALSE)$b
+  })
+  names(nat_const) <- sp
+  natload <- function(s, t) {
+    if (!is.null(nat_const[[s]])) nat_const[[s]] else natural_bc_terms(V, problem$bcs[[s]], t, matrix = FALSE)$b
+  }
   store <- lapply(sp, function(s) matrix(NA_real_, n, length(out_idx)))
   names(store) <- sp
   k_out <- 1L
@@ -196,6 +204,14 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
     Lb <- Mb + dt * Kb
     fixed <- unlist(lapply(seq_len(ns), function(i) (i - 1L) * n + dir[[sp[i]]]$dofs))
     freeb <- setdiff(seq_len(n * ns), fixed)
+    # Fixed sparsity of the pointwise reaction Jacobian (block diagonal per
+    # species pair) and the free-row blocks of the constant operators, built
+    # once for all steps and Newton iterations.
+    ii <- rep(seq_len(n), ns * ns)
+    JI <- ii + rep((rep(seq_len(ns), times = ns) - 1L) * n, each = n)
+    JJ <- ii + rep((rep(seq_len(ns), each = ns) - 1L) * n, each = n)
+    Lff <- Lb[freeb, freeb, drop = FALSE]
+    Mf <- Mb[freeb, , drop = FALSE]
     jac_r <- function(U, t) {
       if (!is.null(problem$jacobian)) return(problem$jacobian(U, xy[, 1], xy[, 2], t))
       J <- array(0, c(n, ns, ns))
@@ -209,7 +225,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
     }
     for (k in seq_len(N)) {
       tn <- grid[k + 1L]
-      zold <- as.vector(U)
+      mzold <- as.numeric(Mb %*% as.vector(U))
       Fn <- unlist(lapply(sp, function(s) natload(s, tn)))
       Z <- U
       for (s in sp) {
@@ -218,7 +234,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
       }
       resid <- function(Z) {
         z <- as.vector(Z)
-        g <- as.numeric(Lb %*% z) - as.numeric(Mb %*% zold) -
+        g <- as.numeric(Lb %*% z) - mzold -
           dt * as.numeric(Mb %*% as.vector(reac(Z, tn))) - dt * Fn
         g[freeb]
       }
@@ -227,11 +243,8 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
       while (gn > max(newton_tol * g0, 1e-12) && it < newton_maxit) {
         it <- it + 1L
         J <- jac_r(Z, tn)
-        blocks <- lapply(seq_len(ns), function(a) lapply(seq_len(ns), function(b) {
-          Matrix::Diagonal(x = J[, a, b])
-        }))
-        JR <- do.call(rbind, lapply(blocks, function(row) do.call(cbind, row)))
-        Jac <- (Lb - dt * Mb %*% JR)[freeb, freeb, drop = FALSE]
+        JR <- Matrix::sparseMatrix(i = JI, j = JJ, x = as.vector(J), dims = c(n * ns, n * ns))
+        Jac <- Lff - dt * (Mf %*% JR[, freeb, drop = FALSE])
         ls <- solve_linear_system(Jac, -g, method = if (solver == "auto") "lu" else solver, ...)
         if (!ls$info$status %in% c("solved", "converged")) bad <- ls$info
         max_rel <- max(max_rel, ls$info$relative_residual)

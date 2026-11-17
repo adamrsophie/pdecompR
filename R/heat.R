@@ -107,7 +107,7 @@ parabolic_operators <- function(problem) {
     fq <- coef_qp(problem$source, geo, t, "source")
     g <- if (!is.null(tq)) list(x = tq * fq * bq$x, y = tq * fq * bq$y) else NULL
     global_vector(V, local_linear(geo, f = fq, g = g)) +
-      natural_bc_terms(V, problem$bcs, t, problem$quad_degree)$b
+      natural_bc_terms(V, problem$bcs, t, problem$quad_degree, matrix = FALSE)$b
   }
   time_dep <- is_time_function(problem$source) ||
     any(vapply(problem$bcs, function(b) is_time_function(b$value), logical(1)))

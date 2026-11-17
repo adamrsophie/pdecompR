@@ -93,17 +93,18 @@ dirichlet_data <- function(space, bcs, t = NULL) {
 }
 
 # Boundary matrix and load contributions of Neumann and Robin conditions.
-natural_bc_terms <- function(space, bcs, t = NULL, quad_degree = NULL) {
+# With `matrix = FALSE` only the load is assembled (time stepping, where the
+# Robin matrix is assembled once).
+natural_bc_terms <- function(space, bcs, t = NULL, quad_degree = NULL, matrix = TRUE) {
   A <- NULL
   b <- numeric(space$ndof)
   for (bc in bcs) {
-    if (bc$type == "neumann") {
-      b <- b + assemble_boundary_vector(space, bc$value, bc$marker, t, quad_degree)
-    } else if (bc$type == "robin") {
+    if (!bc$type %in% c("neumann", "robin")) next
+    if (matrix && bc$type == "robin") {
       R <- assemble_boundary_matrix(space, bc$alpha, bc$marker, t, quad_degree)
       A <- if (is.null(A)) R else A + R
-      b <- b + assemble_boundary_vector(space, bc$value, bc$marker, t, quad_degree)
     }
+    b <- b + assemble_boundary_vector(space, bc$value, bc$marker, t, quad_degree)
   }
   list(A = A, b = b)
 }
