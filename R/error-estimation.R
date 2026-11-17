@@ -116,8 +116,8 @@ errornorm <- function(u, exact, type = c("L2", "H1_semi", "H1", "energy"), gradi
     ex <- matrix(g[, 1], geo$m) - uh$dx; ey <- matrix(g[, 2], geo$m) - uh$dy
     d2 <- ex^2 + ey^2
     if (type == "energy") {
-      d2 <- if (is.matrix(diffusion) && is.numeric(diffusion)) {
-        diffusion[1, 1] * ex^2 + (diffusion[1, 2] + diffusion[2, 1]) * ex * ey + diffusion[2, 2] * ey^2
+      d2 <- if (!is.null(tensor_at(diffusion, 0, 0))) {
+        energy_density(diffusion, ex, ey, geo$x, geo$y)
       } else {
         d2 * coef_qp(diffusion, geo, name = "diffusion")
       }
@@ -298,6 +298,10 @@ estimate_error <- function(solution, diffusion_gradient = NULL) {
   bq <- vec_qp(prob$advection, geo)
   if (!is.null(bq)) R <- R - (bq$x * uh$dx + bq$y * uh$dy)
   k <- prob$diffusion
+  if (inherits(k, "pde_tensor")) {
+    stopf(paste0("estimate_error() supports scalar and constant tensor diffusion; for a spatially ",
+                 "varying tensor use errornorm() against a reference solution."))
+  }
   Kt <- if (is.matrix(k) && is.numeric(k)) k else NULL
   if (is.function(k) || inherits(k, "fe_function")) {
     kq <- coef_qp(k, geo, name = "diffusion")

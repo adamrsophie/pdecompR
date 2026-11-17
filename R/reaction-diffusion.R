@@ -66,7 +66,7 @@ reaction_diffusion_problem <- function(mesh, species = "u", diffusion = 1, react
     }
     x[species]
   }
-  if (is.function(diffusion) || inherits(diffusion, "fe_function") || is.matrix(diffusion)) {
+  if (is.function(diffusion) || inherits(diffusion, c("fe_function", "pde_tensor")) || is.matrix(diffusion)) {
     diffusion <- rep(list(diffusion), ns)
   }
   if (!is.list(diffusion)) {

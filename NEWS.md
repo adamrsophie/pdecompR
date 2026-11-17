@@ -14,7 +14,8 @@ the sparse matrix classes of 'Matrix'.
   regions are inherited by refined meshes.
 * Import of Gmsh 2.2 and 4.1 meshes (physical lines become boundary
   markers, physical surfaces become regions) and export to VTK, including
-  quadratic P2 cells, displacement vectors and stress fields.
+  quadratic P2 cells, displacement vectors and stress fields, in legacy and
+  XML (`.vtu`) formats, and ParaView time series (`write_pvd()`).
 
 ## Discretization
 
@@ -25,8 +26,11 @@ the sparse matrix classes of 'Matrix'.
   are assembled from reference-element matrices, exactly and without a
   quadrature loop.
 * Coefficients given as numbers, functions of `(x, y)` or `(x, y, t)`,
-  finite-element functions, constant symmetric tensors or piecewise values
-  by region (`region_coefficient()`).
+  finite-element functions, constant or spatially varying symmetric tensors
+  (`tensor_coefficient()`) or piecewise values by region
+  (`region_coefficient()`).
+* Interpolation, exact transfer to refined meshes, and conservative L2
+  projection between any two meshes of a domain (`l2_project()`).
 * Dirichlet, Neumann and Robin conditions; pure Neumann problems with a
   compatibility check and a zero-mean gauge on each connected component.
 * A weak-form language (`trial_function()`, `test_function()`, `grad()`,

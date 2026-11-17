@@ -103,16 +103,86 @@ overlay_error <- function(u, ref, type, diffusion, quad_degree) {
     if (type %in% c("L2", "H1")) val <- val + (gu$value - gr$value)^2
     if (type %in% c("H1_semi", "H1", "energy")) {
       ex <- gu$dx - gr$dx; ey <- gu$dy - gr$dy
-      d2 <- if (type != "energy") ex^2 + ey^2
-            else if (is.matrix(diffusion) && is.numeric(diffusion)) {
-              diffusion[1, 1] * ex^2 + (diffusion[1, 2] + diffusion[2, 1]) * ex * ey + diffusion[2, 2] * ey^2
-            } else (ex^2 + ey^2) * eval_spatial(diffusion, x, y, name = "diffusion")
+      d2 <- if (type != "energy") ex^2 + ey^2 else energy_density(diffusion, ex, ey, x, y)
       val <- val + d2
     }
     e2 <- e2 + 2 * q$weights[k] * ar * val
   }
   out <- numeric(ma)
   s <- rowsum(e2, ov$ea, reorder = TRUE)
+  out[as.integer(rownames(s))] <- s[, 1]
+  out
+}
+
+#' Conservative L2 projection
+#'
+#' Computes the L2 projection `P f` of `f` onto `space`: the finite-element
+#' function with `int (P f) v = int f v` for every `v` in the space. Because
+#' constants belong to the space, the projection preserves the integral of
+#' `f` over the domain (and over any union of elements for P1 and P2), which
+#' interpolation does not.
+#'
+#' `f` may be a number, a `function(x, y)`, or an [fe_function()] on any mesh
+#' of the same domain. For a finite-element function on another mesh the
+#' load integrals are computed exactly on the overlay of the two meshes
+#' (pointwise on the target mesh when it refines the source mesh), so the
+#' transfer is conservative up to rounding.
+#'
+#' @param f Function to project.
+#' @param space Target [fe_space()].
+#' @param quad_degree Quadrature exactness degree for the load integrals.
+#' @return An [fe_function()] on `space`.
+#' @examples
+#' a <- interpolate(function(x, y) sin(5 * x) * y, fe_space(pde_mesh_rectangle(nx = 12)))
+#' V <- fe_space(pde_mesh_rectangle(nx = 5, pattern = "left"))
+#' p <- l2_project(a, V)
+#' c(sum(assemble_matrix(a$space, "mass") %*% a$values),
+#'   sum(assemble_matrix(V, "mass") %*% p$values))
+#' @export
+l2_project <- function(f, space, quad_degree = NULL) {
+  stopifnot(inherits(space, "fe_space"))
+  M <- assemble_matrix(space, "mass", quad_degree = quad_degree)
+  b <- if (inherits(f, "fe_function") && !same_space(f$space, space) &&
+           is.null(nested_parent(space$mesh, f$space$mesh))) {
+    if (is.null(quad_degree)) quad_degree <- f$space$degree + space$degree + 2L
+    overlay_load(f, space, quad_degree)
+  } else {
+    assemble_vector(space, f, quad_degree = quad_degree)
+  }
+  s <- solve_linear_system(M, b)
+  warn_solver(s$info, "projection solve")
+  fe_function(space, s$x, name = if (inherits(f, "fe_function")) f$name else NULL)
+}
+
+# int f phi_i over the overlay of f's mesh and the target mesh.
+overlay_load <- function(f, space, quad_degree) {
+  ov <- mesh_overlay(space$mesh, f$space$mesh)
+  V <- ov$vertices
+  ar <- abs((V[, 3] - V[, 1]) * (V[, 6] - V[, 2]) - (V[, 5] - V[, 1]) * (V[, 4] - V[, 2])) / 2
+  la <- sum(abs(tri_det(space$mesh$nodes, space$mesh$triangles))) / 2
+  lb <- sum(abs(tri_det(f$space$mesh$nodes, f$space$mesh$triangles))) / 2
+  if (abs(sum(ar) - la) > 1e-9 * la || abs(sum(ar) - lb) > 1e-9 * lb) {
+    stopf("The two meshes do not cover the same domain (areas %s and %s).", fmt_num(la), fmt_num(lb))
+  }
+  P <- space$mesh$nodes; T <- space$mesh$triangles[ov$ea, , drop = FALSE]
+  x1 <- P[T[, 1], 1]; y1 <- P[T[, 1], 2]
+  b11 <- P[T[, 2], 1] - x1; b12 <- P[T[, 3], 1] - x1
+  b21 <- P[T[, 2], 2] - y1; b22 <- P[T[, 3], 2] - y1
+  det <- b11 * b22 - b12 * b21
+  q <- quadrature_triangle(quad_degree)
+  nl <- space$element$ndof
+  B <- matrix(0, length(ar), nl)
+  for (k in seq_along(q$weights)) {
+    l2 <- q$points[k, 1]; l3 <- q$points[k, 2]; l1 <- 1 - l2 - l3
+    x <- l1 * V[, 1] + l2 * V[, 3] + l3 * V[, 5]
+    y <- l1 * V[, 2] + l2 * V[, 4] + l3 * V[, 6]
+    fv <- grad_in_elements(f, ov$eb, x, y)$value
+    dx <- x - x1; dy <- y - y1
+    xi <- (b22 * dx - b12 * dy) / det; eta <- (-b21 * dx + b11 * dy) / det
+    B <- B + (2 * q$weights[k] * ar * fv) * space$element$basis(xi, eta)
+  }
+  out <- numeric(space$ndof)
+  s <- rowsum(as.vector(B), as.vector(space$cell_dofs[ov$ea, , drop = FALSE]), reorder = TRUE)
   out[as.integer(rownames(s))] <- s[, 1]
   out
 }

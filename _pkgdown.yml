@@ -56,9 +56,11 @@ reference:
   - set_boundary_marker
   - mesh_regions
   - region_coefficient
+  - tensor_coefficient
   - refine_uniform
   - read_gmsh
   - write_vtk
+  - write_pvd
 - title: Finite elements and quadrature
   contents:
   - fe_element
@@ -67,6 +69,7 @@ reference:
   - boundary_dofs
   - evaluate
   - transfer_function
+  - l2_project
   - quadrature_interval
   - integrate_mesh
   - element_stiffness_p1

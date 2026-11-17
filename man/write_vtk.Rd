@@ -10,7 +10,7 @@ write_vtk(x, file, name = "u", time = NULL, stress = FALSE)
 \item{x}{A \code{\link[=pde_mesh]{pde_mesh()}}, \code{\link[=fe_function]{fe_function()}}, \code{pde_solution},
 \code{pde_vector_solution} or \code{pde_transient}.}
 
-\item{file}{Output path.}
+\item{file}{Output path (\code{.vtk} for legacy, \code{.vtu} for XML).}
 
 \item{name}{Name of the point data array (scalar data and displacements).}
 
@@ -31,7 +31,11 @@ interpolation. A displacement solution of \code{\link[=elasticity_problem]{elast
 as a \code{VECTORS} array, optionally with the nodal stresses of
 \code{\link[=elasticity_stress]{elasticity_stress()}} (on the vertices, as P1 data). A time-dependent
 solution is written at one stored time (all species for reaction-diffusion
-systems); call it once per time to write a series.
+systems); \code{\link[=write_pvd]{write_pvd()}} writes a whole series.
+}
+\details{
+A \code{file} ending in \code{.vtu} is written in the XML VTK format instead, with
+the same content.
 }
 \examples{
 f <- tempfile(fileext = ".vtk")

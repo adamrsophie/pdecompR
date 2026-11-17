@@ -290,7 +290,66 @@ assemble_boundary_vector <- function(space, g, marker = "boundary", t = NULL,
   out
 }
 
+#' Spatially varying diffusion tensors
+#'
+#' Builds a symmetric diffusion tensor `K = [[xx, xy], [xy, yy]]` whose
+#' entries are numbers or functions of `(x, y)` (or `(x, y, t)`), for
+#' anisotropic media whose principal directions or strengths vary in space.
+#' Use it wherever a diffusion coefficient is accepted. Positive
+#' definiteness is checked at every quadrature point during assembly.
+#'
+#' @param xx,xy,yy Tensor entries.
+#' @return An object of class `pde_tensor`.
+#' @examples
+#' # Diffusion aligned with circles around the origin
+#' K <- tensor_coefficient(function(x, y) 1 + y^2, function(x, y) -x * y,
+#'                         function(x, y) 1 + x^2)
+#' p <- elliptic_problem(pde_mesh_rectangle(nx = 8), diffusion = K, source = 1,
+#'                       bcs = dirichlet_bc(0))
+#' max(solve_pde(p)$u$values)
+#' @export
+tensor_coefficient <- function(xx, xy = 0, yy = xx) {
+  for (nm in c("xx", "xy", "yy")) check_coefficient(get(nm), paste0("tensor entry `", nm, "`"))
+  structure(list(xx = xx, xy = xy, yy = yy), class = "pde_tensor")
+}
+
+#' @export
+print.pde_tensor <- function(x, ...) {
+  d <- function(v) if (is.function(v)) "function" else fmt_num(v)
+  cat("<pde_tensor> xx = ", d(x$xx), ", xy = ", d(x$xy), ", yy = ", d(x$yy), "\n", sep = "")
+  invisible(x)
+}
+
+# Entries of a constant 2 by 2 matrix or a pde_tensor at points, or NULL for
+# a scalar coefficient.
+tensor_at <- function(k, x, y, t = NULL) {
+  if (inherits(k, "pde_tensor")) {
+    e <- lapply(k[c("xx", "xy", "yy")], function(v) eval_spatial(v, x, y, t = t, name = "diffusion tensor"))
+    return(list(xx = e$xx, xy = e$xy, yx = e$xy, yy = e$yy))
+  }
+  if (is.matrix(k) && is.numeric(k)) {
+    n <- length(x)
+    return(list(xx = rep(k[1, 1], n), xy = rep(k[1, 2], n), yx = rep(k[2, 1], n), yy = rep(k[2, 2], n)))
+  }
+  NULL
+}
+
+# K-weighted squared norm of (ex, ey) for scalar or tensor diffusion.
+energy_density <- function(k, ex, ey, x, y, kq = NULL) {
+  K <- tensor_at(k, x, y)
+  if (is.null(K)) return((ex^2 + ey^2) * (if (is.null(kq)) eval_spatial(k, x, y, name = "diffusion") else kq))
+  K$xx * ex^2 + (K$xy + K$yx) * ex * ey + K$yy * ey^2
+}
+
 diffusion_qp <- function(k, geo, t = NULL) {
+  if (inherits(k, "pde_tensor")) {
+    K <- tensor_at(k, as.vector(geo$x), as.vector(geo$y), t)
+    if (any(!is.finite(unlist(K)))) stopf("The diffusion tensor must be finite.")
+    if (any(K$xx <= 0 | K$xx * K$yy - K$xy^2 <= 0)) {
+      stopf("The diffusion tensor must be positive definite at every quadrature point.")
+    }
+    return(lapply(K, matrix, geo$m, geo$nq))
+  }
   if (is.matrix(k) && is.numeric(k)) {
     if (!all(dim(k) == 2L)) stopf("A tensor diffusion coefficient must be a 2 by 2 matrix.")
     if (any(!is.finite(k))) stopf("The diffusion tensor must be finite.")

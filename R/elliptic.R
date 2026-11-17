@@ -96,6 +96,7 @@ poisson_problem <- function(mesh, diffusion = 1, source = 0, boundary = list(), 
 check_coefficient <- function(v, name, allow_matrix = FALSE) {
   if (is.null(v) || is.function(v) || inherits(v, "fe_function")) return(invisible(TRUE))
   if (allow_matrix && is.matrix(v) && is.numeric(v) && all(dim(v) == 2L)) return(invisible(TRUE))
+  if (allow_matrix && inherits(v, "pde_tensor")) return(invisible(TRUE))
   if (is.numeric(v) && length(v) == 1L && is.finite(v)) return(invisible(TRUE))
   stopf("`%s` must be a finite number or a function of (x, y).", name)
 }
@@ -163,11 +164,12 @@ supg_tau <- function(mesh, diffusion, advection, degree = 1L) {
   bv <- if (is.numeric(advection)) matrix(advection, length(cx), 2, byrow = TRUE)
         else as.matrix(advection(cx, cy))
   bn <- sqrt(rowSums(bv^2))
-  k <- if (is.matrix(diffusion) && is.numeric(diffusion)) {
+  K <- tensor_at(diffusion, cx, cy)
+  k <- if (!is.null(K)) {
     # streamline diffusivity b'Kb / |b|^2
-    sk <- (diffusion[1, 1] * bv[, 1]^2 + (diffusion[1, 2] + diffusion[2, 1]) * bv[, 1] * bv[, 2] +
-             diffusion[2, 2] * bv[, 2]^2) / pmax(bn^2, .Machine$double.xmin)
-    ifelse(bn > 0, sk, min(diag(diffusion)))
+    sk <- (K$xx * bv[, 1]^2 + (K$xy + K$yx) * bv[, 1] * bv[, 2] + K$yy * bv[, 2]^2) /
+      pmax(bn^2, .Machine$double.xmin)
+    ifelse(bn > 0, sk, pmin(K$xx, K$yy))
   } else {
     eval_spatial(diffusion, cx, cy, name = "diffusion")
   }

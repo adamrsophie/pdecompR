@@ -98,3 +98,49 @@ test_that("Gmsh physical surfaces become regions", {
   g <- read_gmsh(f)
   expect_equal(mesh_regions(g), c("left", "left", "right", "right"))
 })
+
+test_that("L2 projection is conservative across unrelated meshes", {
+  a <- interpolate(function(x, y) sin(5 * x) * y, fe_space(pde_mesh_rectangle(nx = 8)))
+  I <- function(u) sum(assemble_matrix(u$space, "mass") %*% u$values)
+  for (V in list(fe_space(pde_mesh_rectangle(nx = 5, pattern = "left")),
+                 fe_space(pde_mesh_rectangle(nx = 3), 2), fe_space(refine_uniform(a$space$mesh)))) {
+    expect_equal(I(l2_project(a, V)), I(a), tolerance = 1e-13)
+  }
+  g <- function(x, y) 1 + 2 * x - y
+  q <- l2_project(interpolate(g, fe_space(pde_mesh_rectangle(nx = 3))), fe_space(pde_mesh_rectangle(nx = 4, pattern = "left")))
+  expect_lt(max(abs(q$values - g(q$space$dof_coords[, 1], q$space$dof_coords[, 2]))), 1e-12)
+  expect_equal(I(l2_project(g, fe_space(pde_mesh_rectangle(nx = 4)))), 1.5, tolerance = 1e-12)
+})
+
+test_that("VTU and PVD output", {
+  p <- heat_problem(pde_mesh_rectangle(nx = 2), initial = function(x, y) x * y, bcs = dirichlet_bc(0), time = c(0, 0.1))
+  s <- solve_pde(p, dt = 0.05)
+  d <- tempfile(); dir.create(d)
+  write_pvd(s, file.path(d, "a.pvd"))
+  expect_setequal(list.files(d), c("a.pvd", sprintf("a_%04d.vtu", 1:3)))
+  x <- readLines(file.path(d, "a_0001.vtu"))
+  expect_true(any(grepl('NumberOfPoints="9" NumberOfCells="8"', x, fixed = TRUE)))
+  expect_equal(sum(grepl('timestep=', readLines(file.path(d, "a.pvd")))), 3L)
+  f <- file.path(d, "q.vtu")
+  write_vtk(fe_function(fe_space(pde_mesh_rectangle(nx = 1), 2), 1:9), f)
+  y <- readLines(f)
+  expect_equal(y[which(y == '<DataArray type="UInt8" Name="types" format="ascii">') + 1L], "22 22")
+  expect_error(write_pvd(pde_mesh_rectangle(nx = 1), f), "time-dependent")
+})
+
+test_that("spatially varying diffusion tensors", {
+  m <- pde_mesh_rectangle(nx = 8)
+  a <- solve_pde(elliptic_problem(m, diffusion = matrix(c(2, 0.3, 0.3, 1), 2), source = 1, bcs = dirichlet_bc(0)))
+  b <- solve_pde(elliptic_problem(m, diffusion = tensor_coefficient(function(x, y) 2 + 0 * x, 0.3, 1),
+                                  source = 1, bcs = dirichlet_bc(0)))
+  expect_lt(max(abs(a$u$values - b$u$values)), 1e-13)
+  u <- function(x, y) sin(pi * x) * sin(pi * y)
+  f <- function(x, y) -pi * cos(pi * x) * sin(pi * y) + (2 + x) * pi^2 * u(x, y) - pi^2 * cos(pi * x) * cos(pi * y)
+  K <- tensor_coefficient(function(x, y) 1 + x, 0.5, 1)
+  e <- vapply(c(8, 16), function(n) errornorm(solve_pde(elliptic_problem(pde_mesh_rectangle(nx = n), diffusion = K,
+                                                        source = f, bcs = dirichlet_bc(0))), u), numeric(1))
+  expect_gt(log2(e[1] / e[2]), 1.9)
+  expect_error(solve_pde(elliptic_problem(m, diffusion = tensor_coefficient(1, 2, 1), source = 1,
+                                          bcs = dirichlet_bc(0))), "positive definite")
+  expect_error(estimate_error(b), "constant tensor")
+})
