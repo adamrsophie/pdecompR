@@ -132,8 +132,11 @@ parabolic_operators <- function(problem) {
 #' @param adaptive For `"sdirk2"`: choose the step size from an embedded
 #'   first-order error estimate (L2 norm through the mass matrix), starting
 #'   from `dt`. Steps whose estimate exceeds `tol` are rejected and retried.
-#' @param tol Error tolerance per step for adaptive stepping, relative to
-#'   `max(1, ||u||)`.
+#' @param tol Tolerance. Time-dependent problems: error tolerance per step
+#'   for adaptive stepping, relative to `max(1, ||u||)`. Nonlinear problems:
+#'   Newton tolerance on the free residual norm, relative to the initial
+#'   residual with an absolute floor of `1e-12`. Stokes problems: GMRES
+#'   relative residual tolerance.
 #' @param solver Linear solver method, see [solve_linear_system()].
 #' @param startup Number of initial backward Euler steps taken before
 #'   Crank-Nicolson (Rannacher startup). They damp the oscillations that

@@ -84,16 +84,17 @@ order. Ignored for backward Euler.}
 first-order error estimate (L2 norm through the mass matrix), starting
 from \code{dt}. Steps whose estimate exceeds \code{tol} are rejected and retried.}
 
-\item{tol}{Error tolerance per step for adaptive stepping, relative to
-\verb{max(1, ||u||)}.}
+\item{tol}{Tolerance. Time-dependent problems: error tolerance per step
+for adaptive stepping, relative to \verb{max(1, ||u||)}. Nonlinear problems:
+Newton tolerance on the free residual norm, relative to the initial
+residual with an absolute floor of \code{1e-12}. Stokes problems: GMRES
+relative residual tolerance.}
+
+\item{maxit}{Maximum number of Newton iterations.}
 
 \item{newton_tol, newton_maxit}{Newton tolerance (on the residual norm
 relative to its initial value, or absolute \code{1e-12}) and maximum
 iterations per step.}
-
-\item{tol, maxit}{Newton tolerance on the free residual norm (relative to the
-initial residual, with an absolute floor of \code{1e-12}) and maximum number
-of Newton iterations.}
 }
 \value{
 A \code{pde_solution} (stationary problems) or \code{pde_transient}

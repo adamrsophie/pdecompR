@@ -87,9 +87,7 @@ eval_u <- function(f, U, name) {
 }
 
 #' @rdname solve_pde
-#' @param tol,maxit Newton tolerance on the free residual norm (relative to the
-#'   initial residual, with an absolute floor of `1e-12`) and maximum number
-#'   of Newton iterations.
+#' @param maxit Maximum number of Newton iterations.
 #' @export
 solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method = "auto", ...) {
   t0 <- proc.time()[["elapsed"]]
