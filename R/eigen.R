@@ -41,6 +41,9 @@ solve_eigen <- function(problem, n = 6, sigma = NULL, tol = 1e-10, maxit = 500) 
     disc <- discretize(problem)
     M <- assemble_matrix(disc$space, "mass")
   } else if (inherits(problem, "elasticity_problem")) {
+    if (identical(problem$formulation, "mixed")) {
+      stopf("Eigenproblems use the displacement formulation; set `formulation = \"displacement\"`.")
+    }
     disc <- discretize(problem)
     M1 <- assemble_matrix(disc$space, "mass")
     nd <- disc$space$ndof

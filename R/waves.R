@@ -61,6 +61,9 @@ wave_problem <- function(mesh, speed = 1, damping = 0, source = 0, initial = 0, 
 elastodynamics_problem <- function(elasticity, density = 1, damping = 0, initial = c(0, 0),
                                    velocity = c(0, 0), time = c(0, 1), load_factor = function(t) 1) {
   stopifnot(inherits(elasticity, "elasticity_problem"))
+  if (identical(elasticity$formulation, "mixed")) {
+    stopf("Elastodynamics uses the displacement formulation; set `formulation = \"displacement\"`.")
+  }
   check_number(density, "density", positive = TRUE)
   if (!is.numeric(damping) || length(damping) != 1L || !is.finite(damping) || damping < 0) {
     stopf("`damping` must be a nonnegative number.")

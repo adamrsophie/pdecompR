@@ -77,21 +77,8 @@ solve_pde.stokes_problem <- function(problem, method = c("lu", "gmres"), tol = 1
   nuq <- coef_qp(problem$viscosity, gv, name = "viscosity")
   if (any(nuq <= 0)) stopf("`viscosity` must be positive.")
   K <- global_matrix(V, local_bilinear(gv, diff = nuq))
-  # B_ij = -int psi_i d(phi_j)/dx_c for pressure test psi_i and velocity phi_j.
-  bmat <- function(c) {
-    Bl <- array(0, c(gv$m, gq$nloc, gv$nloc))
-    for (k in seq_len(gv$nq)) {
-      wd <- gv$w[k] * gv$det
-      G <- if (c == 1L) gv$gx[[k]] else gv$gy[[k]]
-      for (j in seq_len(gv$nloc)) for (i in seq_len(gq$nloc)) Bl[, i, j] <- Bl[, i, j] - wd * gq$phi[k, i] * G[, j]
-    }
-    Matrix::sparseMatrix(i = as.vector(Q$cell_dofs[, rep(seq_len(gq$nloc), times = gv$nloc)]),
-                         j = as.vector(V$cell_dofs[, rep(seq_len(gv$nloc), each = gq$nloc)]),
-                         x = as.vector(Bl), dims = c(nq, n))
-  }
-  Bx <- bmat(1L); By <- bmat(2L)
-  Z <- function(r, c) Matrix::sparseMatrix(i = integer(), j = integer(), x = numeric(), dims = c(r, c))
-  B <- cbind(Bx, By)
+  B <- divergence_coupling(V, Q, gv, gq)
+  Z <- zero_matrix
   Avel <- rbind(cbind(K, Z(n, n)), cbind(Z(n, n), K))
   fq <- vec_qp(problem$body_force, gv, name = "body_force")
   b <- c(global_vector(V, local_linear(gv, f = fq$x)), global_vector(V, local_linear(gv, f = fq$y)))
@@ -123,25 +110,11 @@ solve_pde.stokes_problem <- function(problem, method = c("lu", "gmres"), tol = 1
                    "flow in a closed domain needs zero net flux."), fmt_num(-flux), fmt_num(abs(flux) / scale))
     }
   }
-  mp <- assemble_vector(Q, 1)
-  ng <- if (enclosed) 1L else 0L
-  S <- rbind(cbind(Aff, Matrix::t(Bf), Z(length(fv), ng)),
-             cbind(Bf, Z(nq, nq), if (ng) Matrix::Matrix(mp, ncol = 1, sparse = TRUE) else Z(nq, 0)),
-             cbind(Z(ng, length(fv)), if (ng) Matrix::Matrix(mp, nrow = 1, sparse = TRUE) else Z(0, nq), Z(ng, ng)))
-  rhs <- c(rhs_u, rhs_p, numeric(ng))
   assembly_time <- proc.time()[["elapsed"]] - t0
   ts <- proc.time()[["elapsed"]]
-  if (method == "lu") {
-    s <- solve_linear_system(S, rhs, method = "lu")
-  } else {
-    sa <- linear_solver(Aff)
-    sm <- linear_solver(assemble_matrix(Q, "mass", coef = function(x, y) 1 / eval_spatial(problem$viscosity, x, y)))
-    nu_ <- length(fv)
-    pc <- function(r) {
-      c(sa$solve(r[seq_len(nu_)])$x, sm$solve(r[nu_ + seq_len(nq)])$x, r[nu_ + nq + seq_len(ng)])
-    }
-    s <- solve_linear_system(S, rhs, method = "gmres", preconditioner = pc, tol = tol, ...)
-  }
+  s <- solve_saddle(Aff, Bf, NULL, rhs_u, rhs_p, gauge = if (enclosed) assemble_vector(Q, 1),
+                    pressure_mass = assemble_matrix(Q, "mass", coef = function(x, y) 1 / eval_spatial(problem$viscosity, x, y)),
+                    method = method, tol = tol, ...)
   warn_solver(s$info)
   u <- vals; u[fv] <- s$x[seq_len(length(fv))]
   p <- s$x[length(fv) + seq_len(nq)]
@@ -149,7 +122,7 @@ solve_pde.stokes_problem <- function(problem, method = c("lu", "gmres"), tol = 1
   # L2 norm of the discrete divergence.
   qx <- fe_qp(ux, gv); qy <- fe_qp(uy, gv)
   divn <- sqrt(sum(((qx$dx + qy$dy)^2 %*% gv$w) * gv$det))
-  diag <- structure(list(ndof = 2L * n + nq, free = length(fv) + nq, nnz = length(S@x),
+  diag <- structure(list(ndof = 2L * n + nq, free = length(fv) + nq, nnz = s$nnz,
                          assembly_time = assembly_time, solve_time = proc.time()[["elapsed"]] - ts,
                          solver = s$info, pressure_gauge = if (enclosed) "zero mean" else "none",
                          divergence_norm = divn),
@@ -168,4 +141,52 @@ print.pde_stokes_solution <- function(x, ...) {
       "\n", sep = "")
   cat("  ||div u_h|| = ", fmt_num(d$divergence_norm, 3), "; pressure gauge: ", d$pressure_gauge, "\n", sep = "")
   invisible(x)
+}
+
+zero_matrix <- function(r, c) Matrix::sparseMatrix(i = integer(), j = integer(), x = numeric(), dims = c(r, c))
+
+# Taylor-Hood coupling B = [Bx, By], B_ij = -int psi_i d(phi_j)/dx_c for
+# pressure basis psi_i (space Q) and velocity or displacement basis phi_j
+# (space V, both components, x first). Geometries share the quadrature.
+divergence_coupling <- function(V, Q, gv, gq) {
+  n <- V$ndof; nq <- Q$ndof
+  bmat <- function(c) {
+    Bl <- array(0, c(gv$m, gq$nloc, gv$nloc))
+    for (k in seq_len(gv$nq)) {
+      wd <- gv$w[k] * gv$det
+      G <- if (c == 1L) gv$gx[[k]] else gv$gy[[k]]
+      for (j in seq_len(gv$nloc)) for (i in seq_len(gq$nloc)) Bl[, i, j] <- Bl[, i, j] - wd * gq$phi[k, i] * G[, j]
+    }
+    Matrix::sparseMatrix(i = as.vector(Q$cell_dofs[, rep(seq_len(gq$nloc), times = gv$nloc)]),
+                         j = as.vector(V$cell_dofs[, rep(seq_len(gv$nloc), each = gq$nloc)]),
+                         x = as.vector(Bl), dims = c(nq, n))
+  }
+  cbind(bmat(1L), bmat(2L))
+}
+
+# Solve [A B'; B C] [u; p] = [f; g] (C = NULL for a zero block), optionally
+# bordered by the zero-mean pressure constraint gauge' p = 0. Sparse LU, or
+# GMRES right-preconditioned by diag(A, pressure_mass) with A factorized
+# once; pressure_mass should be spectrally equivalent to minus the Schur
+# complement. Returns the solver result with x = c(u, p) and the nonzero
+# count of the system.
+solve_saddle <- function(A, B, C, f, g, gauge = NULL, pressure_mass, method = c("lu", "gmres"), tol = 1e-10, ...) {
+  method <- match.arg(method)
+  nu <- nrow(A); nq <- nrow(B); ng <- if (is.null(gauge)) 0L else 1L
+  Z <- zero_matrix
+  Cb <- if (is.null(C)) Z(nq, nq) else C
+  S <- rbind(cbind(A, Matrix::t(B), Z(nu, ng)),
+             cbind(B, Cb, if (ng) Matrix::Matrix(gauge, ncol = 1, sparse = TRUE) else Z(nq, 0)),
+             cbind(Z(ng, nu), if (ng) Matrix::Matrix(gauge, nrow = 1, sparse = TRUE) else Z(0, nq), Z(ng, ng)))
+  rhs <- c(f, g, numeric(ng))
+  s <- if (method == "lu") {
+    solve_linear_system(S, rhs, method = "lu")
+  } else {
+    sa <- linear_solver(A)
+    sm <- linear_solver(pressure_mass)
+    pc <- function(r) c(sa$solve(r[seq_len(nu)])$x, sm$solve(r[nu + seq_len(nq)])$x, r[nu + nq + seq_len(ng)])
+    solve_linear_system(S, rhs, method = "gmres", preconditioner = pc, tol = tol, ...)
+  }
+  s$nnz <- length(S@x)
+  s
 }

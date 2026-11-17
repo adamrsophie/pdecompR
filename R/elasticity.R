@@ -24,6 +24,18 @@
 #' elements lock for nearly incompressible materials (`nu` close to 1/2 in
 #' plane strain); P2 elements reduce but do not remove the effect.
 #'
+#' `formulation = "mixed"` removes locking with the displacement-pressure
+#' formulation: the pressure `p = lambda div u` becomes a separate unknown,
+#' `sigma = 2 mu eps(u) + p I`, and the weak form is
+#' `int 2 mu eps(u) : eps(v) + int p div v = int f . v + int_N g . v`,
+#' `int q div u - int p q / lambda = 0`, discretized with P2 displacements
+#' and P1 pressure (the Taylor-Hood pair, stable as `lambda` grows without
+#' bound). Its accuracy does not degrade as `nu` approaches 1/2. The
+#' solution then also has a `pressure` component. The saddle-point system is
+#' solved by sparse LU or by GMRES with a block-diagonal preconditioner,
+#' as for [stokes_problem()]. [solve_eigen()] and
+#' [elastodynamics_problem()] need the displacement formulation.
+#'
 #' @param mesh A [pde_mesh()].
 #' @param E,nu Young's modulus and Poisson's ratio: numbers or
 #'   `function(x, y)`. `E > 0` and `-1 < nu < 1/2` (plane strain) or
@@ -34,6 +46,8 @@
 #' @param degree Polynomial degree of each displacement component (1 or 2).
 #' @param plane `"strain"` or `"stress"`.
 #' @param quad_degree Quadrature degree (default `2 * degree + 2`).
+#' @param formulation `"displacement"` or `"mixed"` (displacement-pressure,
+#'   requires `degree = 2`).
 #' @return An object of class `elasticity_problem`; [solve_pde()] returns a
 #'   `pde_vector_solution` with the components `ux` and `uy`.
 #' @examples
@@ -46,17 +60,21 @@
 #' plot(sol)
 #' @export
 elasticity_problem <- function(mesh, E = 1, nu = 0.3, body_force = c(0, 0), bcs = list(),
-                               degree = 1, plane = c("strain", "stress"), quad_degree = NULL) {
+                               degree = 1, plane = c("strain", "stress"), quad_degree = NULL,
+                               formulation = c("displacement", "mixed")) {
   stopifnot(inherits(mesh, "pde_mesh"))
   plane <- match.arg(plane)
+  formulation <- match.arg(formulation)
   if (!degree %in% 1:2) stopf("`degree` must be 1 or 2.")
+  if (formulation == "mixed" && degree != 2) stopf("The mixed formulation uses Taylor-Hood elements: set `degree = 2`.")
   if (inherits(bcs, "pde_vector_bc")) bcs <- list(bcs)
   if (!all(vapply(bcs, inherits, logical(1), "pde_vector_bc"))) {
     stopf("`bcs` must be a list of displacement_bc() and traction_bc() conditions.")
   }
   check_bc_markers(bcs, mesh)
   structure(list(mesh = mesh, E = E, nu = nu, body_force = body_force, bcs = bcs,
-                 degree = as.integer(degree), plane = plane, quad_degree = quad_degree),
+                 degree = as.integer(degree), plane = plane, quad_degree = quad_degree,
+                 formulation = formulation),
             class = c("elasticity_problem", "pde_problem"))
 }
 
@@ -134,12 +152,24 @@ lame_parameters <- function(E, nu, plane) {
 discretize.elasticity_problem <- function(problem, ...) {
   t0 <- proc.time()[["elapsed"]]
   V <- fe_space(problem$mesh, problem$degree)
-  geo <- element_geometry(V, problem$quad_degree)
+  mixed <- identical(problem$formulation, "mixed")
+  qd <- if (is.null(problem$quad_degree)) 2L * problem$degree + 2L else problem$quad_degree
+  geo <- element_geometry(V, qd)
   n <- V$ndof
   Eq <- coef_qp(problem$E, geo, name = "E")
   nuq <- coef_qp(problem$nu, geo, name = "nu")
   lm <- lame_parameters(Eq, nuq, problem$plane)
   Z <- 0 * lm$mu
+  mixed_blocks <- NULL
+  if (mixed) {
+    # Pressure p = lambda div u: the lambda term leaves the displacement
+    # block and enters as -int p q / lambda.
+    Q <- fe_space(problem$mesh, 1); gq <- element_geometry(Q, qd)
+    mixed_blocks <- list(Q = Q, B = -divergence_coupling(V, Q, geo, gq),
+                         C = -global_matrix(Q, local_bilinear(gq, mass = 1 / lm$lambda)),
+                         Mp = global_matrix(Q, local_bilinear(gq, mass = 1 / lm$lambda + 1 / (2 * lm$mu))))
+    lm$lambda <- Z
+  }
   # block (b, a): test component b, trial component a,
   # D = lambda e_b e_a^T + mu delta_ab I + mu e_a e_b^T
   tens <- function(b, a) {
@@ -180,7 +210,7 @@ discretize.elasticity_problem <- function(problem, ...) {
   dofs <- which(fixed)
   structure(list(A = A, b = b, space = V, dirichlet = list(dofs = dofs, values = vals[dofs]),
                  free = setdiff(seq_len(2L * n), dofs), assembly_time = proc.time()[["elapsed"]] - t0,
-                 problem = problem), class = "pde_discretization")
+                 problem = problem, mixed = mixed_blocks), class = "pde_discretization")
 }
 
 #' @rdname solve_pde
@@ -217,15 +247,29 @@ solve_pde.elasticity_problem <- function(problem, method = c("auto", "cholesky",
   Aff <- disc$A[free, free, drop = FALSE]
   rhs <- disc$b[free]
   if (length(dd$dofs)) rhs <- rhs - as.numeric(disc$A[free, dd$dofs, drop = FALSE] %*% dd$values)
-  s <- solve_linear_system(Aff, rhs, method = method, ...)
+  mx <- disc$mixed
+  pressure <- NULL
+  if (is.null(mx)) {
+    s <- solve_linear_system(Aff, rhs, method = method, ...)
+    nnz <- length(disc$A@x)
+  } else {
+    if (!method %in% c("auto", "lu", "gmres")) stopf("The mixed formulation is solved with method \"lu\" or \"gmres\".")
+    B <- mx$B
+    rhs_p <- if (length(dd$dofs)) -as.numeric(B[, dd$dofs, drop = FALSE] %*% dd$values) else numeric(nrow(B))
+    s <- solve_saddle(Aff, B[, free, drop = FALSE], mx$C, rhs, rhs_p, pressure_mass = mx$Mp,
+                      method = if (method == "gmres") "gmres" else "lu", ...)
+    nnz <- s$nnz
+    pressure <- fe_function(mx$Q, s$x[length(free) + seq_len(mx$Q$ndof)], "p")
+    s$x <- s$x[seq_along(free)]
+  }
   warn_solver(s$info)
   u[free] <- s$x
-  diag <- structure(list(ndof = 2L * n, free = length(free), nnz = length(disc$A@x),
+  diag <- structure(list(ndof = 2L * n + if (is.null(mx)) 0L else mx$Q$ndof, free = length(free), nnz = nnz,
                          assembly_time = disc$assembly_time,
                          solve_time = proc.time()[["elapsed"]] - t0, solver = s$info),
                     class = "pde_diagnostics")
   structure(list(ux = fe_function(V, u[seq_len(n)], "u_x"), uy = fe_function(V, u[n + seq_len(n)], "u_y"),
-                 space = V, problem = problem, diagnostics = diag, discretization = disc),
+                 pressure = pressure, space = V, problem = problem, diagnostics = diag, discretization = disc),
             class = "pde_vector_solution")
 }
 
@@ -332,10 +376,12 @@ elasticity_stress <- function(solution, at = c("elements", "nodes")) {
   lm <- lame_parameters(E, nu, prob$plane)
   exx <- gx$dx; eyy <- gy$dy; exy <- (gx$dy + gy$dx) / 2
   tr <- exx + eyy
-  sxx <- lm$lambda * tr + 2 * lm$mu * exx
-  syy <- lm$lambda * tr + 2 * lm$mu * eyy
+  # Mixed formulation: the volumetric stress is the pressure unknown.
+  vol <- if (is.null(solution$pressure)) lm$lambda * tr else grad_in_elements(solution$pressure, e, cx, cy)$value
+  sxx <- vol + 2 * lm$mu * exx
+  syy <- vol + 2 * lm$mu * eyy
   sxy <- 2 * lm$mu * exy
-  szz <- if (prob$plane == "strain") nu * (sxx + syy) else 0 * sxx
+  szz <- if (prob$plane != "strain") 0 * sxx else if (is.null(solution$pressure)) nu * (sxx + syy) else vol
   vm <- sqrt(((sxx - syy)^2 + (syy - szz)^2 + (szz - sxx)^2) / 2 + 3 * sxy^2)
   out <- data.frame(x = cx, y = cy, exx = exx, eyy = eyy, exy = exy, sxx = sxx, syy = syy,
                     sxy = sxy, szz = szz, von_mises = vm)

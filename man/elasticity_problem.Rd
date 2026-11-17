@@ -12,7 +12,8 @@ elasticity_problem(
   bcs = list(),
   degree = 1,
   plane = c("strain", "stress"),
-  quad_degree = NULL
+  quad_degree = NULL,
+  formulation = c("displacement", "mixed")
 )
 }
 \arguments{
@@ -32,6 +33,9 @@ returning a two-column matrix.}
 \item{plane}{\code{"strain"} or \code{"stress"}.}
 
 \item{quad_degree}{Quadrature degree (default \code{2 * degree + 2}).}
+
+\item{formulation}{\code{"displacement"} or \code{"mixed"} (displacement-pressure,
+requires \code{degree = 2}).}
 }
 \value{
 An object of class \code{elasticity_problem}; \code{\link[=solve_pde]{solve_pde()}} returns a
@@ -62,6 +66,18 @@ Lamé parameters follow from Young's modulus \code{E} and Poisson's ratio \code{
 plane strain, or \verb{lambda = E nu / (1 - nu^2)} for plane stress. Low-order
 elements lock for nearly incompressible materials (\code{nu} close to 1/2 in
 plane strain); P2 elements reduce but do not remove the effect.
+
+\code{formulation = "mixed"} removes locking with the displacement-pressure
+formulation: the pressure \verb{p = lambda div u} becomes a separate unknown,
+\verb{sigma = 2 mu eps(u) + p I}, and the weak form is
+\verb{int 2 mu eps(u) : eps(v) + int p div v = int f . v + int_N g . v},
+\verb{int q div u - int p q / lambda = 0}, discretized with P2 displacements
+and P1 pressure (the Taylor-Hood pair, stable as \code{lambda} grows without
+bound). Its accuracy does not degrade as \code{nu} approaches 1/2. The
+solution then also has a \code{pressure} component. The saddle-point system is
+solved by sparse LU or by GMRES with a block-diagonal preconditioner,
+as for \code{\link[=stokes_problem]{stokes_problem()}}. \code{\link[=solve_eigen]{solve_eigen()}} and
+\code{\link[=elastodynamics_problem]{elastodynamics_problem()}} need the displacement formulation.
 }
 \examples{
 mesh <- pde_mesh_rectangle(c(0, 4), c(0, 1), nx = 16, ny = 4)

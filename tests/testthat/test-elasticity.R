@@ -67,3 +67,31 @@ test_that("rollers, rigid motions and parameters are checked", {
   expect_error(elasticity_problem(m, bcs = displacement_bc(0, "nowhere")), "nowhere")
   expect_output(print(displacement_bc(0, "left", "x")), "displacement \\[x\\]")
 })
+
+test_that("the mixed formulation does not lock as nu approaches 1/2", {
+  ps <- quote((x * (1 - x) * y * (1 - y))^2)
+  ux_e <- D(ps, "y"); uy_e <- call("-", D(ps, "x"))
+  lap <- function(e) call("+", D(D(e, "x"), "x"), D(D(e, "y"), "y"))
+  lx <- lap(ux_e); ly <- lap(uy_e)
+  err <- function(nu, fm, deg) {
+    mu <- 1 / (2 * (1 + nu))
+    s <- solve_pde(elasticity_problem(pde_mesh_rectangle(nx = 8), nu = nu, degree = deg, formulation = fm,
+                                      body_force = function(x, y) cbind(-mu * eval(lx), -mu * eval(ly)),
+                                      bcs = displacement_bc(0)))
+    xy <- s$space$dof_coords
+    max(abs(s$ux$values - eval(ux_e, list(x = xy[, 1], y = xy[, 2]))))
+  }
+  m2 <- err(0.49, "mixed", 2); m4 <- err(0.4999, "mixed", 2)
+  expect_lt(abs(m4 / m2 - 1), 0.05)
+  expect_lt(m4, 1.5 * err(0.3, "mixed", 2))
+  expect_gt(err(0.4999, "displacement", 1), 50 * m4)
+  expect_error(elasticity_problem(pde_mesh_rectangle(nx = 2), formulation = "mixed"), "degree = 2")
+  ep <- elasticity_problem(pde_mesh_rectangle(nx = 4), nu = 0.49, degree = 2, formulation = "mixed",
+                           body_force = c(0, -1), bcs = displacement_bc(0, "left"))
+  a <- solve_pde(ep); g <- solve_pde(ep, method = "gmres", tol = 1e-12)
+  expect_equal(g$ux$values, a$ux$values, tolerance = 1e-8)
+  expect_s3_class(a$pressure, "fe_function")
+  expect_true(all(is.finite(elasticity_stress(a)$von_mises)))
+  expect_error(solve_eigen(ep), "displacement formulation")
+  expect_error(elastodynamics_problem(ep), "displacement formulation")
+})
