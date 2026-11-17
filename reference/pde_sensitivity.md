@@ -110,5 +110,5 @@ pf <- function(theta) poisson_problem(mesh, diffusion = theta[1], source = 1,
 s <- pde_sensitivity(pf, theta = 2)
 # exact: u = u1 / theta, so du/dtheta = -u / theta
 max(abs(s$sensitivities[, 1] + s$solution$u$values / 2))
-#> [1] 1.4969e-12
+#> [1] 4.868432e-13
 ```

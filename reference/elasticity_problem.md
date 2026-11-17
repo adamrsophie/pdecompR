@@ -95,7 +95,7 @@ prob <- elasticity_problem(mesh, E = 100, nu = 0.3,
                                       traction_bc(c(0, -1), "right")))
 sol <- solve_pde(prob)
 sol
-#> <pde_vector_solution> P1 displacement, 170 dofs (160 free); solver cholesky (solved), relative residual 9.2e-13
+#> <pde_vector_solution> P1 displacement, 170 dofs (160 free); solver cholesky (solved), relative residual 8.89e-13
 #>   max |u| = 2.002
 plot(sol)
 ```

@@ -134,6 +134,6 @@ prob <- poisson_problem(mesh, source = function(x, y) 2 * pi^2 * sin(pi * x) * s
                         boundary = dirichlet_bc(0))
 sol <- solve_pde(prob)
 sol
-#> <pde_solution> P1, 81 dofs; solver cholesky (solved), relative residual 2.06e-15
+#> <pde_solution> P1, 81 dofs; solver cholesky (solved), relative residual 1.54e-15
 #>   u range [    0, 0.9872]
 ```

@@ -131,11 +131,11 @@ and only at first order for a wrong one.</p>
 <span class="r-in"><span><span class="va">V</span> <span class="op">&lt;-</span> <span class="fu"><a href="fe_space.html">fe_space</a></span><span class="op">(</span><span class="va">mesh</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">obs</span> <span class="op">&lt;-</span> <span class="fu"><a href="pde_observations.html">pde_observations</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">0.5</span>, <span class="fl">0.1</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu">taylor_test</span><span class="op">(</span><span class="va">pf</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>, objective <span class="op">=</span> <span class="fu"><a href="pde_observations.html">misfit_objective</a></span><span class="op">(</span><span class="va">V</span>, <span class="va">obs</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>     eps    remainder      rate</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 1 1e-01 4.771183e-15        NA</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 2 1e-02 4.774978e-16 0.9996547</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 3 1e-03 4.809131e-17 0.9969048</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> 4 1e-04 3.958032e-18 1.0845873</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>     eps    remainder     rate</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 1 1e-01 5.089402e-14       NA</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 2 1e-02 5.087911e-15 1.000127</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 3 1e-03 5.077557e-16 1.000885</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> 4 1e-04 4.970221e-17 1.009279</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

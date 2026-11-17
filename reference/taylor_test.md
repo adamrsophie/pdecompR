@@ -58,9 +58,9 @@ pf <- function(theta) poisson_problem(mesh, diffusion = theta[1], source = theta
 V <- fe_space(mesh)
 obs <- pde_observations(0.5, 0.5, 0.1)
 taylor_test(pf, c(1, 1), objective = misfit_objective(V, obs))
-#>     eps    remainder      rate
-#> 1 1e-01 4.771183e-15        NA
-#> 2 1e-02 4.774978e-16 0.9996547
-#> 3 1e-03 4.809131e-17 0.9969048
-#> 4 1e-04 3.958032e-18 1.0845873
+#>     eps    remainder     rate
+#> 1 1e-01 5.089402e-14       NA
+#> 2 1e-02 5.087911e-15 1.000127
+#> 3 1e-03 5.077557e-16 1.000885
+#> 4 1e-04 4.970221e-17 1.009279
 ```

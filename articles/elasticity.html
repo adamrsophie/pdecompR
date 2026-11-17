@@ -152,7 +152,7 @@ a downward traction on the right end:</p>
 <span><span class="op">}</span></span>
 <span><span class="va">s2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu">beam</span><span class="op">(</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">s2</span></span>
-<span><span class="co">#&gt; &lt;pde_vector_solution&gt; P2 displacement, 1458 dofs (1440 free); solver cholesky (solved), relative residual 1.09e-10</span></span>
+<span><span class="co">#&gt; &lt;pde_vector_solution&gt; P2 displacement, 1458 dofs (1440 free); solver cholesky (solved), relative residual 1.17e-10</span></span>
 <span><span class="co">#&gt;   max |u| = 4.033</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">s2</span><span class="op">)</span></span></code></pre></div>
 <p><img src="elasticity_files/figure-html/unnamed-chunk-3-1.png" class="r-plt" alt="" width="576"></p>
@@ -187,7 +187,7 @@ y/E</span>, which the method reproduces to rounding error:</p>
 <span><span class="va">sb</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="va">bar</span><span class="op">)</span></span>
 <span><span class="va">xy</span> <span class="op">&lt;-</span> <span class="va">sb</span><span class="op">$</span><span class="va">space</span><span class="op">$</span><span class="va">dof_coords</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">sb</span><span class="op">$</span><span class="va">ux</span><span class="op">$</span><span class="va">values</span> <span class="op">-</span> <span class="va">xy</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">sb</span><span class="op">$</span><span class="va">uy</span><span class="op">$</span><span class="va">values</span> <span class="op">+</span> <span class="fl">0.25</span> <span class="op">*</span> <span class="va">xy</span><span class="op">[</span>, <span class="fl">2</span><span class="op">]</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 2.331468e-15</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 1.554312e-15</span></span></code></pre></div>
 <p>Without enough constraints the problem has no unique solution. The
 solver checks, before solving, that the constrained displacement
 components remove both translations and the rotation, and says so

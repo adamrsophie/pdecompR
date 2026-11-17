@@ -82,7 +82,7 @@ s2 <- solve_pde(elliptic_problem(mesh, diffusion = k, reaction = 2, advection = 
                                             robin_bc(3, function(x, y) y, "right"),
                                             neumann_bc(0.5, "top"))))
 max(abs(s1$u$values - s2$u$values))
-#> [1] 8.049117e-15
+#> [1] 9.547918e-15
 ```
 
 ## Supported terms

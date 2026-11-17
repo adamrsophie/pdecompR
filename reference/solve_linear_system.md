@@ -118,7 +118,7 @@ b <- assemble_vector(V, 1)
 s1 <- solve_linear_system(A, b)
 s2 <- solve_linear_system(A, b, method = "cg", tol = 1e-12)
 max(abs(s1$x - s2$x))
-#> [1] 9.214851e-15
+#> [1] 1.509903e-14
 s2$info$iterations
 #> [1] 23
 ```

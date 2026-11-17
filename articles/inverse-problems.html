@@ -139,7 +139,7 @@ problem:</p>
 <span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pde_sensitivity.html">pde_sensitivity</a></span><span class="op">(</span><span class="va">pf</span>, theta <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="co"># the exact derivative: u = u_1 / theta, so du/dtheta = -u / theta</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">s</span><span class="op">$</span><span class="va">sensitivities</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="va">s</span><span class="op">$</span><span class="va">solution</span><span class="op">$</span><span class="va">u</span><span class="op">$</span><span class="va">values</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
-<span><span class="co">#&gt; [1] 1.510524e-12</span></span></code></pre></div>
+<span><span class="co">#&gt; [1] 4.912598e-13</span></span></code></pre></div>
 <p>With several parameters, forward, adjoint and finite-difference
 gradients agree:</p>
 <div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
@@ -192,7 +192,7 @@ observations of a solution computed on a finer mesh, which avoids the
 <span><span class="co">#&gt;   estimate std_error</span></span>
 <span><span class="co">#&gt; 1  0.48965 0.0025551</span></span>
 <span><span class="co">#&gt; 2  1.50242 0.0072236</span></span>
-<span><span class="co">#&gt;   objective 7.105, gradient norm 2.24e-05, forward solves 13</span></span>
+<span><span class="co">#&gt;   objective 7.105, gradient norm 2.228e-05, forward solves 13</span></span>
 <span><span class="co">#&gt;   standard errors: measurement noise only (Gauss-Newton linearization)</span></span>
 <span><span class="co">#&gt;   identifiability: sensitivity condition number 9.21</span></span>
 <span><span class="co">#&gt;   discretization check: predictions change by up to 0.000883 (4.415 sd) on a refined mesh</span></span></code></pre></div>
@@ -232,13 +232,13 @@ L-BFGS-B and adjoint gradients.</p>
 <span><span class="va">oc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/optimal_control.html">optimal_control</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">32</span><span class="op">)</span>, <span class="va">target</span>, alpha <span class="op">=</span> <span class="fl">1e-5</span><span class="op">)</span></span>
 <span><span class="va">oc</span></span>
 <span><span class="co">#&gt; Distributed optimal control (KKT (sparse LU))</span></span>
-<span><span class="co">#&gt;   objective 0.0157022, projected gradient norm 6.96e-18</span></span>
+<span><span class="co">#&gt;   objective 0.0157022, projected gradient norm 9.21e-18</span></span>
 <span><span class="co">#&gt;   control range [-43.3, 65.48]</span></span>
 <span><span class="va">ocb</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/optimal_control.html">optimal_control</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">32</span><span class="op">)</span>, <span class="va">target</span>, alpha <span class="op">=</span> <span class="fl">1e-5</span>, lower <span class="op">=</span> <span class="fl">0</span>, upper <span class="op">=</span> <span class="fl">50</span><span class="op">)</span></span>
 <span><span class="va">ocb</span></span>
 <span><span class="co">#&gt; Distributed optimal control (reduced L-BFGS-B (adjoint gradient))</span></span>
-<span><span class="co">#&gt;   objective 0.0260844, projected gradient norm 1.89e-08</span></span>
-<span><span class="co">#&gt;   control range [    0, 42.75]</span></span></code></pre></div>
+<span><span class="co">#&gt;   objective 0.0260844, projected gradient norm 7.93e-09</span></span>
+<span><span class="co">#&gt;   control range [    0, 42.78]</span></span></code></pre></div>
 <div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">op</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">oc</span><span class="op">$</span><span class="va">state</span>, main <span class="op">=</span> <span class="st">"state, unconstrained"</span><span class="op">)</span></span>

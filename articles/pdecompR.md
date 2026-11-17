@@ -88,8 +88,8 @@ summary(solution)
 #>   degrees of freedom: 289 (225 free)
 #>   matrix nonzeros: 1889
 #>   solver: cholesky, status solved
-#>   linear residual: 5.18e-15 (relative 8.45e-15)
-#>   assembly 0.01 s, solve 0.031 s
+#>   linear residual: 3.7e-15 (relative 6.04e-15)
+#>   assembly 0.005 s, solve 0.018 s
 #>   solution range [    0, 0.9968]
 #>   (the linear residual measures the algebraic solve, not the discretization error)
 plot(solution)

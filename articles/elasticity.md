@@ -55,7 +55,7 @@ beam <- function(degree) {
 }
 s2 <- solve_pde(beam(2))
 s2
-#> <pde_vector_solution> P2 displacement, 1458 dofs (1440 free); solver cholesky (solved), relative residual 1.09e-10
+#> <pde_vector_solution> P2 displacement, 1458 dofs (1440 free); solver cholesky (solved), relative residual 1.17e-10
 #>   max |u| = 4.033
 plot(s2)
 ```
@@ -96,7 +96,7 @@ bar <- elasticity_problem(pde_mesh_rectangle(nx = 4), E = 2, nu = 0.25, plane = 
 sb <- solve_pde(bar)
 xy <- sb$space$dof_coords
 max(abs(sb$ux$values - xy[, 1] / 2), abs(sb$uy$values + 0.25 * xy[, 2] / 2))
-#> [1] 2.331468e-15
+#> [1] 1.554312e-15
 ```
 
 Without enough constraints the problem has no unique solution. The

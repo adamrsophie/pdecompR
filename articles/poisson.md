@@ -35,7 +35,7 @@ mesh <- pde_mesh_rectangle(nx = 32, ny = 32)
 problem <- poisson_problem(mesh, source = f, boundary = dirichlet_bc(0))
 sol <- solve_pde(problem)
 sol
-#> <pde_solution> P1, 1089 dofs; solver cholesky (solved), relative residual 3.94e-14
+#> <pde_solution> P1, 1089 dofs; solver cholesky (solved), relative residual 3.24e-14
 #>   u range [    0, 0.9992]
 c(L2 = errornorm(sol, exact, "L2"),
   H1 = errornorm(sol, exact, "H1_semi", gradient = grad_exact))
@@ -92,7 +92,7 @@ lin <- function(x, y) x + 2 * y
 L <- pde_mesh_polygon(rbind(c(0, 0), c(2, 0), c(2, 1), c(1, 1), c(1, 2), c(0, 2)), h = 0.3)
 s <- solve_pde(poisson_problem(L, source = 0, boundary = dirichlet_bc(lin)))
 max(abs(s$u$values - lin(L$nodes[, 1], L$nodes[, 2])))
-#> [1] 3.108624e-15
+#> [1] 2.664535e-15
 ```
 
 ## Variable and anisotropic diffusion

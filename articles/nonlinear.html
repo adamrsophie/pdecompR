@@ -154,7 +154,7 @@ approximated by central differences.</p>
 <span><span class="co">#&gt; 2         1 1.213728e-01    1</span></span>
 <span><span class="co">#&gt; 3         2 3.421530e-03    1</span></span>
 <span><span class="co">#&gt; 4         3 2.188875e-06    1</span></span>
-<span><span class="co">#&gt; 5         4 6.670940e-13    1</span></span></code></pre></div>
+<span><span class="co">#&gt; 5         4 6.670716e-13    1</span></span></code></pre></div>
 <p>The residual history shows quadratic convergence: the number of
 correct digits roughly doubles in each step. The discretization error
 behaves as in the linear case:</p>
@@ -199,7 +199,7 @@ tensor <span class="math inline">k I + (p - 2)(|\nabla u|^2 +
 <span><span class="co">#&gt; 3         2 1.036201e-02    1</span></span>
 <span><span class="co">#&gt; 4         3 1.372507e-04    1</span></span>
 <span><span class="co">#&gt; 5         4 2.366676e-07    1</span></span>
-<span><span class="co">#&gt; 6         5 7.760858e-13    1</span></span>
+<span><span class="co">#&gt; 6         5 7.761201e-13    1</span></span>
 <span><span class="va">lin</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="../reference/elliptic_problem.html">poisson_problem</a></span><span class="op">(</span><span class="va">pl</span><span class="op">$</span><span class="va">mesh</span>, source <span class="op">=</span> <span class="fl">10</span>, boundary <span class="op">=</span> <span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>p_laplace <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">spl</span><span class="op">$</span><span class="va">u</span><span class="op">$</span><span class="va">values</span><span class="op">)</span>, laplace <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="va">lin</span><span class="op">$</span><span class="va">u</span><span class="op">$</span><span class="va">values</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; p_laplace   laplace </span></span>
@@ -230,7 +230,7 @@ silently:</p>
 <span><span class="co">#&gt; 4         3 8.674478e-02    1</span></span>
 <span><span class="co">#&gt; 5         4 3.783451e-04    1</span></span>
 <span><span class="co">#&gt; 6         5 6.510843e-09    1</span></span>
-<span><span class="co">#&gt; 7         6 4.818931e-15    1</span></span></code></pre></div>
+<span><span class="co">#&gt; 7         6 5.607451e-15    1</span></span></code></pre></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

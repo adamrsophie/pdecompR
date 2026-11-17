@@ -76,7 +76,7 @@
 <div class="section level3">
 <h3 id="discretization-0-1-0">Discretization<a class="anchor" aria-label="anchor" href="#discretization-0-1-0"></a></h3>
 <ul><li>Continuous Lagrange P1 and P2 elements on triangles, scalar and vector valued, with Gaussian quadrature on intervals and triangles.</li>
-<li>Sparse assembly of stiffness, mass, advection and boundary operators and load vectors.</li>
+<li>Sparse assembly of stiffness, mass, advection and boundary operators and load vectors. Terms with coefficients that are constant on each element are assembled from reference-element matrices, exactly and without a quadrature loop.</li>
 <li>Coefficients given as numbers, functions of <code>(x, y)</code> or <code>(x, y, t)</code>, finite-element functions, constant symmetric tensors or piecewise values by region (<code><a href="../reference/region_coefficient.html">region_coefficient()</a></code>).</li>
 <li>Dirichlet, Neumann and Robin conditions; pure Neumann problems with a compatibility check and a zero-mean gauge.</li>
 <li>A weak-form language (<code><a href="../reference/trial_function.html">trial_function()</a></code>, <code><a href="../reference/trial_function.html">test_function()</a></code>, <code><a href="../reference/trial_function.html">grad()</a></code>, <code><a href="../reference/trial_function.html">dot()</a></code>, <code><a href="../reference/trial_function.html">integrate_domain()</a></code>, <code><a href="../reference/trial_function.html">integrate_boundary()</a></code>) for linear scalar problems.</li>

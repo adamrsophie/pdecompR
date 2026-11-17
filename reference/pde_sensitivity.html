@@ -175,7 +175,7 @@ with the number of parameters.</p>
 <span class="r-in"><span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu">pde_sensitivity</span><span class="op">(</span><span class="va">pf</span>, theta <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="co"># exact: u = u1 / theta, so du/dtheta = -u / theta</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">s</span><span class="op">$</span><span class="va">sensitivities</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="va">s</span><span class="op">$</span><span class="va">solution</span><span class="op">$</span><span class="va">u</span><span class="op">$</span><span class="va">values</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1.4969e-12</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 4.868432e-13</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

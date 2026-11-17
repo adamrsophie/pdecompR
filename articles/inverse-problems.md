@@ -41,7 +41,7 @@ pf <- function(theta) poisson_problem(mesh, diffusion = theta[1], source = 1,
 s <- pde_sensitivity(pf, theta = 2)
 # the exact derivative: u = u_1 / theta, so du/dtheta = -u / theta
 max(abs(s$sensitivities[, 1] + s$solution$u$values / 2))
-#> [1] 1.510524e-12
+#> [1] 4.912598e-13
 ```
 
 With several parameters, forward, adjoint and finite-difference
@@ -102,7 +102,7 @@ est
 #>   estimate std_error
 #> 1  0.48965 0.0025551
 #> 2  1.50242 0.0072236
-#>   objective 7.105, gradient norm 2.24e-05, forward solves 13
+#>   objective 7.105, gradient norm 2.228e-05, forward solves 13
 #>   standard errors: measurement noise only (Gauss-Newton linearization)
 #>   identifiability: sensitivity condition number 9.21
 #>   discretization check: predictions change by up to 0.000883 (4.415 sd) on a refined mesh
@@ -143,13 +143,13 @@ target <- function(x, y) as.numeric((x - 0.5)^2 + (y - 0.5)^2 < 0.1)
 oc <- optimal_control(pde_mesh_rectangle(nx = 32), target, alpha = 1e-5)
 oc
 #> Distributed optimal control (KKT (sparse LU))
-#>   objective 0.0157022, projected gradient norm 6.96e-18
+#>   objective 0.0157022, projected gradient norm 9.21e-18
 #>   control range [-43.3, 65.48]
 ocb <- optimal_control(pde_mesh_rectangle(nx = 32), target, alpha = 1e-5, lower = 0, upper = 50)
 ocb
 #> Distributed optimal control (reduced L-BFGS-B (adjoint gradient))
-#>   objective 0.0260844, projected gradient norm 1.89e-08
-#>   control range [    0, 42.75]
+#>   objective 0.0260844, projected gradient norm 7.93e-09
+#>   control range [    0, 42.78]
 ```
 
 ``` r
