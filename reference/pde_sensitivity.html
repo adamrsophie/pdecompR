@@ -84,7 +84,8 @@ Dirichlet elimination is <code>K(theta) u_f = r(theta)</code> with Dirichlet val
 <span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"forward"</span>, <span class="st">"adjoint"</span><span class="op">)</span>,</span>
 <span>  h <span class="op">=</span> <span class="fl">1e-06</span>,</span>
 <span>  lower <span class="op">=</span> <span class="op">-</span><span class="cn">Inf</span>,</span>
-<span>  upper <span class="op">=</span> <span class="cn">Inf</span></span>
+<span>  upper <span class="op">=</span> <span class="cn">Inf</span>,</span>
+<span>  derivative <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -124,6 +125,14 @@ vector returning <code>list(value = , gradient = )</code>, for example from
 <dd><p>Parameter bounds. Difference steps are shortened or
 made one-sided so that <code>problem_fun</code> is never called outside them.</p></dd>
 
+
+<dt id="arg-derivative">derivative<a class="anchor" aria-label="anchor" href="#arg-derivative"></a></dt>
+<dd><p>Optional exact derivative <code>function(theta, j)</code> returning
+<code>list(A = , b = , dirichlet = )</code>: the derivatives of the full system
+matrix and load vector (before Dirichlet elimination, as in
+<code><a href="discretize.html">discretize()</a></code>) and, optionally, of the Dirichlet values with respect to
+<code>theta[j]</code>.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
@@ -145,7 +154,12 @@ discretization error.</p>
 are obtained by central differences of the assembled operators with step
 <code>h_j = h max(1, |theta_j|)</code>. This is exact up to rounding when the
 coefficients are affine in <code>theta</code>, and second-order accurate otherwise.
-The solves themselves are not differenced.</p>
+The solves themselves are not differenced. Supply <code>derivative</code> for exact
+operator derivatives (for example of an affine family
+<code>A(theta) = A0 + sum(theta_j A_j)</code>, where <code>derivative(theta, j)</code> returns
+<code>A_j</code>); check either route with <code><a href="taylor_test.html">taylor_test()</a></code>. Each parameter's
+derivative is formed, used and discarded in turn, so memory does not grow
+with the number of parameters.</p>
     </div>
     <div class="section level2">
     <h2 id="references">References<a class="anchor" aria-label="anchor" href="#references"></a></h2>
@@ -161,7 +175,7 @@ The solves themselves are not differenced.</p>
 <span class="r-in"><span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu">pde_sensitivity</span><span class="op">(</span><span class="va">pf</span>, theta <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="co"># exact: u = u1 / theta, so du/dtheta = -u / theta</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">s</span><span class="op">$</span><span class="va">sensitivities</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="va">s</span><span class="op">$</span><span class="va">solution</span><span class="op">$</span><span class="va">u</span><span class="op">$</span><span class="va">values</span> <span class="op">/</span> <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1.496903e-12</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1.4969e-12</span>
 </code></pre></div>
     </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

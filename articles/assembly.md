@@ -110,7 +110,7 @@ for (m in c("auto", "lu", "cg", "bicgstab", "gmres")) {
               s$info$iterations, s$info$relative_residual))
 }
 #> auto     cholesky  iterations   NA  relative residual 1.74e-13
-#> lu       lu        iterations   NA  relative residual 1.85e-13
+#> lu       lu        iterations   NA  relative residual 1.83e-13
 #> cg       cg        iterations   54  relative residual 4.33e-13
 #> bicgstab bicgstab  iterations   43  relative residual 5.60e-13
 #> gmres    gmres     iterations   54  relative residual 8.56e-13
@@ -149,5 +149,5 @@ for (n in c(16, 32, 64)) {
 }
 #> n =  16  dofs =    289  assembly 0.00s  solve 0.00s
 #> n =  32  dofs =   1089  assembly 0.01s  solve 0.00s
-#> n =  64  dofs =   4225  assembly 0.03s  solve 0.01s
+#> n =  64  dofs =   4225  assembly 0.04s  solve 0.01s
 ```

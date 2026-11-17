@@ -55,7 +55,7 @@ sol$newton
 #> 2         1 1.213728e-01    1
 #> 3         2 3.421530e-03    1
 #> 4         3 2.188875e-06    1
-#> 5         4 6.670955e-13    1
+#> 5         4 6.670940e-13    1
 ```
 
 The residual history shows quadratic convergence: the number of correct
@@ -106,7 +106,7 @@ spl$newton
 #> 3         2 1.036201e-02    1
 #> 4         3 1.372507e-04    1
 #> 5         4 2.366676e-07    1
-#> 6         5 7.762651e-13    1
+#> 6         5 7.760858e-13    1
 lin <- solve_pde(poisson_problem(pl$mesh, source = 10, boundary = dirichlet_bc(0)))
 c(p_laplace = max(spl$u$values), laplace = max(lin$u$values))
 #> p_laplace   laplace 

@@ -84,6 +84,6 @@ oc <- optimal_control(mesh, target = function(x, y) sin(pi * x) * sin(pi * y),
                       alpha = 1e-4)
 oc
 #> Distributed optimal control (KKT (sparse LU))
-#>   objective 0.00479426, projected gradient norm 3.76e-17
-#>   control range [-2.025e-11, 19.68]
+#>   objective 0.00479426, projected gradient norm 3.29e-18
+#>   control range [-1.43e-13, 19.68]
 ```

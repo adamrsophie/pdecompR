@@ -102,12 +102,13 @@ list of two gradient functions, one per component).</p></dd>
 
 <dt id="arg-exact">exact<a class="anchor" aria-label="anchor" href="#arg-exact"></a></dt>
 <dd><p>Exact solution <code>function(x, y)</code>, or an <code><a href="fe_function.html">fe_function()</a></code>
-reference solution on the same mesh or on a nested one (coarser, or finer
-from <code><a href="refine_uniform.html">refine_uniform()</a></code> or <code><a href="refine_uniform.html">refine_mesh()</a></code>), possibly of another degree;
-its gradient is then used for gradient norms. The integral runs on the
-finer of the two meshes, so the result is exact up to quadrature and
-symmetric in the two functions. References on meshes that are not nested
-are rejected.</p></dd>
+reference solution on any mesh of the same domain, possibly of another
+degree; its gradient is then used for gradient norms. The integral runs
+on a partition on which both functions are polynomials: the finer of two
+nested meshes (for example from <code><a href="refine_uniform.html">refine_uniform()</a></code> or <code><a href="refine_uniform.html">refine_mesh()</a></code>),
+or the overlay of all pairwise triangle intersections for meshes that
+are not nested (slower). The result is exact up to quadrature and
+symmetric in the two functions.</p></dd>
 
 
 <dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>

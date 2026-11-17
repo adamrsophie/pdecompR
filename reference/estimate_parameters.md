@@ -15,7 +15,8 @@ estimate_parameters(
   upper = Inf,
   regularization = 0,
   theta_ref = theta0,
-  control = list()
+  control = list(),
+  derivative = NULL
 )
 ```
 
@@ -56,9 +57,20 @@ estimate_parameters(
 
   Passed to [`stats::optim()`](https://rdrr.io/r/stats/optim.html).
 
+- derivative:
+
+  Optional exact operator derivatives, see
+  [`pde_sensitivity()`](https://adamrsophie.github.io/pdecompR/reference/pde_sensitivity.md)
+  and
+  [`affine_derivative()`](https://adamrsophie.github.io/pdecompR/reference/affine_derivative.md);
+  indices refer to the full parameter vector.
+
 ## Value
 
-A list of class `pde_estimate`.
+A list of class `pde_estimate` with the estimate, standard errors, the
+`fixed` parameters, and `identifiability`: singular values, condition
+number and right singular vectors of the weighted observation
+sensitivity matrix of the free parameters, and their correlation matrix.
 
 ## Details
 

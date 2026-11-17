@@ -130,6 +130,10 @@
 
 - [`pde_sensitivity()`](https://adamrsophie.github.io/pdecompR/reference/pde_sensitivity.md)
   : Parameter sensitivities of linear elliptic problems
+- [`affine_derivative()`](https://adamrsophie.github.io/pdecompR/reference/affine_derivative.md)
+  : Exact derivatives of an affine problem family
+- [`taylor_test()`](https://adamrsophie.github.io/pdecompR/reference/taylor_test.md)
+  : Taylor remainder test of an objective gradient
 - [`pde_observations()`](https://adamrsophie.github.io/pdecompR/reference/pde_observations.md)
   [`misfit_objective()`](https://adamrsophie.github.io/pdecompR/reference/pde_observations.md)
   : Point observations and data misfit

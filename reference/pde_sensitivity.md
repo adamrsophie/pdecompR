@@ -15,7 +15,8 @@ pde_sensitivity(
   method = c("forward", "adjoint"),
   h = 1e-06,
   lower = -Inf,
-  upper = Inf
+  upper = Inf,
+  derivative = NULL
 )
 ```
 
@@ -54,6 +55,14 @@ pde_sensitivity(
   Parameter bounds. Difference steps are shortened or made one-sided so
   that `problem_fun` is never called outside them.
 
+- derivative:
+
+  Optional exact derivative `function(theta, j)` returning
+  `list(A = , b = , dirichlet = )`: the derivatives of the full system
+  matrix and load vector (before Dirichlet elimination, as in
+  [`discretize()`](https://adamrsophie.github.io/pdecompR/reference/discretize.md))
+  and, optionally, of the Dirichlet values with respect to `theta[j]`.
+
 ## Value
 
 A list of class `pde_sensitivity` with the `solution`, the
@@ -79,7 +88,13 @@ The operator derivatives `dK/dtheta_j`, `dr/dtheta_j` and
 `du_d/dtheta_j` are obtained by central differences of the assembled
 operators with step `h_j = h max(1, |theta_j|)`. This is exact up to
 rounding when the coefficients are affine in `theta`, and second-order
-accurate otherwise. The solves themselves are not differenced.
+accurate otherwise. The solves themselves are not differenced. Supply
+`derivative` for exact operator derivatives (for example of an affine
+family `A(theta) = A0 + sum(theta_j A_j)`, where `derivative(theta, j)`
+returns `A_j`); check either route with
+[`taylor_test()`](https://adamrsophie.github.io/pdecompR/reference/taylor_test.md).
+Each parameter's derivative is formed, used and discarded in turn, so
+memory does not grow with the number of parameters.
 
 ## References
 
@@ -95,5 +110,5 @@ pf <- function(theta) poisson_problem(mesh, diffusion = theta[1], source = 1,
 s <- pde_sensitivity(pf, theta = 2)
 # exact: u = u1 / theta, so du/dtheta = -u / theta
 max(abs(s$sensitivities[, 1] + s$solution$u$values / 2))
-#> [1] 1.496903e-12
+#> [1] 1.4969e-12
 ```

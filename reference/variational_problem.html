@@ -82,7 +82,12 @@ solves the linear system.</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">variational_problem</span><span class="op">(</span><span class="va">bilinear</span>, <span class="va">linear</span>, bcs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">variational_problem</span><span class="op">(</span></span>
+<span>  <span class="va">bilinear</span>,</span>
+<span>  <span class="va">linear</span>,</span>
+<span>  bcs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  nullspace <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"constant"</span>, <span class="st">"none"</span><span class="op">)</span></span>
+<span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -99,6 +104,15 @@ solves the linear system.</p>
 
 <dt id="arg-bcs">bcs<a class="anchor" aria-label="anchor" href="#arg-bcs"></a></dt>
 <dd><p>Dirichlet conditions (<code><a href="dirichlet_bc.html">dirichlet_bc()</a></code>).</p></dd>
+
+
+<dt id="arg-nullspace">nullspace<a class="anchor" aria-label="anchor" href="#arg-nullspace"></a></dt>
+<dd><p>How to treat the constants when no Dirichlet condition is
+given: <code>"auto"</code> (default) declares them a nullspace exactly when every
+bilinear term differentiates the trial function (<code>grad(u)</code>), so that
+<code>a(1, v) = 0</code> holds by construction; <code>"constant"</code> asserts the constant
+nullspace (solved with a zero-mean gauge and a compatibility check);
+<code>"none"</code> asserts a unique solution.</p></dd>
 
 </dl></div>
     <div class="section level2">

@@ -9,7 +9,12 @@ freedom and solves the linear system.
 ## Usage
 
 ``` r
-variational_problem(bilinear, linear, bcs = list())
+variational_problem(
+  bilinear,
+  linear,
+  bcs = list(),
+  nullspace = c("auto", "constant", "none")
+)
 ```
 
 ## Arguments
@@ -26,6 +31,15 @@ variational_problem(bilinear, linear, bcs = list())
 
   Dirichlet conditions
   ([`dirichlet_bc()`](https://adamrsophie.github.io/pdecompR/reference/dirichlet_bc.md)).
+
+- nullspace:
+
+  How to treat the constants when no Dirichlet condition is given:
+  `"auto"` (default) declares them a nullspace exactly when every
+  bilinear term differentiates the trial function (`grad(u)`), so that
+  `a(1, v) = 0` holds by construction; `"constant"` asserts the constant
+  nullspace (solved with a zero-mean gauge and a compatibility check);
+  `"none"` asserts a unique solution.
 
 ## Value
 

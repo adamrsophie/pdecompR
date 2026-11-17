@@ -82,7 +82,8 @@ observations by minimizing</p>
 <span>  upper <span class="op">=</span> <span class="cn">Inf</span>,</span>
 <span>  regularization <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>  theta_ref <span class="op">=</span> <span class="va">theta0</span>,</span>
-<span>  control <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span></span>
+<span>  control <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
+<span>  derivative <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -122,10 +123,19 @@ an <code><a href="elliptic_problem.html">elliptic_problem()</a></code>.</p></dd>
 <dt id="arg-control">control<a class="anchor" aria-label="anchor" href="#arg-control"></a></dt>
 <dd><p>Passed to <code><a href="https://rdrr.io/r/stats/optim.html" class="external-link">stats::optim()</a></code>.</p></dd>
 
+
+<dt id="arg-derivative">derivative<a class="anchor" aria-label="anchor" href="#arg-derivative"></a></dt>
+<dd><p>Optional exact operator derivatives, see
+<code><a href="pde_sensitivity.html">pde_sensitivity()</a></code> and <code><a href="affine_derivative.html">affine_derivative()</a></code>; indices refer to the full
+parameter vector.</p></dd>
+
 </dl></div>
     <div class="section level2">
     <h2 id="value">Value<a class="anchor" aria-label="anchor" href="#value"></a></h2>
-    <p>A list of class <code>pde_estimate</code>.</p>
+    <p>A list of class <code>pde_estimate</code> with the estimate, standard errors,
+the <code>fixed</code> parameters, and <code>identifiability</code>: singular values, condition
+number and right singular vectors of the weighted observation sensitivity
+matrix of the free parameters, and their correlation matrix.</p>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>

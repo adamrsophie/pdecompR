@@ -35,15 +35,16 @@ errornorm(
 
   Exact solution `function(x, y)`, or an
   [`fe_function()`](https://adamrsophie.github.io/pdecompR/reference/fe_function.md)
-  reference solution on the same mesh or on a nested one (coarser, or
-  finer from
+  reference solution on any mesh of the same domain, possibly of another
+  degree; its gradient is then used for gradient norms. The integral
+  runs on a partition on which both functions are polynomials: the finer
+  of two nested meshes (for example from
   [`refine_uniform()`](https://adamrsophie.github.io/pdecompR/reference/refine_uniform.md)
   or
   [`refine_mesh()`](https://adamrsophie.github.io/pdecompR/reference/refine_uniform.md)),
-  possibly of another degree; its gradient is then used for gradient
-  norms. The integral runs on the finer of the two meshes, so the result
-  is exact up to quadrature and symmetric in the two functions.
-  References on meshes that are not nested are rejected.
+  or the overlay of all pairwise triangle intersections for meshes that
+  are not nested (slower). The result is exact up to quadrature and
+  symmetric in the two functions.
 
 - type:
 

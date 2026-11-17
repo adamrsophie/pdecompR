@@ -22,6 +22,7 @@
 <url><loc>https://adamrsophie.github.io/pdecompR/index.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/news/index.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/adaptive_solve.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/reference/affine_derivative.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/assemble_matrix.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/boundary_dofs.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/boundary_markers.html</loc></url>
@@ -67,6 +68,7 @@
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/solution_at.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/solve_linear_system.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/solve_pde.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/reference/taylor_test.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/transfer_function.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/trial_function.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/update_mesh.html</loc></url>
