@@ -75,7 +75,7 @@ linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgsta
   method <- match.arg(method)
   preconditioner <- match.arg(preconditioner)
   A_res <- if (inherits(A, "Matrix")) A else methods::as(A, "CsparseMatrix")  # for residuals, as passed
-  A <- methods::as(methods::as(A, "CsparseMatrix"), "generalMatrix")
+  A <- Matrix::drop0(methods::as(methods::as(A, "CsparseMatrix"), "generalMatrix"))
   n <- nrow(A)
   if (ncol(A) != n) stopf("The system matrix must be square.")
   if (n == 0L) {

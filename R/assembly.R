@@ -13,14 +13,19 @@ element_geometry <- function(space, quad_degree = NULL) {
   m <- length(g$det)
   nq <- length(q$weights)
   gx <- gy <- vector("list", nq)
+  # P1 gradients are constant on each triangle: compute them once and share
+  # the same matrix across quadrature points.
+  same <- all(G$xi == rep(G$xi[1, ], each = nq)) && all(G$eta == rep(G$eta[1, ], each = nq))
   for (k in seq_len(nq)) {
+    if (same && k > 1L) { gx[[k]] <- gx[[1]]; gy[[k]] <- gy[[1]]; next }
     gxi <- matrix(G$xi[k, ], m, el$ndof, byrow = TRUE)
     geta <- matrix(G$eta[k, ], m, el$ndof, byrow = TRUE)
     gx[[k]] <- (g$b22 * gxi - g$b21 * geta) / g$det
     gy[[k]] <- (-g$b12 * gxi + g$b11 * geta) / g$det
   }
   list(space = space, quad = q, w = q$weights, det = g$det, x = g$x, y = g$y,
-       phi = phi, gx = gx, gy = gy, nq = nq, nloc = el$ndof, m = m)
+       phi = phi, gx = gx, gy = gy, nq = nq, nloc = el$ndof, m = m,
+       b11 = g$b11, b12 = g$b12, b21 = g$b21, b22 = g$b22, gxi = G$xi, geta = G$eta)
 }
 
 # Evaluate a scalar coefficient at all quadrature points (m by nq matrix).
@@ -90,6 +95,43 @@ fe_qp <- function(u, geo) {
 local_bilinear <- function(geo, mass = NULL, adv = NULL, advt = NULL, diff = NULL) {
   m <- geo$m; nl <- geo$nloc
   A <- array(0, c(m, nl, nl))
+  # Terms whose coefficients are constant on every element are assembled
+  # from reference-element matrices: on affine triangles the quadrature sum
+  # factorizes exactly into (per-element metric) x (reference integral), so
+  # the result equals the quadrature result up to rounding at a fraction of
+  # the cost. Other terms go through the quadrature loop below.
+  pec <- function(a) is.matrix(a) && all(a == a[, 1])
+  if (!is.null(geo$gxi)) {
+    w <- geo$w; det <- geo$det; ph <- geo$phi
+    ref <- function(a, b) crossprod(a, w * b)
+    G11 <- geo$b22 / det; G12 <- -geo$b21 / det; G21 <- -geo$b12 / det; G22 <- geo$b11 / det
+    add <- function(cf, S) A <<- A + array(cf %o% S, c(m, nl, nl))
+    if (!is.null(mass) && pec(mass)) { add(det * mass[, 1], ref(ph, ph)); mass <- NULL }
+    if (!is.null(diff) && (if (is.list(diff)) all(vapply(diff, pec, logical(1))) else pec(diff))) {
+      d <- if (is.list(diff)) lapply(diff, function(a) a[, 1]) else list(xx = diff[, 1], xy = 0, yx = 0, yy = diff[, 1])
+      DG11 <- d$xx * G11 + d$xy * G21; DG12 <- d$xx * G12 + d$xy * G22
+      DG21 <- d$yx * G11 + d$yy * G21; DG22 <- d$yx * G12 + d$yy * G22
+      gxi <- geo$gxi; geta <- geo$geta
+      add(det * (G11 * DG11 + G21 * DG21), ref(gxi, gxi))
+      add(det * (G11 * DG12 + G21 * DG22), ref(gxi, geta))
+      add(det * (G12 * DG11 + G22 * DG21), ref(geta, gxi))
+      add(det * (G12 * DG12 + G22 * DG22), ref(geta, geta))
+      diff <- NULL
+    }
+    if (!is.null(adv) && pec(adv$x) && pec(adv$y)) {
+      bx <- adv$x[, 1]; by <- adv$y[, 1]
+      add(det * (G11 * bx + G21 * by), ref(ph, geo$gxi))
+      add(det * (G12 * bx + G22 * by), ref(ph, geo$geta))
+      adv <- NULL
+    }
+    if (!is.null(advt) && pec(advt$x) && pec(advt$y)) {
+      bx <- advt$x[, 1]; by <- advt$y[, 1]
+      add(det * (G11 * bx + G21 * by), t(ref(ph, geo$gxi)))
+      add(det * (G12 * bx + G22 * by), t(ref(ph, geo$geta)))
+      advt <- NULL
+    }
+    if (is.null(mass) && is.null(diff) && is.null(adv) && is.null(advt)) return(A)
+  }
   tensor <- is.list(diff)
   for (k in seq_len(geo$nq)) {
     wd <- geo$w[k] * geo$det
@@ -119,6 +161,9 @@ local_bilinear <- function(geo, mass = NULL, adv = NULL, advt = NULL, diff = NUL
 local_linear <- function(geo, f = NULL, g = NULL) {
   m <- geo$m; nl <- geo$nloc
   b <- matrix(0, m, nl)
+  if (!is.null(f) && is.null(g) && all(f == f[, 1])) {
+    return((geo$det * f[, 1]) %o% colSums(geo$w * geo$phi))
+  }
   for (k in seq_len(geo$nq)) {
     wd <- geo$w[k] * geo$det
     for (i in seq_len(nl)) {

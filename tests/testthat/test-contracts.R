@@ -340,3 +340,19 @@ test_that("exact and affine derivatives match finite differences and pass Taylor
   expect_equal(est$estimate, 0.7, tolerance = 1e-5)
   expect_true(is.finite(est$identifiability$condition))
 })
+
+test_that("reference-element kernels agree with the quadrature loop", {
+  L <- pde_domain("polygon", vertices = cbind(c(0, 1, 1, 0.5, 0.5, 0), c(0, 0, 0.5, 0.5, 1, 1)))
+  for (deg in 1:2) {
+    geo <- pdecompR:::element_geometry(fe_space(pde_mesh_polygon(L, h = 0.2), deg))
+    loop <- function(...) { g <- geo; g$gxi <- NULL; pdecompR:::local_bilinear(g, ...) }
+    ce <- function(v) matrix(v, geo$m, geo$nq)
+    rc <- ce(rep(seq_len(geo$m) / geo$m, geo$nq))
+    cases <- list(list(diff = ce(2.5)), list(diff = lapply(list(xx = 2, xy = 0.3, yx = 0.3, yy = 1), ce)),
+                  list(mass = rc), list(adv = list(x = ce(1), y = rc)), list(advt = list(x = rc, y = ce(-2))),
+                  list(mass = ce(1), diff = geo$x))
+    for (a in cases) {
+      expect_lt(max(abs(do.call(pdecompR:::local_bilinear, c(list(geo), a)) - do.call(loop, a))), 1e-12)
+    }
+  }
+})

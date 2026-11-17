@@ -21,7 +21,9 @@ the sparse matrix classes of 'Matrix'.
 * Continuous Lagrange P1 and P2 elements on triangles, scalar and vector
   valued, with Gaussian quadrature on intervals and triangles.
 * Sparse assembly of stiffness, mass, advection and boundary operators and
-  load vectors.
+  load vectors. Terms with coefficients that are constant on each element
+  are assembled from reference-element matrices, exactly and without a
+  quadrature loop.
 * Coefficients given as numbers, functions of `(x, y)` or `(x, y, t)`,
   finite-element functions, constant symmetric tensors or piecewise values
   by region (`region_coefficient()`).

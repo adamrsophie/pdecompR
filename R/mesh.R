@@ -69,8 +69,8 @@ pde_mesh <- function(nodes, triangles, boundary_edges = NULL,
   if (any(rep_node)) {
     stopf("Element %d repeats a node index.", which(rep_node)[1])
   }
-  srt <- t(apply(tris, 1, sort))
-  dup <- duplicated(srt)
+  lo <- pmin(tris[, 1], tris[, 2], tris[, 3]); hi <- pmax(tris[, 1], tris[, 2], tris[, 3])
+  dup <- duplicated(cbind(lo, tris[, 1] + tris[, 2] + tris[, 3] - lo - hi, hi))
   if (any(dup)) stopf("Element %d duplicates an earlier element.", which(dup)[1])
   used <- tabulate(tris, nbins = n)
   if (any(used == 0L)) {

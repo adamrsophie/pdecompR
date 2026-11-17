@@ -196,7 +196,7 @@ write_vtk <- function(x, file, name = "u", time = NULL, stress = FALSE) {
            sprintf("POINTS %d double", np),
            sprintf("%.17g %.17g 0", P[, 1], P[, 2]),
            sprintf("CELLS %d %d", nc, (k + 1L) * nc),
-           apply(C - 1L, 1, function(r) paste(k, paste(r, collapse = " "))),
+           do.call(paste, c(list(k), as.data.frame(C - 1L))),
            sprintf("CELL_TYPES %d", nc), rep(if (quad) "22" else "5", nc))
   if (length(arrays) || !is.null(vectors)) out <- c(out, sprintf("POINT_DATA %d", np))
   for (nm in names(arrays)) {

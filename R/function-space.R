@@ -193,8 +193,10 @@ locate_points <- function(mesh, x, y, tol = 1e-10) {
   bin <- function(v, lo, w) pmin(nb - 1L, pmax(0L, floor((v - lo) / w)))
   ex <- matrix(P[T, 1], m); ey <- matrix(P[T, 2], m)
   slack <- 1e-9 * max(xmax - xmin, ymax - ymin)
-  bx0 <- bin(apply(ex, 1, min) - slack, xmin, wx); bx1 <- bin(apply(ex, 1, max) + slack, xmin, wx)
-  by0 <- bin(apply(ey, 1, min) - slack, ymin, wy); by1 <- bin(apply(ey, 1, max) + slack, ymin, wy)
+  bx0 <- bin(pmin(ex[, 1], ex[, 2], ex[, 3]) - slack, xmin, wx)
+  bx1 <- bin(pmax(ex[, 1], ex[, 2], ex[, 3]) + slack, xmin, wx)
+  by0 <- bin(pmin(ey[, 1], ey[, 2], ey[, 3]) - slack, ymin, wy)
+  by1 <- bin(pmax(ey[, 1], ey[, 2], ey[, 3]) + slack, ymin, wy)
   nxk <- bx1 - bx0 + 1L; nyk <- by1 - by0 + 1L
   cnt <- nxk * nyk
   el <- rep(seq_len(m), cnt)
