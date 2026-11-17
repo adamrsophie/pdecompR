@@ -40,66 +40,73 @@ read_gmsh <- function(file, check_overlap = TRUE) {
     }
   }
   num <- function(l) as.numeric(strsplit(l, "\\s+")[[1]])
+  # All numbers of many lines at once, with the offset of each line's first
+  # number in the flat vector.
+  flat <- function(l) {
+    sp <- strsplit(l, "\\s+")
+    list(v = as.numeric(unlist(sp, use.names = FALSE)), start = cumsum(c(0L, lengths(sp)[-length(sp)])))
+  }
   if (version < 3) {
     nd <- sec("Nodes")
     nn <- as.integer(nd[1])
-    M <- do.call(rbind, lapply(nd[1L + seq_len(nn)], num))
-    tags <- M[, 1]; xyz <- M[, 2:4, drop = FALSE]
+    fn <- flat(nd[1L + seq_len(nn)])
+    tags <- fn$v[fn$start + 1]
+    xyz <- cbind(fn$v[fn$start + 2], fn$v[fn$start + 3], fn$v[fn$start + 4])
     el <- sec("Elements")
     ne <- as.integer(el[1])
-    tri <- list(); lin <- list(); lphys <- integer(); tphys <- numeric(); other <- 0L
-    for (l in el[1L + seq_len(ne)]) {
-      v <- num(l); type <- v[2]; ntag <- v[3]
-      conn <- v[(4 + ntag):length(v)]
-      if (type == 2) { tri[[length(tri) + 1L]] <- conn[1:3]; tphys <- c(tphys, if (ntag > 0) v[4] else 0) }
-      else if (type == 1) { lin[[length(lin) + 1L]] <- conn[1:2]; lphys <- c(lphys, if (ntag > 0) v[4] else 0) }
-      else other <- other + 1L
-    }
+    fe <- flat(el[1L + seq_len(ne)])
+    st <- fe$start; type <- fe$v[st + 2]; ntag <- fe$v[st + 3]
+    ephys <- ifelse(ntag > 0, fe$v[st + 4], 0)
+    c0 <- st + 4 + ntag
+    it <- type == 2; il <- type == 1
+    tri <- cbind(fe$v[c0[it]], fe$v[c0[it] + 1], fe$v[c0[it] + 2]); tphys <- ephys[it]
+    lin <- cbind(fe$v[c0[il]], fe$v[c0[il] + 1]); lphys <- ephys[il]
+    other <- sum(!it & !il)
   } else {
     nd <- sec("Nodes")
     h <- num(nd[1]); nblocks <- h[1]
     pos <- 2L
-    tags <- numeric(); xyz <- matrix(numeric(), 0, 3)
+    tag_rows <- integer(); xyz_rows <- integer()
     for (b in seq_len(nblocks)) {
       bh <- num(nd[pos]); nb <- bh[4]; pos <- pos + 1L
       if (bh[3] != 0) stopf("Parametric node blocks in Gmsh 4.1 files are not supported; save without parametric coordinates.")
       if (nb > 0) {
-        tags <- c(tags, as.numeric(nd[pos:(pos + nb - 1L)]))
-        xyz <- rbind(xyz, do.call(rbind, lapply(nd[(pos + nb):(pos + 2L * nb - 1L)], num)))
+        tag_rows <- c(tag_rows, pos:(pos + nb - 1L))
+        xyz_rows <- c(xyz_rows, (pos + nb):(pos + 2L * nb - 1L))
       }
       pos <- pos + 2L * nb
     }
+    tags <- as.numeric(nd[tag_rows])
+    fx <- flat(nd[xyz_rows])
+    xyz <- cbind(fx$v[fx$start + 1], fx$v[fx$start + 2], fx$v[fx$start + 3])
     ent_phys <- gmsh4_curve_physicals(sec("Entities"))
     surf_phys <- gmsh4_curve_physicals(sec("Entities"), dim = 2L)
     el <- sec("Elements")
     h <- num(el[1]); nblocks <- h[1]
     pos <- 2L
-    tri <- list(); lin <- list(); lphys <- integer(); tphys <- numeric(); other <- 0L
+    rows <- integer(); btype <- numeric(); bphys <- numeric()
     for (b in seq_len(nblocks)) {
-      bh <- num(el[pos]); edim <- bh[1]; etag <- bh[2]; type <- bh[3]; nb <- bh[4]; pos <- pos + 1L
-      rows <- if (nb > 0) el[pos:(pos + nb - 1L)] else character()
-      pos <- pos + nb
-      for (l in rows) {
-        v <- num(l)
-        if (type == 2) {
-          tri[[length(tri) + 1L]] <- v[2:4]
-          pt <- surf_phys[as.character(etag)]
-          tphys <- c(tphys, if (is.na(pt)) 0 else pt)
-        } else if (type == 1) {
-          lin[[length(lin) + 1L]] <- v[2:3]
-          pt <- ent_phys[as.character(etag)]
-          lphys <- c(lphys, if (is.na(pt)) 0 else pt)
-        } else other <- other + 1L
+      bh <- num(el[pos]); etag <- bh[2]; type <- bh[3]; nb <- bh[4]; pos <- pos + 1L
+      if (nb > 0) {
+        rows <- c(rows, pos:(pos + nb - 1L))
+        pt <- if (type == 2) surf_phys[as.character(etag)] else if (type == 1) ent_phys[as.character(etag)] else NA
+        btype <- c(btype, rep(type, nb)); bphys <- c(bphys, rep(if (is.na(pt)) 0 else pt, nb))
       }
+      pos <- pos + nb
     }
+    fe <- flat(el[rows]); st <- fe$start
+    it <- btype == 2; il <- btype == 1
+    tri <- cbind(fe$v[st[it] + 2], fe$v[st[it] + 3], fe$v[st[it] + 4]); tphys <- unname(bphys[it])
+    lin <- cbind(fe$v[st[il] + 2], fe$v[st[il] + 3]); lphys <- unname(bphys[il])
+    other <- sum(!it & !il)
   }
-  if (!length(tri)) {
+  if (!nrow(tri)) {
     stopf("The file contains no linear triangles (element type 2); second-order meshes are not supported.")
   }
-  if (any(!match(unlist(tri), tags, nomatch = 0L))) stopf("A triangle references a node that is not in the file.")
+  if (any(!match(tri, tags, nomatch = 0L))) stopf("A triangle references a node that is not in the file.")
   if (other > 0L) message(sprintf("Ignored %d element(s) that are not triangles or lines.", other))
   if (diff(range(xyz[, 3])) > 0) stopf("The mesh is not planar (z varies); only 2D meshes are supported.")
-  T <- do.call(rbind, tri)
+  T <- tri
   id <- match(T, tags)
   used <- sort(unique(id))
   T2 <- matrix(match(id, used), ncol = 3)
@@ -107,8 +114,8 @@ read_gmsh <- function(file, check_overlap = TRUE) {
   mesh0 <- pde_mesh(nodes, T2, fix_orientation = TRUE, check_overlap = check_overlap)
   bd <- mesh0$boundary
   markers <- rep("boundary", nrow(bd))
-  if (length(lin)) {
-    L <- matrix(match(match(do.call(rbind, lin), tags), used), ncol = 2)
+  if (nrow(lin)) {
+    L <- matrix(match(match(lin, tags), used), ncol = 2)
     n <- nrow(nodes)
     kb <- edge_key(bd$n1, bd$n2, n)
     kl <- edge_key(L[, 1], L[, 2], n)

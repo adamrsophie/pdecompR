@@ -56,3 +56,15 @@ test_that("plots run without errors", {
   ad <- adaptive_solve(poisson_problem(m, source = 1, boundary = dirichlet_bc(0)), max_iterations = 2)
   expect_silent(plot(ad))
 })
+
+test_that("Gmsh 2.2 elements without tags and with other types are parsed", {
+  f <- tempfile(fileext = ".msh")
+  writeLines(c("$MeshFormat", "2.2 0 8", "$EndMeshFormat", "$Nodes", "4",
+               "1 0 0 0", "2 1 0 0", "3 1 1 0", "4 0 1 0", "$EndNodes", "$Elements", "4",
+               "1 15 1 9 1", "2 2 0 1 2 3", "3 2 3 7 7 1 1 3 4", "4 1 0 1 2", "$EndElements"), f)
+  expect_message(read_gmsh(f), "Ignored 1")
+  m <- suppressMessages(read_gmsh(f))
+  expect_equal(nrow(m$triangles), 2L)
+  expect_equal(sort(unique(mesh_regions(m))), c("7", "domain"))
+  expect_true(all(m$boundary$marker == "boundary"))
+})
