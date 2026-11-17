@@ -1,0 +1,122 @@
+#' Adjoint gradients for nonlinear and time-dependent problems
+#'
+#' `nonlinear_sensitivity()` returns the gradient of `J(u(theta))` for a
+#' [nonlinear_problem()] family. At the converged state the discrete
+#' residual satisfies `F(u, theta) = 0`; one solve with the transposed Newton
+#' Jacobian, `J_F^T lambda = dJ/du`, gives
+#' `dJ/dtheta = dJ/du_d du_d/dtheta - lambda' dF/dtheta`, where the
+#' parameter derivative of the residual is a central difference at the fixed
+#' state (no extra nonlinear solves).
+#'
+#' `transient_sensitivity()` returns the gradient of an objective of the
+#' final state of a [parabolic_problem()] family solved by backward Euler or
+#' Crank-Nicolson (without startup steps). The forward run stores the
+#' states; a backward sweep with the transposed step matrix computes the
+#' discrete adjoint, and the gradient collects the derivatives of the
+#' operator, the loads and the initial condition. It is the exact gradient
+#' of the discrete time-stepping scheme (up to the difference steps of the
+#' operator derivatives), at the cost of one extra solve per step,
+#' independent of the number of parameters. Coefficients must not depend on
+#' time and the Dirichlet data must not depend on `theta`.
+#'
+#' Check either gradient with Taylor remainders, as in [taylor_test()].
+#'
+#' @param problem_fun `function(theta)` returning a [nonlinear_problem()] or
+#'   [parabolic_problem()].
+#' @param theta Parameter vector.
+#' @param objective `function(u)` of the full degree-of-freedom vector (the
+#'   final state for transient problems) returning
+#'   `list(value = , gradient = )`, for example from [misfit_objective()].
+#' @param h Relative difference step for parameter derivatives.
+#' @param dt,method Time step and scheme for transient problems.
+#' @param ... Passed to [solve_pde()].
+#' @return A list with `value`, `gradient`, the `solution` and the adjoint.
+#' @examples
+#' mesh <- pde_mesh_rectangle(nx = 6)
+#' pf <- function(th) nonlinear_problem(mesh, diffusion = function(u) th[1] + u^2, source = th[2],
+#'                                      bcs = dirichlet_bc(0))
+#' ob <- misfit_objective(fe_space(mesh), pde_observations(0.5, 0.5, 0.05))
+#' nonlinear_sensitivity(pf, c(1, 1), ob)$gradient
+#' @export
+nonlinear_sensitivity <- function(problem_fun, theta, objective, h = 1e-6, ...) {
+  theta <- as.numeric(theta); check_tol(h, "h")
+  sol <- solve_pde(problem_fun(theta), ...)
+  if (!isTRUE(sol$converged)) warnf("Newton did not converge; the gradient is not reliable.")
+  ns <- nonlinear_system(problem_fun(theta))
+  u <- sol$u$values; f <- ns$free; d <- ns$dd$dofs
+  ob <- objective(u)
+  J <- ns$residual_jac(u)$J
+  as <- solve_linear_system(Matrix::t(J[f, f, drop = FALSE]), ob$gradient[f], method = "lu")
+  warn_solver(as$info, "adjoint solve")
+  lam <- as$x
+  gr <- vapply(seq_along(theta), function(j) {
+    hj <- h * max(1, abs(theta[j]))
+    res_at <- function(th) {
+      nj <- nonlinear_system(problem_fun(th))
+      if (!identical(nj$dd$dofs, d)) stopf("The Dirichlet degrees of freedom must not depend on theta.")
+      uj <- u; uj[d] <- nj$dd$values
+      list(r = nj$residual_jac(uj, jacobian = FALSE)$r, ud = nj$dd$values)
+    }
+    tp <- theta; tp[j] <- tp[j] + hj; tm <- theta; tm[j] <- tm[j] - hj
+    rp <- res_at(tp); rm <- res_at(tm)
+    -sum(lam * (rp$r[f] - rm$r[f])) / (2 * hj) +
+      if (length(d)) sum(ob$gradient[d] * (rp$ud - rm$ud)) / (2 * hj) else 0
+  }, numeric(1))
+  list(value = ob$value, gradient = gr, solution = sol, adjoint = lam)
+}
+
+#' @rdname nonlinear_sensitivity
+#' @export
+transient_sensitivity <- function(problem_fun, theta, objective, dt,
+                                  method = c("backward-euler", "crank-nicolson"), h = 1e-6, ...) {
+  method <- match.arg(method)
+  theta <- as.numeric(theta); check_tol(h, "h")
+  th_s <- if (method == "crank-nicolson") 0.5 else 1
+  prob <- problem_fun(theta)
+  if (!inherits(prob, "parabolic_problem")) stopf("`problem_fun` must return a parabolic_problem().")
+  sol <- solve_pde(prob, dt = dt, method = method, startup = 0L, ...)
+  ops <- parabolic_operators(prob)
+  if (ops$coef_time_dependent) stopf("Coefficients must not depend on time.")
+  V <- ops$V
+  N <- sol$diagnostics$steps; dt <- sol$diagnostics$dt
+  grid <- prob$time[1] + (0:N) * dt
+  if (length(sol$times) != N + 1L) stopf("Internal error: all steps must be stored.")
+  U <- sol$values
+  d <- dirichlet_data(V, prob$bcs, grid[1])$dofs
+  f <- setdiff(seq_len(V$ndof), d)
+  L <- ops$M + (th_s * dt) * ops$A; R <- ops$M - ((1 - th_s) * dt) * ops$A
+  Lt <- linear_solver(Matrix::t(L[f, f, drop = FALSE]))
+  Rff_t <- Matrix::t(R[f, f, drop = FALSE])
+  ob <- objective(U[, N + 1L])
+  # Backward sweep: L' lambda_N = g, L' lambda_n = R' lambda_{n+1}.
+  Lam <- matrix(0, length(f), N)
+  s <- Lt$solve(ob$gradient[f]); warn_solver(s$info, "adjoint solve")
+  Lam[, N] <- s$x
+  if (N > 1L) for (n in (N - 1L):1L) {
+    s <- Lt$solve(as.numeric(Rff_t %*% Lam[, n + 1L])); warn_solver(s$info, "adjoint solve")
+    Lam[, n] <- s$x
+  }
+  gr <- vapply(seq_along(theta), function(j) {
+    hj <- h * max(1, abs(theta[j]))
+    tp <- theta; tp[j] <- tp[j] + hj; tm <- theta; tm[j] <- tm[j] - hj
+    pp <- problem_fun(tp); pm <- problem_fun(tm)
+    op <- parabolic_operators(pp); om <- parabolic_operators(pm)
+    dA <- (op$A - om$A) / (2 * hj)
+    du0 <- (initial_values(pp$initial, V) - initial_values(pm$initial, V)) / (2 * hj)
+    dF <- function(t) (op$load(t) - om$load(t)) / (2 * hj)
+    tot <- sum(Lam[, 1] * as.numeric(R %*% c_zero(du0, d))[f])
+    dF_old <- dF(grid[1])
+    for (n in seq_len(N)) {
+      dF_new <- dF(grid[n + 1L])
+      rhs <- -((1 - th_s) * dt) * as.numeric(dA %*% U[, n]) - (th_s * dt) * as.numeric(dA %*% U[, n + 1L]) +
+        dt * (th_s * dF_new + (1 - th_s) * dF_old)
+      tot <- tot + sum(Lam[, n] * rhs[f])
+      dF_old <- dF_new
+    }
+    tot
+  }, numeric(1))
+  list(value = ob$value, gradient = gr, solution = sol, adjoint = Lam)
+}
+
+# Zero the prescribed entries (their values do not depend on theta).
+c_zero <- function(v, d) { v[d] <- 0; v }

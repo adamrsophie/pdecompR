@@ -87,6 +87,10 @@ the sparse matrix classes of 'Matrix'.
 * Discrete forward and adjoint sensitivities of linear elliptic problems,
   with finite-difference or exact operator derivatives
   (`affine_derivative()`) and Taylor remainder checks (`taylor_test()`).
+* Adjoint gradients of nonlinear problems (one transposed Newton Jacobian
+  solve) and of backward Euler and Crank-Nicolson time stepping (a
+  discrete backward sweep) through `nonlinear_sensitivity()` and
+  `transient_sensitivity()`.
 * Parameter estimation with adjoint gradients, bounds (including fixed
   parameters), Gauss-Newton standard errors and identifiability
   diagnostics.

@@ -110,6 +110,7 @@ reference:
   - pde_sensitivity
   - affine_derivative
   - taylor_test
+  - nonlinear_sensitivity
   - pde_observations
   - estimate_parameters
   - optimal_control

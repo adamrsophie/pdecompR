@@ -94,19 +94,9 @@ eval_u <- function(f, U, name) {
 solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method = "auto", ...) {
   t0 <- proc.time()[["elapsed"]]
   check_tol(tol, "tol"); maxit <- check_count(maxit, "maxit")
-  V <- fe_space(problem$mesh, problem$degree)
-  geo <- element_geometry(V, problem$quad_degree)
-  fq <- coef_qp(problem$source, geo, name = "source")
-  nat <- natural_bc_terms(V, problem$bcs)
-  b_nat <- global_vector(V, local_linear(geo, f = fq)) + nat$b
-  dd <- dirichlet_data(V, problem$bcs)
-  free <- setdiff(seq_len(V$ndof), dd$dofs)
-  plap <- identical(problem$type, "p-laplace")
-  k <- as_fun_u(problem$diffusion)
-  dk <- if (!is.null(problem$diffusion_derivative)) problem$diffusion_derivative
-        else if (is.function(problem$diffusion)) fd_deriv(problem$diffusion) else function(u) 0 * u
-  g <- problem$reaction
-  dg <- if (is.null(g)) NULL else if (!is.null(problem$reaction_derivative)) problem$reaction_derivative else fd_deriv(g)
+  ns <- nonlinear_system(problem)
+  V <- ns$V; geo <- ns$geo; nat <- ns$nat; dd <- ns$dd; free <- ns$free; plap <- ns$plap
+  k <- ns$k; dk <- ns$dk; g <- ns$g; dg <- ns$dg; residual_jac <- ns$residual_jac
   # Initial guess
   if (!is.null(problem$initial)) {
     u <- initial_values(problem$initial, V)
@@ -142,33 +132,6 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
       stopf(paste0("The nonlinear problem has no Dirichlet, Robin or reaction term, so its solution ",
                    "is not unique (pure Neumann); add a Dirichlet condition."))
     }
-  }
-  residual_jac <- function(u, jacobian = TRUE) {
-    q <- fe_qp(u, geo)
-    if (plap) {
-      s <- q$dx^2 + q$dy^2 + problem$epsilon^2
-      kq <- s^((problem$p - 2) / 2)
-    } else {
-      kq <- eval_u(k, q$value, "diffusion")
-    }
-    flux <- list(x = kq * q$dx, y = kq * q$dy)
-    gq <- if (is.null(g)) NULL else eval_u(g, q$value, "reaction")
-    r <- global_vector(V, local_linear(geo, f = gq, g = flux)) - b_nat
-    if (!is.null(nat$A)) r <- r + as.numeric(nat$A %*% u)
-    if (!jacobian) return(list(r = r))
-    if (plap) {
-      c2 <- (problem$p - 2) * s^((problem$p - 4) / 2)
-      D <- list(xx = kq + c2 * q$dx * q$dx, xy = c2 * q$dx * q$dy,
-                yx = c2 * q$dy * q$dx, yy = kq + c2 * q$dy * q$dy)
-      A <- local_bilinear(geo, diff = D)
-    } else {
-      dkq <- eval_u(dk, q$value, "diffusion_derivative")
-      mass <- if (is.null(dg)) NULL else eval_u(dg, q$value, "reaction_derivative")
-      A <- local_bilinear(geo, mass = mass, advt = list(x = dkq * q$dx, y = dkq * q$dy), diff = kq)
-    }
-    J <- global_matrix(V, A)
-    if (!is.null(nat$A)) J <- J + nat$A
-    list(r = r, J = J)
   }
   hist <- data.frame(iteration = integer(), residual = numeric(), step = numeric())
   rj <- residual_jac(u)
@@ -213,4 +176,51 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
                     class = "pde_diagnostics")
   structure(list(u = fe_function(V, u), space = V, diagnostics = diag, newton = hist,
                  converged = converged, problem = problem), class = "pde_solution")
+}
+
+# Discrete nonlinear system of a nonlinear problem: its residual and Newton
+# Jacobian as functions of the full degree-of-freedom vector.
+nonlinear_system <- function(problem) {
+  V <- fe_space(problem$mesh, problem$degree)
+  geo <- element_geometry(V, problem$quad_degree)
+  fq <- coef_qp(problem$source, geo, name = "source")
+  nat <- natural_bc_terms(V, problem$bcs)
+  b_nat <- global_vector(V, local_linear(geo, f = fq)) + nat$b
+  dd <- dirichlet_data(V, problem$bcs)
+  free <- setdiff(seq_len(V$ndof), dd$dofs)
+  plap <- identical(problem$type, "p-laplace")
+  k <- as_fun_u(problem$diffusion)
+  dk <- if (!is.null(problem$diffusion_derivative)) problem$diffusion_derivative
+        else if (is.function(problem$diffusion)) fd_deriv(problem$diffusion) else function(u) 0 * u
+  g <- problem$reaction
+  dg <- if (is.null(g)) NULL else if (!is.null(problem$reaction_derivative)) problem$reaction_derivative else fd_deriv(g)
+  residual_jac <- function(u, jacobian = TRUE) {
+    q <- fe_qp(u, geo)
+    if (plap) {
+      s <- q$dx^2 + q$dy^2 + problem$epsilon^2
+      kq <- s^((problem$p - 2) / 2)
+    } else {
+      kq <- eval_u(k, q$value, "diffusion")
+    }
+    flux <- list(x = kq * q$dx, y = kq * q$dy)
+    gq <- if (is.null(g)) NULL else eval_u(g, q$value, "reaction")
+    r <- global_vector(V, local_linear(geo, f = gq, g = flux)) - b_nat
+    if (!is.null(nat$A)) r <- r + as.numeric(nat$A %*% u)
+    if (!jacobian) return(list(r = r))
+    if (plap) {
+      c2 <- (problem$p - 2) * s^((problem$p - 4) / 2)
+      D <- list(xx = kq + c2 * q$dx * q$dx, xy = c2 * q$dx * q$dy,
+                yx = c2 * q$dy * q$dx, yy = kq + c2 * q$dy * q$dy)
+      A <- local_bilinear(geo, diff = D)
+    } else {
+      dkq <- eval_u(dk, q$value, "diffusion_derivative")
+      mass <- if (is.null(dg)) NULL else eval_u(dg, q$value, "reaction_derivative")
+      A <- local_bilinear(geo, mass = mass, advt = list(x = dkq * q$dx, y = dkq * q$dy), diff = kq)
+    }
+    J <- global_matrix(V, A)
+    if (!is.null(nat$A)) J <- J + nat$A
+    list(r = r, J = J)
+  }
+  list(V = V, geo = geo, nat = nat, dd = dd, free = free, plap = plap, k = k, dk = dk, g = g, dg = dg,
+       residual_jac = residual_jac)
 }
