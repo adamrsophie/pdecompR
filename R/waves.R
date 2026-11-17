@@ -90,14 +90,14 @@ solve_pde.wave_problem <- function(problem, dt, output_times = NULL, solver = "a
   bdofs <- dd(problem$time[1])$dofs
   F0 <- ops$load(problem$time[1])
   load <- if (ops$time_dependent) ops$load else function(t) F0
-  u0 <- if (is.null(st0)) initial_values(problem$initial, V) else restart_values(st0, V$ndof)
+  u0 <- if (is.null(st0)) initial_values(problem$initial, V) else restart_values(st0, V$ndof, V)
   v0 <- if (is.null(st0)) initial_values(problem$velocity, V) else st0$v
   out <- newmark(ops$M, problem$damping * ops$M, ops$A, load, bdofs,
                  function(t) dd(t)$values, u0, v0, c(if (is.null(st0)) problem$time[1] else st0$t, problem$time[2]),
                  dt, output_times, solver, callback = callback, a0 = st0$a, ...)
   out$diagnostics$assembly_time <- ops$assembly_time
   structure(list(times = out$times, values = out$U, velocity = out$Vel, space = V, problem = problem,
-                 diagnostics = out$diagnostics, state = c(list(kind = "wave"), out$state)),
+                 diagnostics = out$diagnostics, state = c(list(kind = "wave", space = space_id(V)), out$state)),
             class = "pde_transient")
 }
 
@@ -118,7 +118,7 @@ solve_pde.elastodynamics_problem <- function(problem, dt, output_times = NULL, s
     c(g[, 1], g[, 2])
   }
   vals <- disc$dirichlet$values
-  u0 <- if (is.null(st0)) vec0(problem$initial) else restart_values(st0, 2L * n)
+  u0 <- if (is.null(st0)) vec0(problem$initial) else restart_values(st0, 2L * n, V)
   v0 <- if (is.null(st0)) vec0(problem$velocity) else st0$v
   out <- newmark(M, problem$damping * M, disc$A, function(t) problem$load_factor(t) * disc$b,
                  disc$dirichlet$dofs, function(t) vals, u0, v0,
@@ -127,7 +127,7 @@ solve_pde.elastodynamics_problem <- function(problem, dt, output_times = NULL, s
   out$diagnostics$assembly_time <- disc$assembly_time
   split <- function(U) list(ux = U[seq_len(n), , drop = FALSE], uy = U[n + seq_len(n), , drop = FALSE])
   structure(list(times = out$times, values = split(out$U), velocity = split(out$Vel), space = V,
-                 problem = problem, diagnostics = out$diagnostics, state = c(list(kind = "elastodynamics"), out$state)),
+                 problem = problem, diagnostics = out$diagnostics, state = c(list(kind = "elastodynamics", space = space_id(V)), out$state)),
             class = "pde_transient")
 }
 
@@ -148,13 +148,15 @@ newmark <- function(M, C, K, load, bdofs, g, u, v, time, dt, output_times, solve
   ts <- proc.time()[["elapsed"]]
   max_rel <- 0; bad <- NULL
   note <- function(s) { max_rel <<- max(max_rel, s$info$relative_residual); if (!solve_ok(s$info)) bad <<- s$info }
-  # Consistent initial acceleration on the free rows; on prescribed rows the
-  # one-sided second difference of the data.
+  # Consistent initial acceleration on the free rows; on prescribed rows a
+  # one-sided second difference of the data inside the first step.
   if (!is.null(a0)) {
     a <- a0   # restart: the acceleration of the previous run
   } else {
     a <- numeric(n)
-    if (length(bdofs)) a[bdofs] <- (g(t0 + 2 * dt) - 2 * g(t0 + dt) + g(t0)) / dt^2
+    # Second difference on [t0, t0 + dt] with half steps, so the data are
+    # never evaluated after the first step (or the end of the interval).
+    if (length(bdofs)) a[bdofs] <- (g(t0 + dt) - 2 * g(t0 + dt / 2) + g(t0)) / (dt / 2)^2
     r0 <- load(t0) - as.numeric(C %*% v) - as.numeric(K %*% u) - as.numeric(M[, bdofs, drop = FALSE] %*% a[bdofs])
     sM <- linear_solver(M[free, free, drop = FALSE], solver, ...)
     s0 <- sM$solve(r0[free]); note(s0)

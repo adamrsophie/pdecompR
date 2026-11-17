@@ -34,9 +34,16 @@
 #'   [pde_sensitivity()] and [affine_derivative()]; indices refer to the full
 #'   parameter vector.
 #' @return A list of class `pde_estimate` with the estimate, standard errors,
-#'   the `fixed` parameters, and `identifiability`: singular values, condition
-#'   number and right singular vectors of the weighted observation sensitivity
-#'   matrix of the free parameters, and their correlation matrix.
+#'   the `fixed` parameters, and `identifiability`: one singular value per
+#'   free parameter of the weighted observation sensitivity matrix (zero for
+#'   directions the observations cannot see, as when there are fewer
+#'   observations than free parameters), its numerical `rank`, the condition
+#'   number (infinite when `rank` is below the number of free parameters),
+#'   the right singular vectors `directions`, the `null_space` of
+#'   unidentified parameter directions, and the correlation matrix (`NULL`
+#'   when rank deficient). These describe the information in the data only;
+#'   `regularization` can make the optimization well posed but adds no
+#'   information.
 #' @examples
 #' mesh <- pde_mesh_rectangle(nx = 8)
 #' pf <- function(theta, mesh) poisson_problem(mesh, diffusion = theta[1], source = 1,
@@ -102,10 +109,21 @@ estimate_parameters <- function(problem_fun, theta0, observations, mesh = NULL,
   # sensitivities: small singular values (relative to the largest) mark
   # directions the data hardly constrain; correlations near +-1 mark
   # parameters that trade off against each other.
-  sv <- svd(Sw, nu = 0)
-  cor_m <- tryCatch({ C <- solve(G); C / sqrt(outer(diag(C), diag(C))) }, error = function(e) NULL)
-  ident <- list(singular_values = sv$d, condition = max(sv$d) / max(min(sv$d), 1e-300),
-                directions = sv$v, correlation = cor_m)
+  # The full SVD in parameter space: with fewer observations than free
+  # parameters, or dependent sensitivities, the missing singular values are
+  # zero and their directions span the null space the data cannot see.
+  # Regularization is not information from the data and is not included.
+  nfree <- ncol(Sw)
+  sv <- svd(Sw, nu = 0, nv = nfree)
+  d <- c(sv$d, numeric(nfree - length(sv$d)))
+  rank <- sum(d > max(d, 0) * nfree * .Machine$double.eps * 1e3)
+  cor_m <- if (rank == nfree) {
+    tryCatch({ C <- solve(G); C / sqrt(outer(diag(C), diag(C))) }, error = function(e) NULL)
+  }
+  ident <- list(singular_values = d, rank = rank, free_parameters = nfree,
+                condition = if (rank < nfree) Inf else max(d) / min(d),
+                directions = sv$v, null_space = sv$v[, seq_len(nfree)[-seq_len(rank)], drop = FALSE],
+                correlation = cor_m)
   H <- G + diag(regularization, length(est))
   se <- tryCatch({
     Hi <- solve(H)
@@ -139,7 +157,9 @@ print.pde_estimate <- function(x, ...) {
       ", forward solves ", x$forward_solves, "\n", sep = "")
   cat("  standard errors: measurement noise only (Gauss-Newton linearization)\n")
   if (!is.null(x$identifiability)) {
-    cat("  identifiability: sensitivity condition number ", fmt_num(x$identifiability$condition, 3), "\n", sep = "")
+    id <- x$identifiability
+    cat("  identifiability: rank ", id$rank, " of ", id$free_parameters, " free parameters, condition number ",
+        fmt_num(id$condition, 3), "\n", sep = "")
   }
   if (!is.null(x$discretization_check)) {
     cat("  discretization check: predictions change by up to ", fmt_num(x$discretization_check$max_change),

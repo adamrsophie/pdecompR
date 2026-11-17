@@ -41,9 +41,16 @@ parameter vector.}
 }
 \value{
 A list of class \code{pde_estimate} with the estimate, standard errors,
-the \code{fixed} parameters, and \code{identifiability}: singular values, condition
-number and right singular vectors of the weighted observation sensitivity
-matrix of the free parameters, and their correlation matrix.
+the \code{fixed} parameters, and \code{identifiability}: one singular value per
+free parameter of the weighted observation sensitivity matrix (zero for
+directions the observations cannot see, as when there are fewer
+observations than free parameters), its numerical \code{rank}, the condition
+number (infinite when \code{rank} is below the number of free parameters),
+the right singular vectors \code{directions}, the \code{null_space} of
+unidentified parameter directions, and the correlation matrix (\code{NULL}
+when rank deficient). These describe the information in the data only;
+\code{regularization} can make the optimization well posed but adds no
+information.
 }
 \description{
 Estimates parameters \code{theta} of a linear elliptic model from point

@@ -115,21 +115,12 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
     u <- solve_pde(lin)$u$values
   }
   u[dd$dofs] <- dd$values
-  if (!length(dd$dofs)) {
-    # Without Dirichlet data the solution is unique only through a reaction or
-    # Robin term. A reaction that vanishes with its derivative at the initial
-    # state, or an all-zero Robin matrix, counts as absent (a narrow check, not
-    # a general uniqueness proof).
-    robin <- !is.null(nat$A) && any(nat$A@x != 0)
-    react <- FALSE
-    if (!is.null(g)) {
-      uq <- fe_qp(u, geo)$value
-      react <- any(eval_u(g, uq, "reaction") != 0) || any(eval_u(dg, uq, "reaction_derivative") != 0)
-    }
-    if (!robin && !react) {
-      stopf(paste0("The nonlinear problem has no Dirichlet, Robin or reaction term, so its solution ",
-                   "is not unique (pure Neumann); add a Dirichlet condition."))
-    }
+  robin <- !is.null(nat$A) && any(nat$A@x != 0)
+  if (!length(dd$dofs) && !robin && is.null(g)) {
+    # Structural: without Dirichlet data, Robin or reaction terms nothing
+    # fixes the level of the solution.
+    stopf(paste0("The nonlinear problem has no Dirichlet, Robin or reaction term, so its solution ",
+                 "is not unique (pure Neumann); add a Dirichlet condition."))
   }
   hist <- data.frame(iteration = integer(), residual = numeric(), step = numeric())
   rj <- residual_jac(u)
@@ -161,6 +152,29 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
     converged <- rn <= max(tol * r0, 1e-12)
   }
   if (converged) status <- "converged"
+  if (converged && !length(dd$dofs)) {
+    # Without Dirichlet data, test whether shifting the converged state by a
+    # constant still solves the discrete equations (as for a constant
+    # reaction): then the solution is not unique. The Jacobian alone cannot
+    # decide this; for g(u) = u^3 it is singular at the unique root u = 0.
+    s <- max(abs(u)); if (s == 0) s <- 1
+    shift_solves <- vapply(c(s, -s), function(cc) {
+      w <- u + cc
+      rw <- trial_eval(function() residual_jac(w, jacobian = FALSE)$r)
+      if (is.null(rw) || !all(is.finite(rw))) return(FALSE)
+      gl <- function(v) {
+        if (is.null(g)) return(0)
+        sqrt(sum(global_vector(V, local_linear(geo, f = matrix(eval_u(g, fe_qp(v, geo)$value, "reaction"), geo$m)))^2))
+      }
+      ref <- gl(w) + gl(u) + sqrt(sum((rj$J %*% rep(cc, V$ndof))^2))
+      sqrt(sum(rw^2)) <= 1e-10 * ref
+    }, logical(1))
+    if (all(shift_solves)) {
+      stopf(paste0("The solution is not unique: without Dirichlet data, adding a constant to the converged ",
+                   "state still solves the equations (pure Neumann with a reaction that does not fix the ",
+                   "level); add a Dirichlet condition or a reaction that depends on u."))
+    }
+  }
   if (!converged) {
     warnf("Newton stopped (%s) after %d iterations (residual %s, initial %s).",
           status, it, fmt_num(rn), fmt_num(r0))

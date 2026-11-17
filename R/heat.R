@@ -168,7 +168,12 @@ parabolic_operators <- function(problem) {
 #'   stored next step size; it matches an uninterrupted run that also stops
 #'   at the restart time (include it in `output_times`), and otherwise
 #'   differs by about the error tolerance because the step sequences
-#'   differ. Save the solution with [saveRDS()] for checkpointing.
+#'   differ. Save the solution with [saveRDS()] for checkpointing. The state
+#'   records its finite-element space (degree and degree-of-freedom
+#'   coordinates in their numbering); a restart on a different mesh, degree
+#'   or numbering is rejected. Reaction-diffusion states are matched to the
+#'   problem's species by name. Loads and boundary data may change between
+#'   runs.
 #' @references Rannacher, R. (1984). Finite element solution of diffusion
 #'   problems with irregular data. *Numerische Mathematik*, 43, 309-327.
 #' @export
@@ -199,7 +204,7 @@ solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson"
   dd0 <- dirichlet_data(V, problem$bcs, t0)
   bdofs <- dd0$dofs
   free <- setdiff(seq_len(V$ndof), bdofs)
-  u <- if (is.null(st0)) initial_values(problem$initial, V) else restart_values(st0, V$ndof)
+  u <- if (is.null(st0)) initial_values(problem$initial, V) else restart_values(st0, V$ndof, V)
   if (length(bdofs)) u[bdofs] <- dd0$values
   L <- ops$M + (theta * dt) * ops$A
   R <- ops$M - ((1 - theta) * dt) * ops$A
@@ -261,7 +266,8 @@ solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson"
                          solve_time = proc.time()[["elapsed"]] - ts),
                     class = "pde_diagnostics")
   structure(list(times = grid[out_idx], values = U, space = V, problem = problem, diagnostics = diag,
-                 state = list(kind = "parabolic", t = t1, u = u, step = done + N, method = method)),
+                 state = list(kind = "parabolic", t = t1, u = u, step = done + N, method = method,
+                              space = space_id(V))),
             class = "pde_transient")
 }
 
@@ -278,16 +284,47 @@ restart_state <- function(restart, problem, kind) {
   }
   s <- restart$state
   if (!identical(s$kind, kind)) stopf("`restart` comes from a different kind of problem (%s).", s$kind)
-  t0 <- problem$time[1]; t1 <- problem$time[2]; eps <- 1e-12 * max(1, abs(t0), abs(t1))
+  t0 <- problem$time[1]; t1 <- problem$time[2]; eps <- time_tol(t0, t1)
   if (s$t < t0 - eps || s$t >= t1 - eps) {
     stopf("The restart time %s must lie in [%s, %s).", fmt_num(s$t), fmt_num(t0), fmt_num(t1))
   }
   s
 }
 
-restart_values <- function(s, n) {
+restart_values <- function(s, n, V) {
   if (NROW(s$u) != n) stopf("`restart` has %d values per field, but the problem has %d degrees of freedom.", NROW(s$u), n)
+  check_restart_space(s, V)
   s$u
+}
+
+# Identity of a finite-element space for checkpoints: degree and the
+# coordinates of the degrees of freedom in their numbering.
+space_id <- function(V) list(degree = V$degree, coords = V$dof_coords)
+
+# A restart state must come from the same space with the same numbering of
+# degrees of freedom; the data (loads, boundary values) may change.
+check_restart_space <- function(s, V) {
+  id <- s$space
+  if (is.null(id)) stopf("`restart` does not record its finite-element space; recompute it with this version.")
+  X <- V$dof_coords
+  diam <- max(apply(X, 2, function(z) diff(range(z))))
+  if (!identical(as.integer(id$degree), as.integer(V$degree)) || !identical(dim(id$coords), dim(X)) ||
+      max(abs(id$coords - X)) > 1e-10 * diam) {
+    stopf(paste0("`restart` was computed on a different finite-element space (degree, mesh or numbering of ",
+                 "the degrees of freedom); restart on the same mesh and degree."))
+  }
+  invisible(TRUE)
+}
+
+# Time tolerance relative to the interval [t0, t1], at least a few units in
+# the last place of the endpoints, so that intervals in small time units are
+# resolved and those too short to represent are rejected.
+time_tol <- function(t0, t1) {
+  ulp <- 8 * .Machine$double.eps * max(abs(t0), abs(t1))
+  if (t1 - t0 <= 1e3 * ulp) {
+    stopf("The time interval [%s, %s] is too short to represent in floating point.", fmt_num(t0, 15), fmt_num(t1, 15))
+  }
+  max(1e-12 * (t1 - t0), ulp)
 }
 
 output_index <- function(output_times, grid, dt) {
@@ -297,7 +334,7 @@ output_index <- function(output_times, grid, dt) {
   }
   k <- round((output_times - grid[1]) / dt)
   if (any(k < 0 | k > length(grid) - 1L) ||
-      any(abs(grid[1] + k * dt - output_times) > 1e-8 * max(1, abs(output_times)))) {
+      any(abs(grid[1] + k * dt - output_times) > 1e-8 * dt + 8 * .Machine$double.eps * abs(output_times))) {
     stopf("`output_times` must lie on the time grid t0 + k * dt (dt = %s).", fmt_num(dt, 8))
   }
   sort(unique(k + 1L))
@@ -330,7 +367,8 @@ initial_values <- function(initial, V) {
 solution_at <- function(solution, time, species = 1) {
   stopifnot(inherits(solution, "pde_transient"))
   k <- which.min(abs(solution$times - time))
-  if (abs(solution$times[k] - time) > 1e-8 * max(1, abs(time))) {
+  span <- diff(range(c(solution$problem$time, solution$times)))
+  if (abs(solution$times[k] - time) > 1e-8 * span + 8 * .Machine$double.eps * abs(time)) {
     warnf("Time %s is not stored; using the nearest stored time %s.",
           fmt_num(time), fmt_num(solution$times[k]))
   }
@@ -389,7 +427,7 @@ solve_parabolic_multistage <- function(problem, dt, method, output_times, solver
   dd0 <- dirichlet_data(V, problem$bcs, t0)
   bdofs <- dd0$dofs
   free <- setdiff(seq_len(V$ndof), bdofs)
-  u <- if (is.null(st0)) initial_values(problem$initial, V) else restart_values(st0, V$ndof)
+  u <- if (is.null(st0)) initial_values(problem$initial, V) else restart_values(st0, V$ndof, V)
   if (length(bdofs)) u[bdofs] <- dd0$values
   done <- if (is.null(st0)) 0L else st0$step
   u_old <- NULL; h_next <- NULL
@@ -460,7 +498,7 @@ solve_parabolic_multistage <- function(problem, dt, method, output_times, solver
   } else {
     outs <- if (is.null(output_times)) NULL else {
       if (!is.numeric(output_times) || !length(output_times) || any(!is.finite(output_times)) ||
-          any(output_times < t0 - 1e-12 * max(1, abs(t0)) | output_times > t1 + 1e-12 * max(1, abs(t1)))) {
+          any(output_times < t0 - time_tol(t0, t1) | output_times > t1 + time_tol(t0, t1))) {
         stopf("`output_times` must be finite times in [%s, %s].", fmt_num(t0), fmt_num(t1))
       }
       sort(unique(output_times))
@@ -468,7 +506,7 @@ solve_parabolic_multistage <- function(problem, dt, method, output_times, solver
     stops <- sort(unique(c(outs, t1)))
     tt <- t0; h <- min(if (is.null(st0$h)) dt else st0$h, t1 - t0)
     times <- t0; vals <- list(u); dts <- numeric(0); rejected <- 0L
-    hmin <- 1e-12 * max(1, abs(t1 - t0))
+    hmin <- time_tol(t0, t1)
     while (tt < t1 - hmin) {
       nxt <- stops[stops > tt + hmin][1]
       hs <- min(h, nxt - tt)
@@ -496,13 +534,14 @@ solve_parabolic_multistage <- function(problem, dt, method, output_times, solver
   }
   if (!is.null(bad)) warn_solver(bad, "linear solve of at least one time step")
   diag <- structure(list(ndof = V$ndof, free = length(free), steps = steps,
-                         dt = if (adaptive) range(dts) else dt, method = method, adaptive = adaptive,
+                         dt = if (!adaptive) dt else if (length(dts)) range(dts) else c(NA_real_, NA_real_),
+                         method = method, adaptive = adaptive,
                          rejected_steps = rejected, factorizations = cache$n,
                          integral = as.numeric(crossprod(assemble_vector(V, 1), U)),
                          range = rng, max_relative_residual = max_rel, assembly_time = ops$assembly_time,
                          solve_time = proc.time()[["elapsed"]] - ts),
                     class = "pde_diagnostics")
-  state <- list(kind = "parabolic", t = t1, u = u, step = done + steps, method = method,
+  state <- list(kind = "parabolic", t = t1, u = u, step = done + steps, method = method, space = space_id(V),
                 u_old = if (method == "bdf2") u_old, dt = if (!adaptive) dt, h = h_next)
   structure(list(times = times, values = U, space = V, problem = problem, diagnostics = diag, state = state),
             class = "pde_transient")

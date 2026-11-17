@@ -149,8 +149,12 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
   U <- vapply(sp, function(s) initial_values(problem$initial[[s]], V), numeric(n))
   U <- matrix(U, n, ns, dimnames = list(NULL, sp))
   if (!is.null(st0)) {
-    if (!identical(dim(st0$u), dim(U))) stopf("`restart` has a different number of values or species than the problem.")
-    U[] <- st0$u
+    check_restart_space(st0, V)
+    old <- colnames(st0$u)
+    if (NROW(st0$u) != n || is.null(old) || !setequal(old, sp) || length(old) != length(sp)) {
+      stopf("`restart` has species %s, but the problem has %s.", paste(old, collapse = ", "), paste(sp, collapse = ", "))
+    }
+    U[] <- st0$u[, sp, drop = FALSE]   # matched by species name
   }
   dir <- lapply(sp, function(s) dirichlet_data(V, problem$bcs[[s]], t0))
   names(dir) <- sp
@@ -305,6 +309,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
                          solve_time = proc.time()[["elapsed"]] - ts),
                     class = "pde_diagnostics")
   structure(list(times = grid[out_idx], values = store, space = V, problem = problem, diagnostics = diag,
-                 state = list(kind = "reaction-diffusion", t = t1, u = U, step = N, method = method)),
+                 state = list(kind = "reaction-diffusion", t = t1, u = U, step = N, method = method,
+                              space = space_id(V))),
             class = "pde_transient")
 }

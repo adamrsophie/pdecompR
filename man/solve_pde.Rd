@@ -126,7 +126,12 @@ one uninterrupted run up to rounding. Adaptive SDIRK2 resumes with the
 stored next step size; it matches an uninterrupted run that also stops
 at the restart time (include it in \code{output_times}), and otherwise
 differs by about the error tolerance because the step sequences
-differ. Save the solution with \code{\link[=saveRDS]{saveRDS()}} for checkpointing.}
+differ. Save the solution with \code{\link[=saveRDS]{saveRDS()}} for checkpointing. The state
+records its finite-element space (degree and degree-of-freedom
+coordinates in their numbering); a restart on a different mesh, degree
+or numbering is rejected. Reaction-diffusion states are matched to the
+problem's species by name. Loads and boundary data may change between
+runs.}
 
 \item{maxit}{Maximum number of Newton iterations.}
 

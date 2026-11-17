@@ -130,7 +130,7 @@ refinement_edges <- function(coarse, fine) {
   mid <- (P0[E[, 1], , drop = FALSE] + P0[E[, 2], , drop = FALSE]) / 2
   # Nodes projected onto curved boundaries are exempt from the midpoint test.
   chk <- setdiff(seq_len(nrow(E)), inf$projected_nodes - n0)
-  if (max(abs(mid[chk, , drop = FALSE] - fine$nodes[n0 + chk, , drop = FALSE]), 0) > 1e-12 * max(1, abs(P0))) {
+  if (max(abs(mid[chk, , drop = FALSE] - fine$nodes[n0 + chk, , drop = FALSE]), 0) > 1e-12 * max(abs(P0))) {
     return(NULL)
   }
   E

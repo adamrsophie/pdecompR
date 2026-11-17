@@ -13,7 +13,8 @@
 #' Crank-Nicolson (without startup steps). The forward run stores the
 #' states; a backward sweep with the transposed step matrix computes the
 #' discrete adjoint, and the gradient collects the derivatives of the
-#' operator, the loads and the initial condition. It is the exact gradient
+#' operator, the mass matrix (which depends on the parameters under SUPG
+#' stabilization), the loads and the initial condition. It is the exact gradient
 #' of the discrete time-stepping scheme (up to the difference steps of the
 #' operator derivatives), at the cost of one extra solve per step,
 #' independent of the number of parameters. Coefficients must not depend on
@@ -112,7 +113,8 @@ transient_sensitivity <- function(problem_fun, theta, objective, dt,
         if (c1 == c0) { seg <<- ck[, match(c0, keep), drop = FALSE]; seg_lo <<- c0; return(seg[, 1]) }
         pr <- prob; pr$time <- c(t0, grid[c1])
         rs <- structure(list(state = list(kind = "parabolic", t = grid[c0], u = ck[, match(c0, keep)],
-                                          step = c0 - 1L, method = method)), class = "pde_transient")
+                                          step = c0 - 1L, method = method, space = space_id(V))),
+                       class = "pde_transient")
         sg <- solve_pde(pr, dt = dt, method = method, startup = 0L, restart = rs, ...)
         seg <<- sg$values; seg_lo <<- c0
       }
@@ -141,7 +143,9 @@ transient_sensitivity <- function(problem_fun, theta, objective, dt,
       }
     }
     op <- parabolic_operators(pp); om <- parabolic_operators(pm)
-    list(dA = (op$A - om$A) / (2 * hj),
+    # SUPG makes the mass matrix depend on the velocity and diffusion, so
+    # its derivative enters the step residual too.
+    list(dA = (op$A - om$A) / (2 * hj), dM = (op$M - om$M) / (2 * hj),
          du0 = c_zero((initial_values(pp$initial, V) - initial_values(pm$initial, V)) / (2 * hj), d),
          dF = function(t) (op$load(t) - om$load(t)) / (2 * hj))
   })
@@ -162,13 +166,15 @@ transient_sensitivity <- function(problem_fun, theta, objective, dt,
     for (j in seq_along(der)) {
       dF_n <- der[[j]]$dF(grid[n])
       rhs <- -((1 - th_s) * dt) * as.numeric(der[[j]]$dA %*% u_n) - (th_s * dt) * as.numeric(der[[j]]$dA %*% u_next) +
-        dt * (th_s * dF_next[[j]] + (1 - th_s) * dF_n)
+        dt * (th_s * dF_next[[j]] + (1 - th_s) * dF_n) - as.numeric(der[[j]]$dM %*% (u_next - u_n))
       gr[j] <- gr[j] + sum(lam * rhs[f])
       dF_next[[j]] <- dF_n
     }
     u_next <- u_n
   }
   for (j in seq_along(der)) gr[j] <- gr[j] + sum(lam * as.numeric(R %*% der[[j]]$du0)[f])
+  # (The step residual is L u_n - R u_{n-1} - dt F with L = M + theta dt A
+  # and R = M - (1 - theta) dt A, so dM enters as dM (u_n - u_{n-1}).)
   list(value = ob$value, gradient = gr, solution = sol, adjoint = full_lam)
 }
 
