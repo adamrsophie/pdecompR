@@ -60,6 +60,9 @@
     <li><a class="dropdown-item" href="articles/advection-diffusion.html">Advection-diffusion and stabilization</a></li>
     <li><a class="dropdown-item" href="articles/nonlinear.html">Nonlinear problems and Newton's method</a></li>
     <li><a class="dropdown-item" href="articles/elasticity.html">Linear elasticity and vector-valued elements</a></li>
+    <li><a class="dropdown-item" href="articles/waves.html">Waves and elastodynamics</a></li>
+    <li><a class="dropdown-item" href="articles/stokes.html">Stokes flow</a></li>
+    <li><a class="dropdown-item" href="articles/eigenvalues.html">Eigenvalue problems</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Adaptivity and inverse problems</h6></li>
     <li><a class="dropdown-item" href="articles/adaptivity.html">Error estimation and adaptive refinement</a></li>
@@ -155,11 +158,11 @@
 <tbody>
 <tr>
 <td>Geometry and meshes</td>
-<td>rectangles and simple polygons; structured meshes (three diagonal patterns); polygon meshes (ear clipping, Delaunay flips, refinement); validation of connectivity, orientation, degeneracy and boundary markers; quality measures; subdomain regions with piecewise coefficients; Gmsh 2.2 and 4.1 import (physical lines and surfaces); VTK export (P1 and quadratic P2 cells, vectors, stresses)</td>
+<td>rectangles and simple polygons, with holes; structured meshes (three diagonal patterns); polygon meshes (ear clipping, Delaunay flips, refinement); validation of connectivity, orientation, degeneracy, geometric overlap and boundary markers; quality measures; subdomain regions with piecewise coefficients; Gmsh 2.2 and 4.1 import (physical lines and surfaces); VTK export (legacy and XML <code>.vtu</code>, P1 and quadratic P2 cells, vectors, stresses) and <code>.pvd</code> time series</td>
 </tr>
 <tr>
 <td>Finite elements</td>
-<td>continuous Lagrange P1 and P2 on triangles, scalar and vector valued; interpolation, point evaluation, observation matrices</td>
+<td>continuous Lagrange P1 and P2 on triangles, scalar and vector valued; interpolation, conservative L2 projection between unrelated meshes, point evaluation, observation matrices</td>
 </tr>
 <tr>
 <td>Quadrature</td>
@@ -167,19 +170,19 @@
 </tr>
 <tr>
 <td>Assembly</td>
-<td>sparse triplet assembly of stiffness, mass, advection and boundary matrices, load vectors, constant tensor diffusion</td>
+<td>sparse triplet assembly of stiffness, mass, advection and boundary matrices, load vectors, variable tensor diffusion; reference-element kernels for elementwise constant coefficients</td>
 </tr>
 <tr>
 <td>Boundary conditions</td>
-<td>Dirichlet (by elimination, keeps SPD), Neumann, Robin; pure Neumann problems with compatibility check and zero-mean gauge</td>
+<td>Dirichlet (by elimination, keeps SPD), Neumann, Robin, periodic; pure Neumann problems with compatibility check and a zero-mean gauge on each connected component</td>
 </tr>
 <tr>
 <td>Linear solvers</td>
-<td>sparse Cholesky and LU; preconditioned CG, BiCGSTAB and GMRES; residual diagnostics</td>
+<td>sparse Cholesky and LU with symmetric scaling; CG, BiCGSTAB and GMRES with Jacobi, SSOR, geometric multigrid or user preconditioners; block right-hand sides; residual diagnostics</td>
 </tr>
 <tr>
 <td>PDE classes</td>
-<td>elliptic (diffusion, advection, reaction), linear elasticity (vector P1/P2, plane strain and stress, stress and von Mises output), SUPG stabilization, heat and parabolic problems (backward Euler, Crank-Nicolson, time-dependent coefficients, mass diagnostics), reaction-diffusion systems (IMEX, Newton), quasilinear diffusion, semilinear reaction, p-Laplacian</td>
+<td>elliptic (diffusion, advection, reaction), linear elasticity (vector P1/P2, plane strain and stress, stress and von Mises output), SUPG stabilization, heat and parabolic problems (backward Euler, Crank-Nicolson, BDF2, adaptive SDIRK2, time-dependent coefficients, mass diagnostics), damped waves and elastodynamics (energy-conserving Newmark), eigenvalue problems, Stokes flow (Taylor-Hood P2-P1 with a block preconditioner), reaction-diffusion systems (IMEX, Newton), quasilinear diffusion, semilinear reaction, p-Laplacian</td>
 </tr>
 <tr>
 <td>Weak forms</td>
@@ -197,11 +200,11 @@
 </tr>
 <tr>
 <td>Inference</td>
-<td>discrete forward and adjoint sensitivities, parameter estimation with adjoint gradients, distributed optimal control</td>
+<td>discrete forward and adjoint sensitivities (linear, nonlinear and time-dependent), analytic affine derivatives, Taylor remainder tests, parameter estimation with adjoint gradients and identifiability diagnostics, distributed optimal control</td>
 </tr>
 </tbody>
 </table>
-<p>Not available yet: three-dimensional and one-dimensional meshes, holes, mixed elements (Stokes), discontinuous Galerkin methods, nonlinear weak forms, adjoints for nonlinear and transient problems, and parallel or GPU backends.</p>
+<p>Not available: three-dimensional and one-dimensional meshes, curved boundaries, discontinuous Galerkin methods, nonlinear weak forms, and parallel or GPU backends.</p>
 </div>
 <div class="section level2">
 <h2 id="validation">Validation<a class="anchor" aria-label="anchor" href="#validation"></a>

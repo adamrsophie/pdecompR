@@ -59,7 +59,7 @@ summary(sol)
 #>   degrees of freedom: 625  ( 529  free)
 #>   linear solver: cholesky  max relative residual: 8.27e-16 
 #>   integral of the solution, first and last stored time: 0.4041 to 0.1501 
-#>   assembly 0.024 s, time stepping 0.047 s
+#>   assembly 0.017 s, time stepping 0.031 s
 
 exact_end <- function(x, y) exp(-2 * pi^2 * kappa * 0.1) * u0(x, y)
 errornorm(solution_at(sol, 0.1), exact_end, "L2")
@@ -125,6 +125,52 @@ data.frame(dt = dts, err, rate_BE = c(NA, diff(log(err[, 1])) / diff(log(dts))),
 #> 4 0.00625   0.0001275734   1.325911e-07 1.003236 1.999982
 ```
 
+## Higher-order and adaptive time stepping
+
+Two more schemes are available. `method = "bdf2"` is the two-step
+backward differentiation formula: second order, L-stable and as cheap as
+backward Euler (one solve per step with a fixed matrix, the first step
+taken by backward Euler). `method = "sdirk2"` is the two-stage, L-stable
+singly diagonally implicit Runge-Kutta method of Alexander with \gamma =
+1 - 1/\sqrt 2; both stages share one matrix.
+
+``` r
+
+err2 <- sapply(c("bdf2", "sdirk2"), function(m) sapply(dts, function(dt) {
+  s <- solve_pde(p, dt = dt, method = m, output_times = 1)
+  max(abs(s$values[, 1] - ex(s$space$dof_coords[, 1], s$space$dof_coords[, 2], 1)))
+}))
+data.frame(dt = dts, err2, rate_BDF2 = c(NA, diff(log(err2[, 1])) / diff(log(dts))),
+           rate_SDIRK2 = c(NA, diff(log(err2[, 2])) / diff(log(dts))))
+#>        dt         bdf2       sdirk2 rate_BDF2 rate_SDIRK2
+#> 1 0.05000 3.524540e-05 7.900893e-05        NA          NA
+#> 2 0.02500 8.646756e-06 2.191811e-05  2.027204    1.849892
+#> 3 0.01250 2.141466e-06 5.849209e-06  2.013560    1.905810
+#> 4 0.00625 5.328595e-07 1.518309e-06  2.006771    1.945776
+```
+
+With `adaptive = TRUE`, SDIRK2 controls the step size. The stage values
+give an embedded first-order solution, and the difference, measured in
+the mass norm relative to the solution, is the local error estimate.
+Steps are accepted when the estimate is below `tol` and the next step
+size follows the usual controller with a safety factor. `dt` is then the
+initial step.
+
+``` r
+
+s <- solve_pde(p, dt = 0.1, method = "sdirk2", adaptive = TRUE, tol = 1e-5, output_times = 1)
+d <- s$diagnostics
+c(steps = d$steps, rejected = d$rejected_steps, factorizations = d$factorizations,
+  error = max(abs(s$values[, 1] - ex(s$space$dof_coords[, 1], s$space$dof_coords[, 2], 1))))
+#>          steps       rejected factorizations          error 
+#>    1.80000e+02    2.00000e+00    5.00000e+00    1.54724e-06
+```
+
+Adaptive stepping keeps the step size while the controller asks for less
+than a 25 percent change, so the stage matrix is refactorized only a few
+times, as the diagnostics report. Coefficients that depend on time are
+not supported by the multistage methods.
+
 ## Time-dependent sources and boundary data
 
 Sources and boundary values can depend on time. Here a hot spot moves
@@ -139,7 +185,7 @@ s <- solve_pde(p, dt = 0.025, output_times = c(0.25, 0.5, 1))
 plot(s, time = 1)
 ```
 
-![](heat_files/figure-html/unnamed-chunk-7-1.png)
+![](heat_files/figure-html/unnamed-chunk-9-1.png)
 
 ## Conservation and stability
 
@@ -163,4 +209,5 @@ range(colSums(w * s$values))
 adds advection and reaction, \partial_t u - \nabla\cdot(k\nabla u) +
 b\cdot\nabla u + cu = f, with optional SUPG stabilization (consistent:
 the time derivative is included in the stabilized residual). See the
-advection-diffusion article.
+advection-diffusion article. Second-order equations in time (waves and
+elastodynamics) have their own article.

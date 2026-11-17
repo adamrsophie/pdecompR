@@ -57,6 +57,9 @@
     <li><a class="dropdown-item" href="../articles/advection-diffusion.html">Advection-diffusion and stabilization</a></li>
     <li><a class="dropdown-item" href="../articles/nonlinear.html">Nonlinear problems and Newton's method</a></li>
     <li><a class="dropdown-item" href="../articles/elasticity.html">Linear elasticity and vector-valued elements</a></li>
+    <li><a class="dropdown-item" href="../articles/waves.html">Waves and elastodynamics</a></li>
+    <li><a class="dropdown-item" href="../articles/stokes.html">Stokes flow</a></li>
+    <li><a class="dropdown-item" href="../articles/eigenvalues.html">Eigenvalue problems</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Adaptivity and inverse problems</h6></li>
     <li><a class="dropdown-item" href="../articles/adaptivity.html">Error estimation and adaptive refinement</a></li>
@@ -196,13 +199,12 @@ the global edge, the parent element, the local edge and the marker.</li>
 connectivity and checks it thoroughly. It rejects invalid node indices,
 repeated nodes in an element, duplicate elements, zero-area triangles,
 unused nodes, edges shared by more than two triangles, neighboring
-elements that overlap across a shared edge, and boundary definitions
-that do not match the topological boundary. Elements that overlap
-without sharing an edge (for example a triangle placed inside another
-one with its own nodes) are not detected; meshes from
-<code><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle()</a></code>, <code><a href="../reference/pde_mesh_polygon.html">pde_mesh_polygon()</a></code>,
-refinement and Gmsh are conforming by construction. Clockwise elements
-are an error unless reorientation is requested explicitly.</p>
+elements that overlap across a shared edge, boundary definitions that do
+not match the topological boundary, and elements that overlap without
+sharing an edge. The last check uses two facts about a valid
+triangulation: the corner angles around an interior node sum to <span class="math inline">2\pi</span> (at most <span class="math inline">2\pi</span> at a boundary node), and boundary edges
+without a common node never touch. Clockwise elements are an error
+unless reorientation is requested explicitly.</p>
 <div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">P</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/pde_mesh.html">pde_mesh</a></span><span class="op">(</span><span class="va">P</span>, <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">2</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">4</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
@@ -213,7 +215,12 @@ are an error unless reorientation is requested explicitly.</p>
 <span><span class="co">#&gt; [1] 1</span></span>
 <span><span class="fu"><a href="../reference/pde_mesh.html">pde_mesh</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
-<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Element 1 has zero area (degenerate triangle).</span></span></code></pre></div>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Element 1 has zero area (degenerate triangle).</span></span>
+<span><span class="co"># two squares with their own nodes, overlapping in a quarter</span></span>
+<span><span class="va">P2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="va">P</span>, <span class="va">P</span> <span class="op">+</span> <span class="fl">0.5</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/pde_mesh.html">pde_mesh</a></span><span class="op">(</span><span class="va">P2</span>, <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">3</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">3</span>, <span class="fl">4</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">5</span>, <span class="fl">6</span>, <span class="fl">7</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">5</span>, <span class="fl">7</span>, <span class="fl">8</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Boundary edges (3, 4) and (8, 5) intersect: elements overlap.</span></span></code></pre></div>
 <p>Boundary markers can be supplied as an explicit list of boundary
 edges; every topological boundary edge must appear exactly once.</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
@@ -276,12 +283,32 @@ markers are kept.</p>
 <span><span class="co">#&gt;     top: 8</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mL</span>, main <span class="op">=</span> <span class="st">"L-shaped domain"</span><span class="op">)</span></span></code></pre></div>
 <p><img src="meshes_files/figure-html/unnamed-chunk-10-1.png" class="r-plt" alt="" width="576"></p>
+<p>Polygons may have holes. Each hole is a simple polygon strictly
+inside the outer one, and its sides get their own marker
+(<code>"hole"</code> by default). The mesher connects every hole to the
+outer boundary by a bridge segment and triangulates the resulting single
+polygon, so no external mesher is needed.</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">sq</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">holes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.3</span>, <span class="fl">0.3</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.7</span>, <span class="fl">0.3</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.7</span>, <span class="fl">0.7</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.3</span>, <span class="fl">0.7</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>              <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">cbind</a></span><span class="op">(</span><span class="fl">1.4</span> <span class="op">+</span> <span class="fl">0.25</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">cos</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">2</span> <span class="op">*</span> <span class="va">pi</span>, length.out <span class="op">=</span> <span class="fl">13</span><span class="op">)</span><span class="op">[</span><span class="op">-</span><span class="fl">13</span><span class="op">]</span><span class="op">)</span>,</span>
+<span>                    <span class="fl">0.5</span> <span class="op">+</span> <span class="fl">0.25</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">sin</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/seq.html" class="external-link">seq</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">2</span> <span class="op">*</span> <span class="va">pi</span>, length.out <span class="op">=</span> <span class="fl">13</span><span class="op">)</span><span class="op">[</span><span class="op">-</span><span class="fl">13</span><span class="op">]</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">dh</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pde_domain.html">pde_domain</a></span><span class="op">(</span><span class="st">"polygon"</span>, vertices <span class="op">=</span> <span class="va">sq</span>, holes <span class="op">=</span> <span class="va">holes</span>, hole_markers <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"square"</span>, <span class="st">"circle"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">mh</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pde_mesh_polygon.html">pde_mesh_polygon</a></span><span class="op">(</span><span class="va">dh</span>, h <span class="op">=</span> <span class="fl">0.1</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">mh</span><span class="op">$</span><span class="va">boundary</span><span class="op">$</span><span class="va">marker</span><span class="op">)</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; boundary   circle   square </span></span>
+<span><span class="co">#&gt;      128      384      128</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">mh</span>, main <span class="op">=</span> <span class="st">"Domain with two holes"</span><span class="op">)</span></span></code></pre></div>
+<p><img src="meshes_files/figure-html/unnamed-chunk-11-1.png" class="r-plt" alt="" width="576"></p>
+<p>Holes that leave the outer polygon, overlap each other or touch a
+boundary are rejected when the domain is created.</p>
 <p>This mesher has no external dependencies but does not guarantee
 element quality for arbitrary polygons. For complex geometry, generate a
 mesh with <a href="https://gmsh.info" class="external-link">Gmsh</a> and read it with
 <code><a href="../reference/read_gmsh.html">read_gmsh()</a></code>; physical line groups become boundary
 markers.</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">f</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.file.html" class="external-link">system.file</a></span><span class="op">(</span><span class="st">"extdata"</span>, <span class="st">"square.msh"</span>, package <span class="op">=</span> <span class="st">"pdecompR"</span><span class="op">)</span></span>
 <span><span class="va">gm</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/read_gmsh.html">read_gmsh</a></span><span class="op">(</span><span class="va">f</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Ignored 1 element(s) that are not triangles or lines.</span></span>
@@ -290,7 +317,11 @@ markers.</p>
 <span><span class="co">#&gt; bottom   left  right    top </span></span>
 <span><span class="co">#&gt;      2      2      2      2</span></span></code></pre></div>
 <p><code><a href="../reference/write_vtk.html">write_vtk()</a></code> exports meshes and solutions to the VTK
-format for ParaView.</p>
+format for ParaView: the legacy format by default, the XML
+<code>.vtu</code> format when the file name ends in <code>.vtu</code>.
+<code><a href="../reference/write_pvd.html">write_pvd()</a></code> writes a time-dependent solution as one
+<code>.vtu</code> file per output time plus a <code>.pvd</code>
+collection that ParaView opens as an animation.</p>
 </div>
 <div class="section level2">
 <h2 id="refinement">Refinement<a class="anchor" aria-label="anchor" href="#refinement"></a>
@@ -299,7 +330,7 @@ format for ParaView.</p>
 triangles. <code><a href="../reference/refine_uniform.html">refine_mesh()</a></code> refines selected elements by
 newest vertex bisection and keeps the mesh conforming: no hanging nodes
 appear, and the minimum angle stays bounded.</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">k</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">5</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">P</span> <span class="op">&lt;-</span> <span class="va">m</span><span class="op">$</span><span class="va">nodes</span>; <span class="cn">T</span> <span class="op">&lt;-</span> <span class="va">m</span><span class="op">$</span><span class="va">triangles</span></span>
@@ -308,8 +339,8 @@ appear, and the minimum angle stays bounded.</p>
 <span>  <span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/refine_uniform.html">refine_mesh</a></span><span class="op">(</span><span class="va">m</span>, <span class="fu"><a href="https://rdrr.io/r/base/which.html" class="external-link">which</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">sqrt</a></span><span class="op">(</span><span class="op">(</span><span class="va">cx</span> <span class="op">-</span> <span class="fl">0.5</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span> <span class="op">+</span> <span class="op">(</span><span class="va">cy</span> <span class="op">-</span> <span class="fl">0.5</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span> <span class="op">&lt;</span> <span class="fl">0.15</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">m</span>, main <span class="op">=</span> <span class="st">"Local refinement around (0.5, 0.5)"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="meshes_files/figure-html/unnamed-chunk-12-1.png" class="r-plt" alt="" width="576"></p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<p><img src="meshes_files/figure-html/unnamed-chunk-13-1.png" class="r-plt" alt="" width="576"></p>
+<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">min</a></span><span class="op">(</span><span class="fu"><a href="../reference/mesh_quality.html">mesh_quality</a></span><span class="op">(</span><span class="va">m</span><span class="op">)</span><span class="op">$</span><span class="va">min_angle</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] 45</span></span></code></pre></div>
 <p><code><a href="../reference/transfer_function.html">transfer_function()</a></code> moves a function to another mesh by
@@ -325,7 +356,7 @@ node in <code>info$new_nodes</code>.</p>
 nodes by marker. For imported meshes without physical groups,
 <code><a href="../reference/set_boundary_marker.html">set_boundary_marker()</a></code> relabels boundary edges whose
 midpoints satisfy a predicate.</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/set_boundary_marker.html">set_boundary_marker</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">8</span><span class="op">)</span>, <span class="st">"inlet"</span>,</span>
 <span>                         <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="va">x</span> <span class="op">&lt;</span> <span class="fl">1e-12</span> <span class="op">&amp;</span> <span class="va">y</span> <span class="op">&gt;</span> <span class="fl">0.25</span> <span class="op">&amp;</span> <span class="va">y</span> <span class="op">&lt;</span> <span class="fl">0.75</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/table.html" class="external-link">table</a></span><span class="op">(</span><span class="va">m</span><span class="op">$</span><span class="va">boundary</span><span class="op">$</span><span class="va">marker</span><span class="op">)</span></span>

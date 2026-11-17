@@ -65,6 +65,23 @@ range(eigen(as.matrix(M), only.values = TRUE)$values)
 The stiffness matrix with Dirichlet rows and columns removed is
 symmetric positive definite; the advection matrix is not symmetric.
 
+## Tensor coefficients
+
+Anisotropic diffusion uses a symmetric tensor
+`tensor_coefficient(xx, xy, yy)`, whose entries are numbers or functions
+of `(x, y)`. Positive definiteness is checked at every quadrature point.
+
+``` r
+
+D <- tensor_coefficient(xx = 1, xy = 0.3, yy = function(x, y) 0.2 + x)
+D
+#> <pde_tensor> xx =     1, xy =   0.3, yy = function
+sa <- solve_pde(elliptic_problem(pde_mesh_rectangle(nx = 16), diffusion = D, source = 1,
+                                 bcs = dirichlet_bc(0)))
+range(sa$u$values)
+#> [1] 0.00000000 0.08892322
+```
+
 ## Load vectors and boundary terms
 
 ``` r
@@ -74,6 +91,29 @@ sum(b)                                            # int x y = 1/4
 #> [1] 0.25
 sum(assemble_boundary_vector(V, 1, "left"))       # length of the left edge
 #> [1] 1
+```
+
+## Projection between meshes
+
+`l2_project(f, space)` computes the L^2 projection: the function in the
+space with the same integrals against every basis function. Unlike
+interpolation it preserves the integral of `f`. For a finite-element
+function on an unrelated mesh, the load integrals are computed exactly
+on the overlay (common refinement) of the two meshes, so the transfer is
+conservative up to rounding.
+[`errornorm()`](https://adamrsophie.github.io/pdecompR/reference/errornorm.md)
+uses the same overlay to compare solutions on unrelated meshes.
+
+``` r
+
+a <- interpolate(function(x, y) sin(5 * x) * y, fe_space(pde_mesh_rectangle(nx = 12)))
+W <- fe_space(pde_mesh_rectangle(nx = 5, pattern = "left"))
+pr <- l2_project(a, W); it <- interpolate(a, W)
+c(source = sum(assemble_vector(a$space, 1) * a$values),
+  projection = sum(assemble_vector(W, 1) * pr$values),
+  interpolation = sum(assemble_vector(W, 1) * it$values))
+#>        source    projection interpolation 
+#>    0.07003947    0.07003947    0.06626694
 ```
 
 ## Invariance under renumbering
@@ -113,7 +153,7 @@ for (m in c("auto", "lu", "cg", "bicgstab", "gmres")) {
 #> lu       lu        iterations   NA  relative residual 1.77e-13
 #> cg       cg        iterations   54  relative residual 4.51e-13
 #> bicgstab bicgstab  iterations   43  relative residual 5.04e-13
-#> gmres    gmres     iterations   54  relative residual 8.58e-13
+#> gmres    gmres     iterations   54  relative residual 8.66e-13
 ```
 
 Every solve reports a status, the residual and its relative size, the
@@ -130,6 +170,39 @@ For repeated solves with the same matrix (time stepping),
 [`linear_solver()`](https://adamrsophie.github.io/pdecompR/reference/solve_linear_system.md)
 factors once and returns a reusable
 [`solve()`](https://rdrr.io/pkg/Matrix/man/solve-methods.html) function.
+A matrix right-hand side solves several systems with one factorization.
+
+Direct solves first scale the matrix symmetrically by D^{-1/2} A
+D^{-1/2} with D = \|\mathrm{diag}(A)\|, which removes the effect of
+badly scaled coefficients on the pivoting and on the residual test.
+
+### Preconditioners and multigrid
+
+The Krylov methods take `preconditioner = "jacobi"` (the default),
+`"ssor"`, `"none"`, or a function `function(r)` that applies an
+approximate inverse. On a hierarchy of nested meshes,
+[`multigrid_preconditioner()`](https://adamrsophie.github.io/pdecompR/reference/multigrid_preconditioner.md)
+builds a geometric multigrid V-cycle: exact P1 prolongation from the
+refinement record, Galerkin coarse operators, symmetric Gauss-Seidel
+smoothing and a direct solve on the coarsest mesh. Its iteration count
+stays bounded under refinement, while Jacobi’s grows like h^{-1}:
+
+``` r
+
+meshes <- list(pde_mesh_rectangle(nx = 4))
+for (k in 1:4) meshes[[k + 1]] <- refine_uniform(meshes[[k]])
+p <- poisson_problem(meshes[[5]], source = 1, boundary = dirichlet_bc(0))
+its <- sapply(list(jacobi = "jacobi", ssor = "ssor", multigrid = multigrid_preconditioner(meshes)),
+              function(pc) solve_pde(p, method = "cg", preconditioner = pc)$diagnostics$solver$iterations)
+its
+#>    jacobi      ssor multigrid 
+#>       131       104         9
+```
+
+The multigrid preconditioner works for P1 problems on meshes produced by
+[`refine_uniform()`](https://adamrsophie.github.io/pdecompR/reference/refine_uniform.md)
+or
+[`refine_mesh()`](https://adamrsophie.github.io/pdecompR/reference/refine_uniform.md).
 
 ## Cost
 
@@ -147,7 +220,7 @@ for (n in c(16, 32, 64)) {
   cat(sprintf("n = %3d  dofs = %6d  assembly %.2fs  solve %.2fs\n", n, s$space$ndof,
               s$diagnostics$assembly_time, s$diagnostics$solve_time))
 }
-#> n =  16  dofs =    289  assembly 0.00s  solve 0.01s
+#> n =  16  dofs =    289  assembly 0.00s  solve 0.00s
 #> n =  32  dofs =   1089  assembly 0.00s  solve 0.00s
-#> n =  64  dofs =   4225  assembly 0.01s  solve 0.01s
+#> n =  64  dofs =   4225  assembly 0.01s  solve 0.00s
 ```

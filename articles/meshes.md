@@ -105,14 +105,12 @@ builds a mesh from raw coordinates and connectivity and checks it
 thoroughly. It rejects invalid node indices, repeated nodes in an
 element, duplicate elements, zero-area triangles, unused nodes, edges
 shared by more than two triangles, neighboring elements that overlap
-across a shared edge, and boundary definitions that do not match the
-topological boundary. Elements that overlap without sharing an edge (for
-example a triangle placed inside another one with its own nodes) are not
-detected; meshes from
-[`pde_mesh_rectangle()`](https://adamrsophie.github.io/pdecompR/reference/pde_mesh_rectangle.md),
-[`pde_mesh_polygon()`](https://adamrsophie.github.io/pdecompR/reference/pde_mesh_polygon.md),
-refinement and Gmsh are conforming by construction. Clockwise elements
-are an error unless reorientation is requested explicitly.
+across a shared edge, boundary definitions that do not match the
+topological boundary, and elements that overlap without sharing an edge.
+The last check uses two facts about a valid triangulation: the corner
+angles around an interior node sum to 2\pi (at most 2\pi at a boundary
+node), and boundary edges without a common node never touch. Clockwise
+elements are an error unless reorientation is requested explicitly.
 
 ``` r
 
@@ -126,6 +124,11 @@ m$info$reoriented
 pde_mesh(rbind(c(0, 0), c(1, 0), c(2, 0)), rbind(c(1, 2, 3)))
 #> Error:
 #> ! Element 1 has zero area (degenerate triangle).
+# two squares with their own nodes, overlapping in a quarter
+P2 <- rbind(P, P + 0.5)
+pde_mesh(P2, rbind(c(1, 2, 3), c(1, 3, 4), c(5, 6, 7), c(5, 7, 8)))
+#> Error:
+#> ! Boundary edges (3, 4) and (8, 5) intersect: elements overlap.
 ```
 
 Boundary markers can be supplied as an explicit list of boundary edges;
@@ -200,6 +203,32 @@ plot(mL, main = "L-shaped domain")
 
 ![](meshes_files/figure-html/unnamed-chunk-10-1.png)
 
+Polygons may have holes. Each hole is a simple polygon strictly inside
+the outer one, and its sides get their own marker (`"hole"` by default).
+The mesher connects every hole to the outer boundary by a bridge segment
+and triangulates the resulting single polygon, so no external mesher is
+needed.
+
+``` r
+
+sq <- rbind(c(0, 0), c(2, 0), c(2, 1), c(0, 1))
+holes <- list(rbind(c(0.3, 0.3), c(0.7, 0.3), c(0.7, 0.7), c(0.3, 0.7)),
+              cbind(1.4 + 0.25 * cos(seq(0, 2 * pi, length.out = 13)[-13]),
+                    0.5 + 0.25 * sin(seq(0, 2 * pi, length.out = 13)[-13])))
+dh <- pde_domain("polygon", vertices = sq, holes = holes, hole_markers = c("square", "circle"))
+mh <- pde_mesh_polygon(dh, h = 0.1)
+table(mh$boundary$marker)
+#> 
+#> boundary   circle   square 
+#>      128      384      128
+plot(mh, main = "Domain with two holes")
+```
+
+![](meshes_files/figure-html/unnamed-chunk-11-1.png)
+
+Holes that leave the outer polygon, overlap each other or touch a
+boundary are rejected when the domain is created.
+
 This mesher has no external dependencies but does not guarantee element
 quality for arbitrary polygons. For complex geometry, generate a mesh
 with [Gmsh](https://gmsh.info) and read it with
@@ -218,7 +247,12 @@ table(gm$boundary$marker)
 ```
 
 [`write_vtk()`](https://adamrsophie.github.io/pdecompR/reference/write_vtk.md)
-exports meshes and solutions to the VTK format for ParaView.
+exports meshes and solutions to the VTK format for ParaView: the legacy
+format by default, the XML `.vtu` format when the file name ends in
+`.vtu`.
+[`write_pvd()`](https://adamrsophie.github.io/pdecompR/reference/write_pvd.md)
+writes a time-dependent solution as one `.vtu` file per output time plus
+a `.pvd` collection that ParaView opens as an animation.
 
 ## Refinement
 
@@ -241,7 +275,7 @@ for (k in 1:5) {
 plot(m, main = "Local refinement around (0.5, 0.5)")
 ```
 
-![](meshes_files/figure-html/unnamed-chunk-12-1.png)
+![](meshes_files/figure-html/unnamed-chunk-13-1.png)
 
 ``` r
 

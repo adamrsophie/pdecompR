@@ -7,6 +7,7 @@ articles:
   assembly: assembly.html
   boundary-conditions: boundary-conditions.html
   convergence: convergence.html
+  eigenvalues: eigenvalues.html
   elasticity: elasticity.html
   finite-elements: finite-elements.html
   heat: heat.html
@@ -16,8 +17,10 @@ articles:
   pdecompR: pdecompR.html
   poisson: poisson.html
   reaction-diffusion: reaction-diffusion.html
+  stokes: stokes.html
+  waves: waves.html
   weak-forms: weak-forms.html
-last_built: 2026-11-17T18:54Z
+last_built: 2026-11-17T19:08Z
 urls:
   reference: https://adamrsophie.github.io/pdecompR/reference
   article: https://adamrsophie.github.io/pdecompR/articles

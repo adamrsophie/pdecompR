@@ -37,6 +37,9 @@
     <li><a class="dropdown-item" href="../articles/advection-diffusion.html">Advection-diffusion and stabilization</a></li>
     <li><a class="dropdown-item" href="../articles/nonlinear.html">Nonlinear problems and Newton's method</a></li>
     <li><a class="dropdown-item" href="../articles/elasticity.html">Linear elasticity and vector-valued elements</a></li>
+    <li><a class="dropdown-item" href="../articles/waves.html">Waves and elastodynamics</a></li>
+    <li><a class="dropdown-item" href="../articles/stokes.html">Stokes flow</a></li>
+    <li><a class="dropdown-item" href="../articles/eigenvalues.html">Eigenvalue problems</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Adaptivity and inverse problems</h6></li>
     <li><a class="dropdown-item" href="../articles/adaptivity.html">Error estimation and adaptive refinement</a></li>
@@ -91,6 +94,8 @@
 <li>Quasilinear diffusion, semilinear reaction and p-Laplace problems solved by damped Newton iteration.</li>
 <li>Linear elasticity in plane strain and plane stress with displacement, roller and traction conditions, and strain, stress and von Mises output.</li>
 <li>Damped wave equation and elastodynamics integrated by the Newmark average acceleration method, second order and energy conserving, with the discrete energy reported at every step.</li>
+<li>
+<code><a href="../reference/pde_mesh.html">pde_mesh()</a></code> rejects elements that overlap without sharing an edge (folded node neighborhoods or crossing boundary edges).</li>
 <li>Polygon domains with holes (<code>pde_domain(holes = )</code>), meshed by bridging each hole to the outer boundary before ear clipping; hole sides carry their own markers.</li>
 <li>Incompressible Stokes flow with Taylor-Hood P2-P1 elements, velocity, pseudo-traction and do-nothing outflow conditions, solved by sparse LU or by GMRES with a block-diagonal preconditioner (<code><a href="../reference/stokes_problem.html">stokes_problem()</a></code>).</li>
 <li>Eigenvalue problems for symmetric elliptic operators and elastic vibration modes by shift-and-invert subspace iteration (<code><a href="../reference/solve_eigen.html">solve_eigen()</a></code>).</li>

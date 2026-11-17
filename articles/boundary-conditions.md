@@ -115,7 +115,7 @@ summary(s)
 #>   solver: lu, status solved
 #>   linear residual: 6.41e-12 (relative 1.63e-11)
 #>   pure Neumann: zero-mean gauge, compatibility defect -1.57e-10
-#>   assembly 0.003 s, solve 0.012 s
+#>   assembly 0.004 s, solve 0.007 s
 #>   solution range [-0.9937, 1.003]
 #>   (the linear residual measures the algebraic solve, not the discretization error)
 ```
@@ -138,6 +138,63 @@ s$diagnostics$gauge$type
 #> [1] "zero mean"
 ```
 
+## Periodic conditions
+
+`periodic_bc(from, to, offset)` identifies the degrees of freedom on the
+boundary part `to` with those on `from`: a node at x on `to` equals the
+node at \$x - \$ `offset` on `from`. The two parts must be meshed
+compatibly (matching node positions), which structured meshes and
+refinement guarantee; unmatched nodes are an error. The solver
+eliminates the identified unknowns with a constraint matrix u = P u_r
+and solves P^\top A P u_r = P^\top b.
+
+Here the solution is periodic in x and vanishes on the bottom and top:
+
+``` r
+
+u <- function(x, y) cos(2 * pi * x) * sin(pi * y)
+f <- function(x, y) 5 * pi^2 * u(x, y)
+bc <- list(periodic_bc("left", "right", offset = c(1, 0)), dirichlet_bc(0, c("bottom", "top")))
+e <- sapply(c(8, 16, 32), function(n) {
+  errornorm(solve_pde(elliptic_problem(pde_mesh_rectangle(nx = n), source = f, bcs = bc)), u)
+})
+data.frame(n = c(8, 16, 32), L2 = e, rate = c(NA, log2(e[-3] / e[-1])))
+#>    n          L2     rate
+#> 1  8 0.046736961       NA
+#> 2 16 0.012125241 1.946551
+#> 3 32 0.003060052 1.986385
+```
+
+With periodicity in both directions there is no Dirichlet condition and
+the problem is a pure Neumann problem in disguise: the data must have
+zero mean and the solution is fixed by the zero-mean gauge. Corners are
+identified transitively, so all four corners become one unknown.
+
+``` r
+
+u2 <- function(x, y) sin(2 * pi * x) * cos(2 * pi * y)
+both <- list(periodic_bc("left", "right", c(1, 0)), periodic_bc("bottom", "top", c(0, 1)))
+s <- solve_pde(elliptic_problem(pde_mesh_rectangle(nx = 16), source = function(x, y) 8 * pi^2 * u2(x, y),
+                                bcs = both))
+errornorm(s, u2)
+#> [1] 0.02341302
+#> attr(,"norm")
+#> [1] "L2"
+#> attr(,"gradient")
+#> [1] "exact"
+```
+
+``` r
+
+solve_pde(elliptic_problem(pde_mesh_rectangle(nx = 4), source = 1, bcs = both))
+#> Error:
+#> ! Pure Neumann problem with incompatible data: compatibility defect     1 (relative     1). The problem has no solution.
+```
+
+Periodic conditions are supported for elliptic problems. Time-dependent,
+nonlinear and reaction-diffusion problems reject them with an error
+instead of ignoring them.
+
 ## Markers for imported meshes
 
 Meshes read from Gmsh carry their physical line names as markers.
@@ -154,4 +211,4 @@ s <- solve_pde(poisson_problem(m, source = 0,
 plot(s)
 ```
 
-![](boundary-conditions_files/figure-html/unnamed-chunk-9-1.png)
+![](boundary-conditions_files/figure-html/unnamed-chunk-12-1.png)

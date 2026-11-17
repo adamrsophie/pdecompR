@@ -57,6 +57,9 @@
     <li><a class="dropdown-item" href="../articles/advection-diffusion.html">Advection-diffusion and stabilization</a></li>
     <li><a class="dropdown-item" href="../articles/nonlinear.html">Nonlinear problems and Newton's method</a></li>
     <li><a class="dropdown-item" href="../articles/elasticity.html">Linear elasticity and vector-valued elements</a></li>
+    <li><a class="dropdown-item" href="../articles/waves.html">Waves and elastodynamics</a></li>
+    <li><a class="dropdown-item" href="../articles/stokes.html">Stokes flow</a></li>
+    <li><a class="dropdown-item" href="../articles/eigenvalues.html">Eigenvalue problems</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Adaptivity and inverse problems</h6></li>
     <li><a class="dropdown-item" href="../articles/adaptivity.html">Error estimation and adaptive refinement</a></li>
@@ -154,9 +157,25 @@ into the compressed column format.</p>
 symmetric positive definite; the advection matrix is not symmetric.</p>
 </div>
 <div class="section level2">
+<h2 id="tensor-coefficients">Tensor coefficients<a class="anchor" aria-label="anchor" href="#tensor-coefficients"></a>
+</h2>
+<p>Anisotropic diffusion uses a symmetric tensor
+<code>tensor_coefficient(xx, xy, yy)</code>, whose entries are numbers
+or functions of <code>(x, y)</code>. Positive definiteness is checked at
+every quadrature point.</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">D</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/tensor_coefficient.html">tensor_coefficient</a></span><span class="op">(</span>xx <span class="op">=</span> <span class="fl">1</span>, xy <span class="op">=</span> <span class="fl">0.3</span>, yy <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fl">0.2</span> <span class="op">+</span> <span class="va">x</span><span class="op">)</span></span>
+<span><span class="va">D</span></span>
+<span><span class="co">#&gt; &lt;pde_tensor&gt; xx =     1, xy =   0.3, yy = function</span></span>
+<span><span class="va">sa</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="../reference/elliptic_problem.html">elliptic_problem</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">16</span><span class="op">)</span>, diffusion <span class="op">=</span> <span class="va">D</span>, source <span class="op">=</span> <span class="fl">1</span>,</span>
+<span>                                 bcs <span class="op">=</span> <span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/range.html" class="external-link">range</a></span><span class="op">(</span><span class="va">sa</span><span class="op">$</span><span class="va">u</span><span class="op">$</span><span class="va">values</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 0.00000000 0.08892322</span></span></code></pre></div>
+</div>
+<div class="section level2">
 <h2 id="load-vectors-and-boundary-terms">Load vectors and boundary terms<a class="anchor" aria-label="anchor" href="#load-vectors-and-boundary-terms"></a>
 </h2>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">b</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/assemble_matrix.html">assemble_vector</a></span><span class="op">(</span><span class="va">V</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="va">x</span> <span class="op">*</span> <span class="va">y</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">b</span><span class="op">)</span>                                            <span class="co"># int x y = 1/4</span></span>
 <span><span class="co">#&gt; [1] 0.25</span></span>
@@ -164,11 +183,31 @@ symmetric positive definite; the advection matrix is not symmetric.</p>
 <span><span class="co">#&gt; [1] 1</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="projection-between-meshes">Projection between meshes<a class="anchor" aria-label="anchor" href="#projection-between-meshes"></a>
+</h2>
+<p><code>l2_project(f, space)</code> computes the <span class="math inline">L^2</span> projection: the function in the space
+with the same integrals against every basis function. Unlike
+interpolation it preserves the integral of <code>f</code>. For a
+finite-element function on an unrelated mesh, the load integrals are
+computed exactly on the overlay (common refinement) of the two meshes,
+so the transfer is conservative up to rounding. <code><a href="../reference/errornorm.html">errornorm()</a></code>
+uses the same overlay to compare solutions on unrelated meshes.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">a</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fe_function.html">interpolate</a></span><span class="op">(</span><span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">sin</a></span><span class="op">(</span><span class="fl">5</span> <span class="op">*</span> <span class="va">x</span><span class="op">)</span> <span class="op">*</span> <span class="va">y</span>, <span class="fu"><a href="../reference/fe_space.html">fe_space</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">12</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">W</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fe_space.html">fe_space</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">5</span>, pattern <span class="op">=</span> <span class="st">"left"</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">pr</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/l2_project.html">l2_project</a></span><span class="op">(</span><span class="va">a</span>, <span class="va">W</span><span class="op">)</span>; <span class="va">it</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/fe_function.html">interpolate</a></span><span class="op">(</span><span class="va">a</span>, <span class="va">W</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>source <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="fu"><a href="../reference/assemble_matrix.html">assemble_vector</a></span><span class="op">(</span><span class="va">a</span><span class="op">$</span><span class="va">space</span>, <span class="fl">1</span><span class="op">)</span> <span class="op">*</span> <span class="va">a</span><span class="op">$</span><span class="va">values</span><span class="op">)</span>,</span>
+<span>  projection <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="fu"><a href="../reference/assemble_matrix.html">assemble_vector</a></span><span class="op">(</span><span class="va">W</span>, <span class="fl">1</span><span class="op">)</span> <span class="op">*</span> <span class="va">pr</span><span class="op">$</span><span class="va">values</span><span class="op">)</span>,</span>
+<span>  interpolation <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="fu"><a href="../reference/assemble_matrix.html">assemble_vector</a></span><span class="op">(</span><span class="va">W</span>, <span class="fl">1</span><span class="op">)</span> <span class="op">*</span> <span class="va">it</span><span class="op">$</span><span class="va">values</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;        source    projection interpolation </span></span>
+<span><span class="co">#&gt;    0.07003947    0.07003947    0.06626694</span></span></code></pre></div>
+</div>
+<div class="section level2">
 <h2 id="invariance-under-renumbering">Invariance under renumbering<a class="anchor" aria-label="anchor" href="#invariance-under-renumbering"></a>
 </h2>
 <p>Assembly does not depend on the order of nodes: renumbering the nodes
 permutes the matrix.</p>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">4</span><span class="op">)</span></span>
 <span><span class="va">perm</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sample.html" class="external-link">sample</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">nrow</a></span><span class="op">(</span><span class="va">m</span><span class="op">$</span><span class="va">nodes</span><span class="op">)</span><span class="op">)</span>; <span class="va">inv</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/order.html" class="external-link">order</a></span><span class="op">(</span><span class="va">perm</span><span class="op">)</span></span>
 <span><span class="va">m2</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pde_mesh.html">pde_mesh</a></span><span class="op">(</span><span class="va">m</span><span class="op">$</span><span class="va">nodes</span><span class="op">[</span><span class="va">perm</span>, <span class="op">]</span>, <span class="fu"><a href="https://rdrr.io/r/base/matrix.html" class="external-link">matrix</a></span><span class="op">(</span><span class="va">inv</span><span class="op">[</span><span class="va">m</span><span class="op">$</span><span class="va">triangles</span><span class="op">]</span>, ncol <span class="op">=</span> <span class="fl">3</span><span class="op">)</span><span class="op">)</span></span>
@@ -184,7 +223,7 @@ permutes the matrix.</p>
 symmetric matrices (with a fallback to sparse LU when the matrix is not
 positive definite) and sparse LU otherwise. Preconditioned conjugate
 gradients, BiCGSTAB and restarted GMRES are also available.</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">A</span> <span class="op">&lt;-</span> <span class="va">K</span> <span class="op">+</span> <span class="va">M</span></span>
 <span><span class="va">rhs</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/assemble_matrix.html">assemble_vector</a></span><span class="op">(</span><span class="va">V</span>, <span class="fl">1</span><span class="op">)</span></span>
 <span><span class="kw">for</span> <span class="op">(</span><span class="va">m</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"auto"</span>, <span class="st">"lu"</span>, <span class="st">"cg"</span>, <span class="st">"bicgstab"</span>, <span class="st">"gmres"</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
@@ -196,17 +235,44 @@ gradients, BiCGSTAB and restarted GMRES are also available.</p>
 <span><span class="co">#&gt; lu       lu        iterations   NA  relative residual 1.77e-13</span></span>
 <span><span class="co">#&gt; cg       cg        iterations   54  relative residual 4.51e-13</span></span>
 <span><span class="co">#&gt; bicgstab bicgstab  iterations   43  relative residual 5.04e-13</span></span>
-<span><span class="co">#&gt; gmres    gmres     iterations   54  relative residual 8.58e-13</span></span></code></pre></div>
+<span><span class="co">#&gt; gmres    gmres     iterations   54  relative residual 8.66e-13</span></span></code></pre></div>
 <p>Every solve reports a status, the residual and its relative size, the
 iteration count, the matrix size and the number of nonzeros. Iterative
 methods report <code>"not converged"</code> instead of returning
 silently:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/solve_linear_system.html">solve_linear_system</a></span><span class="op">(</span><span class="va">A</span>, <span class="va">rhs</span>, method <span class="op">=</span> <span class="st">"cg"</span>, maxit <span class="op">=</span> <span class="fl">3</span><span class="op">)</span><span class="op">$</span><span class="va">info</span><span class="op">$</span><span class="va">status</span></span>
 <span><span class="co">#&gt; [1] "not converged"</span></span></code></pre></div>
 <p>For repeated solves with the same matrix (time stepping),
 <code><a href="../reference/solve_linear_system.html">linear_solver()</a></code> factors once and returns a reusable
-<code><a href="https://rdrr.io/pkg/Matrix/man/solve-methods.html" class="external-link">solve()</a></code> function.</p>
+<code><a href="https://rdrr.io/pkg/Matrix/man/solve-methods.html" class="external-link">solve()</a></code> function. A matrix right-hand side solves several
+systems with one factorization.</p>
+<p>Direct solves first scale the matrix symmetrically by <span class="math inline">D^{-1/2} A D^{-1/2}</span> with <span class="math inline">D = |\mathrm{diag}(A)|</span>, which removes the
+effect of badly scaled coefficients on the pivoting and on the residual
+test.</p>
+<div class="section level3">
+<h3 id="preconditioners-and-multigrid">Preconditioners and multigrid<a class="anchor" aria-label="anchor" href="#preconditioners-and-multigrid"></a>
+</h3>
+<p>The Krylov methods take <code>preconditioner = "jacobi"</code> (the
+default), <code>"ssor"</code>, <code>"none"</code>, or a function
+<code>function(r)</code> that applies an approximate inverse. On a
+hierarchy of nested meshes, <code><a href="../reference/multigrid_preconditioner.html">multigrid_preconditioner()</a></code>
+builds a geometric multigrid V-cycle: exact P1 prolongation from the
+refinement record, Galerkin coarse operators, symmetric Gauss-Seidel
+smoothing and a direct solve on the coarsest mesh. Its iteration count
+stays bounded under refinement, while Jacobi’s grows like <span class="math inline">h^{-1}</span>:</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">meshes</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">4</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="kw">for</span> <span class="op">(</span><span class="va">k</span> <span class="kw">in</span> <span class="fl">1</span><span class="op">:</span><span class="fl">4</span><span class="op">)</span> <span class="va">meshes</span><span class="op">[[</span><span class="va">k</span> <span class="op">+</span> <span class="fl">1</span><span class="op">]</span><span class="op">]</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/refine_uniform.html">refine_uniform</a></span><span class="op">(</span><span class="va">meshes</span><span class="op">[[</span><span class="va">k</span><span class="op">]</span><span class="op">]</span><span class="op">)</span></span>
+<span><span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/elliptic_problem.html">poisson_problem</a></span><span class="op">(</span><span class="va">meshes</span><span class="op">[[</span><span class="fl">5</span><span class="op">]</span><span class="op">]</span>, source <span class="op">=</span> <span class="fl">1</span>, boundary <span class="op">=</span> <span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">its</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>jacobi <span class="op">=</span> <span class="st">"jacobi"</span>, ssor <span class="op">=</span> <span class="st">"ssor"</span>, multigrid <span class="op">=</span> <span class="fu"><a href="../reference/multigrid_preconditioner.html">multigrid_preconditioner</a></span><span class="op">(</span><span class="va">meshes</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>              <span class="kw">function</span><span class="op">(</span><span class="va">pc</span><span class="op">)</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="va">p</span>, method <span class="op">=</span> <span class="st">"cg"</span>, preconditioner <span class="op">=</span> <span class="va">pc</span><span class="op">)</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">solver</span><span class="op">$</span><span class="va">iterations</span><span class="op">)</span></span>
+<span><span class="va">its</span></span>
+<span><span class="co">#&gt;    jacobi      ssor multigrid </span></span>
+<span><span class="co">#&gt;       131       104         9</span></span></code></pre></div>
+<p>The multigrid preconditioner works for P1 problems on meshes produced
+by <code><a href="../reference/refine_uniform.html">refine_uniform()</a></code> or <code><a href="../reference/refine_uniform.html">refine_mesh()</a></code>.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="cost">Cost<a class="anchor" aria-label="anchor" href="#cost"></a>
@@ -217,16 +283,16 @@ two-dimensional finite-element matrices costs roughly <span class="math inline">
 orderings, which keeps meshes with <span class="math inline">10^5</span>
 to <span class="math inline">10^6</span> unknowns practical on a
 workstation.</p>
-<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="kw">for</span> <span class="op">(</span><span class="va">n</span> <span class="kw">in</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">16</span>, <span class="fl">32</span>, <span class="fl">64</span><span class="op">)</span><span class="op">)</span> <span class="op">{</span></span>
 <span>  <span class="va">mesh</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="va">n</span><span class="op">)</span></span>
 <span>  <span class="va">t</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/system.time.html" class="external-link">system.time</a></span><span class="op">(</span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="../reference/elliptic_problem.html">poisson_problem</a></span><span class="op">(</span><span class="va">mesh</span>, source <span class="op">=</span> <span class="fl">1</span>, boundary <span class="op">=</span> <span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span>  <span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf</a></span><span class="op">(</span><span class="st">"n = %3d  dofs = %6d  assembly %.2fs  solve %.2fs\n"</span>, <span class="va">n</span>, <span class="va">s</span><span class="op">$</span><span class="va">space</span><span class="op">$</span><span class="va">ndof</span>,</span>
 <span>              <span class="va">s</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">assembly_time</span>, <span class="va">s</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">solve_time</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="op">}</span></span>
-<span><span class="co">#&gt; n =  16  dofs =    289  assembly 0.00s  solve 0.01s</span></span>
+<span><span class="co">#&gt; n =  16  dofs =    289  assembly 0.00s  solve 0.00s</span></span>
 <span><span class="co">#&gt; n =  32  dofs =   1089  assembly 0.00s  solve 0.00s</span></span>
-<span><span class="co">#&gt; n =  64  dofs =   4225  assembly 0.01s  solve 0.01s</span></span></code></pre></div>
+<span><span class="co">#&gt; n =  64  dofs =   4225  assembly 0.01s  solve 0.00s</span></span></code></pre></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

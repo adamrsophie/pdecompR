@@ -57,6 +57,9 @@
     <li><a class="dropdown-item" href="../articles/advection-diffusion.html">Advection-diffusion and stabilization</a></li>
     <li><a class="dropdown-item" href="../articles/nonlinear.html">Nonlinear problems and Newton's method</a></li>
     <li><a class="dropdown-item" href="../articles/elasticity.html">Linear elasticity and vector-valued elements</a></li>
+    <li><a class="dropdown-item" href="../articles/waves.html">Waves and elastodynamics</a></li>
+    <li><a class="dropdown-item" href="../articles/stokes.html">Stokes flow</a></li>
+    <li><a class="dropdown-item" href="../articles/eigenvalues.html">Eigenvalue problems</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Adaptivity and inverse problems</h6></li>
     <li><a class="dropdown-item" href="../articles/adaptivity.html">Error estimation and adaptive refinement</a></li>
@@ -161,7 +164,7 @@ zero boundary values and no source, the exact solution is <span class="math inli
 <span><span class="co">#&gt;   degrees of freedom: 625  ( 529  free)</span></span>
 <span><span class="co">#&gt;   linear solver: cholesky  max relative residual: 8.27e-16 </span></span>
 <span><span class="co">#&gt;   integral of the solution, first and last stored time: 0.4041 to 0.1501 </span></span>
-<span><span class="co">#&gt;   assembly 0.024 s, time stepping 0.047 s</span></span>
+<span><span class="co">#&gt;   assembly 0.017 s, time stepping 0.031 s</span></span>
 <span></span>
 <span><span class="va">exact_end</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="op">-</span><span class="fl">2</span> <span class="op">*</span> <span class="va">pi</span><span class="op">^</span><span class="fl">2</span> <span class="op">*</span> <span class="va">kappa</span> <span class="op">*</span> <span class="fl">0.1</span><span class="op">)</span> <span class="op">*</span> <span class="fu">u0</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/errornorm.html">errornorm</a></span><span class="op">(</span><span class="fu"><a href="../reference/solution_at.html">solution_at</a></span><span class="op">(</span><span class="va">sol</span>, <span class="fl">0.1</span><span class="op">)</span>, <span class="va">exact_end</span>, <span class="st">"L2"</span><span class="op">)</span></span>
@@ -214,24 +217,64 @@ their effect shows only on the coarsest steps.</p>
 <span><span class="co">#&gt; 4 0.00625   0.0001275734   1.325911e-07 1.003236 1.999982</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="higher-order-and-adaptive-time-stepping">Higher-order and adaptive time stepping<a class="anchor" aria-label="anchor" href="#higher-order-and-adaptive-time-stepping"></a>
+</h2>
+<p>Two more schemes are available. <code>method = "bdf2"</code> is the
+two-step backward differentiation formula: second order, L-stable and as
+cheap as backward Euler (one solve per step with a fixed matrix, the
+first step taken by backward Euler). <code>method = "sdirk2"</code> is
+the two-stage, L-stable singly diagonally implicit Runge-Kutta method of
+Alexander with <span class="math inline">\gamma = 1 - 1/\sqrt 2</span>;
+both stages share one matrix.</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">err2</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"bdf2"</span>, <span class="st">"sdirk2"</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">m</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="va">dts</span>, <span class="kw">function</span><span class="op">(</span><span class="va">dt</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="va">p</span>, dt <span class="op">=</span> <span class="va">dt</span>, method <span class="op">=</span> <span class="va">m</span>, output_times <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">s</span><span class="op">$</span><span class="va">values</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span> <span class="op">-</span> <span class="fu">ex</span><span class="op">(</span><span class="va">s</span><span class="op">$</span><span class="va">space</span><span class="op">$</span><span class="va">dof_coords</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span>, <span class="va">s</span><span class="op">$</span><span class="va">space</span><span class="op">$</span><span class="va">dof_coords</span><span class="op">[</span>, <span class="fl">2</span><span class="op">]</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>dt <span class="op">=</span> <span class="va">dts</span>, <span class="va">err2</span>, rate_BDF2 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fu"><a href="https://rdrr.io/r/base/diff.html" class="external-link">diff</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log</a></span><span class="op">(</span><span class="va">err2</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/diff.html" class="external-link">diff</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log</a></span><span class="op">(</span><span class="va">dts</span><span class="op">)</span><span class="op">)</span><span class="op">)</span>,</span>
+<span>           rate_SDIRK2 <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fu"><a href="https://rdrr.io/r/base/diff.html" class="external-link">diff</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log</a></span><span class="op">(</span><span class="va">err2</span><span class="op">[</span>, <span class="fl">2</span><span class="op">]</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="fu"><a href="https://rdrr.io/r/base/diff.html" class="external-link">diff</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log</a></span><span class="op">(</span><span class="va">dts</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;        dt         bdf2       sdirk2 rate_BDF2 rate_SDIRK2</span></span>
+<span><span class="co">#&gt; 1 0.05000 3.524540e-05 7.900893e-05        NA          NA</span></span>
+<span><span class="co">#&gt; 2 0.02500 8.646756e-06 2.191811e-05  2.027204    1.849892</span></span>
+<span><span class="co">#&gt; 3 0.01250 2.141466e-06 5.849209e-06  2.013560    1.905810</span></span>
+<span><span class="co">#&gt; 4 0.00625 5.328595e-07 1.518309e-06  2.006771    1.945776</span></span></code></pre></div>
+<p>With <code>adaptive = TRUE</code>, SDIRK2 controls the step size. The
+stage values give an embedded first-order solution, and the difference,
+measured in the mass norm relative to the solution, is the local error
+estimate. Steps are accepted when the estimate is below <code>tol</code>
+and the next step size follows the usual controller with a safety
+factor. <code>dt</code> is then the initial step.</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="va">p</span>, dt <span class="op">=</span> <span class="fl">0.1</span>, method <span class="op">=</span> <span class="st">"sdirk2"</span>, adaptive <span class="op">=</span> <span class="cn">TRUE</span>, tol <span class="op">=</span> <span class="fl">1e-5</span>, output_times <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">d</span> <span class="op">&lt;-</span> <span class="va">s</span><span class="op">$</span><span class="va">diagnostics</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>steps <span class="op">=</span> <span class="va">d</span><span class="op">$</span><span class="va">steps</span>, rejected <span class="op">=</span> <span class="va">d</span><span class="op">$</span><span class="va">rejected_steps</span>, factorizations <span class="op">=</span> <span class="va">d</span><span class="op">$</span><span class="va">factorizations</span>,</span>
+<span>  error <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">s</span><span class="op">$</span><span class="va">values</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span> <span class="op">-</span> <span class="fu">ex</span><span class="op">(</span><span class="va">s</span><span class="op">$</span><span class="va">space</span><span class="op">$</span><span class="va">dof_coords</span><span class="op">[</span>, <span class="fl">1</span><span class="op">]</span>, <span class="va">s</span><span class="op">$</span><span class="va">space</span><span class="op">$</span><span class="va">dof_coords</span><span class="op">[</span>, <span class="fl">2</span><span class="op">]</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;          steps       rejected factorizations          error </span></span>
+<span><span class="co">#&gt;    1.80000e+02    2.00000e+00    5.00000e+00    1.54724e-06</span></span></code></pre></div>
+<p>Adaptive stepping keeps the step size while the controller asks for
+less than a 25 percent change, so the stage matrix is refactorized only
+a few times, as the diagnostics report. Coefficients that depend on time
+are not supported by the multistage methods.</p>
+</div>
+<div class="section level2">
 <h2 id="time-dependent-sources-and-boundary-data">Time-dependent sources and boundary data<a class="anchor" aria-label="anchor" href="#time-dependent-sources-and-boundary-data"></a>
 </h2>
 <p>Sources and boundary values can depend on time. Here a hot spot moves
 along the bottom boundary while the top is kept cold:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">hot</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span>, <span class="va">t</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="op">-</span><span class="fl">50</span> <span class="op">*</span> <span class="op">(</span><span class="va">x</span> <span class="op">-</span> <span class="fl">0.2</span> <span class="op">-</span> <span class="fl">0.6</span> <span class="op">*</span> <span class="va">t</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span></span>
 <span><span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/parabolic_problem.html">heat_problem</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">32</span><span class="op">)</span>, diffusivity <span class="op">=</span> <span class="fl">0.05</span>, initial <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>                  bcs <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="va">hot</span>, <span class="st">"bottom"</span><span class="op">)</span>, <span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="fl">0</span>, <span class="st">"top"</span><span class="op">)</span><span class="op">)</span>, time <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="va">p</span>, dt <span class="op">=</span> <span class="fl">0.025</span>, output_times <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.25</span>, <span class="fl">0.5</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">s</span>, time <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span></code></pre></div>
-<p><img src="heat_files/figure-html/unnamed-chunk-7-1.png" class="r-plt" alt="" width="576"></p>
+<p><img src="heat_files/figure-html/unnamed-chunk-9-1.png" class="r-plt" alt="" width="576"></p>
 </div>
 <div class="section level2">
 <h2 id="conservation-and-stability">Conservation and stability<a class="anchor" aria-label="anchor" href="#conservation-and-stability"></a>
 </h2>
 <p>With zero-flux boundaries and no source, the total heat <span class="math inline">\int u\,dx = \mathbf 1^\top M \mathbf U</span> is
 conserved exactly by both schemes, because <span class="math inline">\mathbf 1^\top K = 0</span>:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/parabolic_problem.html">heat_problem</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">16</span><span class="op">)</span>, initial <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">exp</a></span><span class="op">(</span><span class="op">-</span><span class="fl">30</span> <span class="op">*</span> <span class="op">(</span><span class="op">(</span><span class="va">x</span> <span class="op">-</span> <span class="fl">0.3</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span> <span class="op">+</span> <span class="va">y</span><span class="op">^</span><span class="fl">2</span><span class="op">)</span><span class="op">)</span>,</span>
 <span>                  time <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.5</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="va">p</span>, dt <span class="op">=</span> <span class="fl">0.05</span>, method <span class="op">=</span> <span class="st">"backward-euler"</span><span class="op">)</span></span>
@@ -245,7 +288,8 @@ conserved exactly by both schemes, because <span class="math inline">\mathbf 1^\
 <p><code><a href="../reference/parabolic_problem.html">parabolic_problem()</a></code> adds advection and reaction, <span class="math inline">\partial_t u - \nabla\cdot(k\nabla u) + b\cdot\nabla
 u + cu = f</span>, with optional SUPG stabilization (consistent: the
 time derivative is included in the stabilized residual). See the
-advection-diffusion article.</p>
+advection-diffusion article. Second-order equations in time (waves and
+elastodynamics) have their own article.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

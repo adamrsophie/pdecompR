@@ -57,6 +57,9 @@
     <li><a class="dropdown-item" href="../articles/advection-diffusion.html">Advection-diffusion and stabilization</a></li>
     <li><a class="dropdown-item" href="../articles/nonlinear.html">Nonlinear problems and Newton's method</a></li>
     <li><a class="dropdown-item" href="../articles/elasticity.html">Linear elasticity and vector-valued elements</a></li>
+    <li><a class="dropdown-item" href="../articles/waves.html">Waves and elastodynamics</a></li>
+    <li><a class="dropdown-item" href="../articles/stokes.html">Stokes flow</a></li>
+    <li><a class="dropdown-item" href="../articles/eigenvalues.html">Eigenvalue problems</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Adaptivity and inverse problems</h6></li>
     <li><a class="dropdown-item" href="../articles/adaptivity.html">Error estimation and adaptive refinement</a></li>
@@ -159,6 +162,73 @@ gradients agree:</p>
 <span><span class="co">#&gt; forward           0.1264122 0.07538522 0.007326827</span></span>
 <span><span class="co">#&gt; adjoint           0.1264122 0.07538522 0.007326827</span></span>
 <span><span class="co">#&gt; finite_difference 0.1264122 0.07538522 0.007326827</span></span></code></pre></div>
+<p>When the coefficients are affine in <span class="math inline">\theta</span>, <code><a href="../reference/affine_derivative.html">affine_derivative()</a></code>
+computes the operator derivatives once, exactly, and
+<code><a href="../reference/pde_sensitivity.html">pde_sensitivity()</a></code> reuses them through its
+<code>derivative</code> argument instead of differencing at every call.
+<code><a href="../reference/taylor_test.html">taylor_test()</a></code> checks any gradient by the remainders <span class="math inline">|J(\theta + \epsilon d) - J(\theta) -
+\epsilon\,g\cdot d|</span>, which decrease at second order for a correct
+gradient and at first order for a wrong one:</p>
+<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">dv</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/affine_derivative.html">affine_derivative</a></span><span class="op">(</span><span class="va">pf2</span>, <span class="va">th</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/taylor_test.html">taylor_test</a></span><span class="op">(</span><span class="va">pf2</span>, <span class="va">th</span>, objective <span class="op">=</span> <span class="va">J</span>, direction <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="op">-</span><span class="fl">1</span>, <span class="fl">0.5</span><span class="op">)</span>, derivative <span class="op">=</span> <span class="va">dv</span><span class="op">)</span></span>
+<span><span class="co">#&gt;     eps    remainder     rate</span></span>
+<span><span class="co">#&gt; 1 1e-01 5.140566e-04       NA</span></span>
+<span><span class="co">#&gt; 2 1e-02 5.793741e-06 1.948052</span></span>
+<span><span class="co">#&gt; 3 1e-03 5.865287e-08 1.994670</span></span>
+<span><span class="co">#&gt; 4 1e-04 5.872505e-10 1.999466</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="nonlinear-and-time-dependent-problems">Nonlinear and time-dependent problems<a class="anchor" aria-label="anchor" href="#nonlinear-and-time-dependent-problems"></a>
+</h2>
+<p>For a nonlinear problem with residual <span class="math inline">F(\mathbf u, \theta) = 0</span>,
+<code><a href="../reference/nonlinear_sensitivity.html">nonlinear_sensitivity()</a></code> solves one system with the
+transposed Newton Jacobian at the converged state, <span class="math inline">J_F^\top \lambda = \partial J/\partial
+\mathbf u</span>, and returns <span class="math inline">dJ/d\theta =
+-\lambda^\top \partial F/\partial\theta</span> (plus the contribution of
+parameter-dependent Dirichlet data). The residual derivative is a
+central difference at the fixed state, so no extra nonlinear solves are
+needed.</p>
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">mesh8</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">8</span><span class="op">)</span></span>
+<span><span class="va">pn</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">th</span><span class="op">)</span> <span class="fu"><a href="../reference/nonlinear_problem.html">nonlinear_problem</a></span><span class="op">(</span><span class="va">mesh8</span>, diffusion <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">u</span><span class="op">)</span> <span class="va">th</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="va">u</span><span class="op">^</span><span class="fl">2</span>,</span>
+<span>                                     source <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="va">th</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">*</span> <span class="op">(</span><span class="fl">1</span> <span class="op">+</span> <span class="va">x</span><span class="op">)</span>,</span>
+<span>                                     reaction <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">u</span><span class="op">)</span> <span class="va">th</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span> <span class="op">*</span> <span class="va">u</span><span class="op">^</span><span class="fl">3</span>, bcs <span class="op">=</span> <span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">J8</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/pde_observations.html">misfit_objective</a></span><span class="op">(</span><span class="fu"><a href="../reference/fe_space.html">fe_space</a></span><span class="op">(</span><span class="va">mesh8</span><span class="op">)</span>, <span class="va">obs</span><span class="op">)</span></span>
+<span><span class="va">thn</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">0.5</span><span class="op">)</span></span>
+<span><span class="va">g</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nonlinear_sensitivity.html">nonlinear_sensitivity</a></span><span class="op">(</span><span class="va">pn</span>, <span class="va">thn</span>, <span class="va">J8</span>, tol <span class="op">=</span> <span class="fl">1e-13</span><span class="op">)</span><span class="op">$</span><span class="va">gradient</span></span>
+<span><span class="va">fd</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, <span class="kw">function</span><span class="op">(</span><span class="va">j</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">e</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/replace.html" class="external-link">replace</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fl">3</span><span class="op">)</span>, <span class="va">j</span>, <span class="fl">1e-5</span><span class="op">)</span></span>
+<span>  <span class="op">(</span><span class="fu">J8</span><span class="op">(</span><span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu">pn</span><span class="op">(</span><span class="va">thn</span> <span class="op">+</span> <span class="va">e</span><span class="op">)</span>, tol <span class="op">=</span> <span class="fl">1e-13</span><span class="op">)</span><span class="op">$</span><span class="va">u</span><span class="op">$</span><span class="va">values</span><span class="op">)</span><span class="op">$</span><span class="va">value</span> <span class="op">-</span></span>
+<span>     <span class="fu">J8</span><span class="op">(</span><span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu">pn</span><span class="op">(</span><span class="va">thn</span> <span class="op">-</span> <span class="va">e</span><span class="op">)</span>, tol <span class="op">=</span> <span class="fl">1e-13</span><span class="op">)</span><span class="op">$</span><span class="va">u</span><span class="op">$</span><span class="va">values</span><span class="op">)</span><span class="op">$</span><span class="va">value</span><span class="op">)</span> <span class="op">/</span> <span class="fl">2e-5</span></span>
+<span><span class="op">}</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span>adjoint <span class="op">=</span> <span class="va">g</span>, finite_difference <span class="op">=</span> <span class="va">fd</span><span class="op">)</span></span>
+<span><span class="co">#&gt;                        [,1]     [,2]         [,3]</span></span>
+<span><span class="co">#&gt; adjoint           -5.805525 2.936141 -0.008452305</span></span>
+<span><span class="co">#&gt; finite_difference -5.805525 2.936141 -0.008452305</span></span></code></pre></div>
+<p><code><a href="../reference/nonlinear_sensitivity.html">transient_sensitivity()</a></code> differentiates an objective of
+the final state of a parabolic problem solved by backward Euler or
+Crank-Nicolson. After the forward run, a backward sweep with the
+transposed step matrix gives the discrete adjoint at every step; the
+gradient then collects the derivatives of the operator, the loads and
+the initial condition. The cost is one extra solve per step, for any
+number of parameters, and the result is the exact gradient of the
+time-stepping scheme.</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">pt</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">th</span><span class="op">)</span> <span class="fu"><a href="../reference/parabolic_problem.html">parabolic_problem</a></span><span class="op">(</span><span class="va">mesh8</span>, diffusion <span class="op">=</span> <span class="va">th</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span>, source <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span>, <span class="va">t</span><span class="op">)</span> <span class="va">th</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">sin</a></span><span class="op">(</span><span class="va">t</span><span class="op">)</span> <span class="op">*</span> <span class="va">x</span>,</span>
+<span>                                     initial <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="va">th</span><span class="op">[</span><span class="fl">3</span><span class="op">]</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">sin</a></span><span class="op">(</span><span class="va">pi</span> <span class="op">*</span> <span class="va">x</span><span class="op">)</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">sin</a></span><span class="op">(</span><span class="va">pi</span> <span class="op">*</span> <span class="va">y</span><span class="op">)</span>,</span>
+<span>                                     bcs <span class="op">=</span> <span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span>, time <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0.3</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">tht</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">gt</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/nonlinear_sensitivity.html">transient_sensitivity</a></span><span class="op">(</span><span class="va">pt</span>, <span class="va">tht</span>, <span class="va">J8</span>, dt <span class="op">=</span> <span class="fl">0.05</span>, method <span class="op">=</span> <span class="st">"crank-nicolson"</span><span class="op">)</span><span class="op">$</span><span class="va">gradient</span></span>
+<span><span class="va">Jt</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">th</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/stats/TDist.html" class="external-link">pt</a></span><span class="op">(</span><span class="va">th</span><span class="op">)</span>, dt <span class="op">=</span> <span class="fl">0.05</span>, method <span class="op">=</span> <span class="st">"crank-nicolson"</span>, startup <span class="op">=</span> <span class="fl">0</span><span class="op">)</span></span>
+<span>  <span class="fu">J8</span><span class="op">(</span><span class="va">s</span><span class="op">$</span><span class="va">values</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/nrow.html" class="external-link">ncol</a></span><span class="op">(</span><span class="va">s</span><span class="op">$</span><span class="va">values</span><span class="op">)</span><span class="op">]</span><span class="op">)</span><span class="op">$</span><span class="va">value</span></span>
+<span><span class="op">}</span></span>
+<span><span class="va">fdt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, <span class="kw">function</span><span class="op">(</span><span class="va">j</span><span class="op">)</span> <span class="op">{</span> <span class="va">e</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/replace.html" class="external-link">replace</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">numeric</a></span><span class="op">(</span><span class="fl">3</span><span class="op">)</span>, <span class="va">j</span>, <span class="fl">1e-5</span><span class="op">)</span>; <span class="op">(</span><span class="fu">Jt</span><span class="op">(</span><span class="va">tht</span> <span class="op">+</span> <span class="va">e</span><span class="op">)</span> <span class="op">-</span> <span class="fu">Jt</span><span class="op">(</span><span class="va">tht</span> <span class="op">-</span> <span class="va">e</span><span class="op">)</span><span class="op">)</span> <span class="op">/</span> <span class="fl">2e-5</span> <span class="op">}</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span>adjoint <span class="op">=</span> <span class="va">gt</span>, finite_difference <span class="op">=</span> <span class="va">fdt</span><span class="op">)</span></span>
+<span><span class="co">#&gt;                       [,1]       [,2]        [,3]</span></span>
+<span><span class="co">#&gt; adjoint           0.262531 -0.1017677 -0.01220548</span></span>
+<span><span class="co">#&gt; finite_difference 0.262531 -0.1017677 -0.01220548</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="parameter-estimation">Parameter estimation<a class="anchor" aria-label="anchor" href="#parameter-estimation"></a>
@@ -175,7 +245,7 @@ are cached so the objective and gradient at the same <span class="math inline">\
 <p>Here we identify a diffusion coefficient <span class="math inline">k(x, y) = \theta_1 + \theta_2 x</span> from 25 noisy
 observations of a solution computed on a finer mesh, which avoids the
 “inverse crime” of generating data with the same discretization:</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">pf3</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">theta</span>, <span class="va">mesh</span><span class="op">)</span> <span class="fu"><a href="../reference/elliptic_problem.html">elliptic_problem</a></span><span class="op">(</span><span class="va">mesh</span>, diffusion <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="va">theta</span><span class="op">[</span><span class="fl">1</span><span class="op">]</span> <span class="op">+</span> <span class="va">theta</span><span class="op">[</span><span class="fl">2</span><span class="op">]</span> <span class="op">*</span> <span class="va">x</span>,</span>
 <span>                                              source <span class="op">=</span> <span class="fl">1</span>, bcs <span class="op">=</span> <span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="fl">0</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="va">truth</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.5</span>, <span class="fl">1.5</span><span class="op">)</span></span>
@@ -192,7 +262,7 @@ observations of a solution computed on a finer mesh, which avoids the
 <span><span class="co">#&gt;   estimate std_error</span></span>
 <span><span class="co">#&gt; 1  0.48965 0.0025551</span></span>
 <span><span class="co">#&gt; 2  1.50242 0.0072236</span></span>
-<span><span class="co">#&gt;   objective 7.105, gradient norm 2.203e-05, forward solves 13</span></span>
+<span><span class="co">#&gt;   objective 7.105, gradient norm 2.228e-05, forward solves 13</span></span>
 <span><span class="co">#&gt;   standard errors: measurement noise only (Gauss-Newton linearization)</span></span>
 <span><span class="co">#&gt;   identifiability: sensitivity condition number 9.21</span></span>
 <span><span class="co">#&gt;   discretization check: predictions change by up to 0.000883 (4.415 sd) on a refined mesh</span></span></code></pre></div>
@@ -227,7 +297,7 @@ system</p>
 </span></p>
 <p>is solved directly; with bounds the reduced problem is solved with
 L-BFGS-B and adjoint gradients.</p>
-<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">target</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="op">(</span><span class="va">x</span> <span class="op">-</span> <span class="fl">0.5</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span> <span class="op">+</span> <span class="op">(</span><span class="va">y</span> <span class="op">-</span> <span class="fl">0.5</span><span class="op">)</span><span class="op">^</span><span class="fl">2</span> <span class="op">&lt;</span> <span class="fl">0.1</span><span class="op">)</span></span>
 <span><span class="va">oc</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/optimal_control.html">optimal_control</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">32</span><span class="op">)</span>, <span class="va">target</span>, alpha <span class="op">=</span> <span class="fl">1e-5</span><span class="op">)</span></span>
 <span><span class="va">oc</span></span>
@@ -239,12 +309,12 @@ L-BFGS-B and adjoint gradients.</p>
 <span><span class="co">#&gt; Distributed optimal control (reduced L-BFGS-B (adjoint gradient))</span></span>
 <span><span class="co">#&gt;   objective 0.0260844, projected gradient norm 7.93e-09</span></span>
 <span><span class="co">#&gt;   control range [    0, 42.78]</span></span></code></pre></div>
-<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">op</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span>mfrow <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">2</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">oc</span><span class="op">$</span><span class="va">state</span>, main <span class="op">=</span> <span class="st">"state, unconstrained"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">ocb</span><span class="op">$</span><span class="va">control</span>, main <span class="op">=</span> <span class="st">"control, 0 &lt;= q &lt;= 50"</span><span class="op">)</span></span></code></pre></div>
-<p><img src="inverse-problems_files/figure-html/unnamed-chunk-7-1.png" class="r-plt" alt="" width="672"></p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<p><img src="inverse-problems_files/figure-html/unnamed-chunk-10-1.png" class="r-plt" alt="" width="672"></p>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/graphics/par.html" class="external-link">par</a></span><span class="op">(</span><span class="va">op</span><span class="op">)</span></span></code></pre></div>
 <p>The discontinuous target cannot be reached exactly; the
 regularization <span class="math inline">\alpha</span> trades tracking
@@ -255,9 +325,8 @@ a local minimum; no global optimality is claimed.</p>
 <div class="section level2">
 <h2 id="outlook">Outlook<a class="anchor" aria-label="anchor" href="#outlook"></a>
 </h2>
-<p>Adjoints for nonlinear and time-dependent problems, shape
-derivatives, and an interface to the optimization package optcompR are
-planned.</p>
+<p>Shape derivatives and an interface to the optimization package
+optcompR are planned.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

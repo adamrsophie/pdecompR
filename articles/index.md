@@ -34,6 +34,12 @@
   method](https://adamrsophie.github.io/pdecompR/articles/nonlinear.md):
 - [Linear elasticity and vector-valued
   elements](https://adamrsophie.github.io/pdecompR/articles/elasticity.md):
+- [Waves and
+  elastodynamics](https://adamrsophie.github.io/pdecompR/articles/waves.md):
+- [Stokes
+  flow](https://adamrsophie.github.io/pdecompR/articles/stokes.md):
+- [Eigenvalue
+  problems](https://adamrsophie.github.io/pdecompR/articles/eigenvalues.md):
 
 ### Adaptivity, sensitivities and inverse problems
 

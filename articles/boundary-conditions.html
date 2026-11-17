@@ -57,6 +57,9 @@
     <li><a class="dropdown-item" href="../articles/advection-diffusion.html">Advection-diffusion and stabilization</a></li>
     <li><a class="dropdown-item" href="../articles/nonlinear.html">Nonlinear problems and Newton's method</a></li>
     <li><a class="dropdown-item" href="../articles/elasticity.html">Linear elasticity and vector-valued elements</a></li>
+    <li><a class="dropdown-item" href="../articles/waves.html">Waves and elastodynamics</a></li>
+    <li><a class="dropdown-item" href="../articles/stokes.html">Stokes flow</a></li>
+    <li><a class="dropdown-item" href="../articles/eigenvalues.html">Eigenvalue problems</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Adaptivity and inverse problems</h6></li>
     <li><a class="dropdown-item" href="../articles/adaptivity.html">Error estimation and adaptive refinement</a></li>
@@ -236,7 +239,7 @@ not detected.</p>
 <span><span class="co">#&gt;   solver: lu, status solved</span></span>
 <span><span class="co">#&gt;   linear residual: 6.41e-12 (relative 1.63e-11)</span></span>
 <span><span class="co">#&gt;   pure Neumann: zero-mean gauge, compatibility defect -1.57e-10</span></span>
-<span><span class="co">#&gt;   assembly 0.003 s, solve 0.012 s</span></span>
+<span><span class="co">#&gt;   assembly 0.004 s, solve 0.007 s</span></span>
 <span><span class="co">#&gt;   solution range [-0.9937, 1.003]</span></span>
 <span><span class="co">#&gt;   (the linear residual measures the algebraic solve, not the discretization error)</span></span></code></pre></div>
 <p>Incompatible data are an error, not an arbitrary answer:</p>
@@ -251,17 +254,67 @@ not detected.</p>
 <span><span class="co">#&gt; [1] "zero mean"</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="periodic-conditions">Periodic conditions<a class="anchor" aria-label="anchor" href="#periodic-conditions"></a>
+</h2>
+<p><code>periodic_bc(from, to, offset)</code> identifies the degrees of
+freedom on the boundary part <code>to</code> with those on
+<code>from</code>: a node at <span class="math inline">x</span> on
+<code>to</code> equals the node at $x - $ <code>offset</code> on
+<code>from</code>. The two parts must be meshed compatibly (matching
+node positions), which structured meshes and refinement guarantee;
+unmatched nodes are an error. The solver eliminates the identified
+unknowns with a constraint matrix <span class="math inline">u = P
+u_r</span> and solves <span class="math inline">P^\top A P u_r = P^\top
+b</span>.</p>
+<p>Here the solution is periodic in <span class="math inline">x</span>
+and vanishes on the bottom and top:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">u</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">cos</a></span><span class="op">(</span><span class="fl">2</span> <span class="op">*</span> <span class="va">pi</span> <span class="op">*</span> <span class="va">x</span><span class="op">)</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">sin</a></span><span class="op">(</span><span class="va">pi</span> <span class="op">*</span> <span class="va">y</span><span class="op">)</span></span>
+<span><span class="va">f</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fl">5</span> <span class="op">*</span> <span class="va">pi</span><span class="op">^</span><span class="fl">2</span> <span class="op">*</span> <span class="fu">u</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span></span>
+<span><span class="va">bc</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="../reference/periodic_bc.html">periodic_bc</a></span><span class="op">(</span><span class="st">"left"</span>, <span class="st">"right"</span>, offset <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span>, <span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"bottom"</span>, <span class="st">"top"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">e</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/lapply.html" class="external-link">sapply</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">8</span>, <span class="fl">16</span>, <span class="fl">32</span><span class="op">)</span>, <span class="kw">function</span><span class="op">(</span><span class="va">n</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="../reference/errornorm.html">errornorm</a></span><span class="op">(</span><span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="../reference/elliptic_problem.html">elliptic_problem</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="va">n</span><span class="op">)</span>, source <span class="op">=</span> <span class="va">f</span>, bcs <span class="op">=</span> <span class="va">bc</span><span class="op">)</span><span class="op">)</span>, <span class="va">u</span><span class="op">)</span></span>
+<span><span class="op">}</span><span class="op">)</span></span>
+<span><span class="fu"><a href="https://rdrr.io/r/base/data.frame.html" class="external-link">data.frame</a></span><span class="op">(</span>n <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">8</span>, <span class="fl">16</span>, <span class="fl">32</span><span class="op">)</span>, L2 <span class="op">=</span> <span class="va">e</span>, rate <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">NA</span>, <span class="fu"><a href="https://rdrr.io/r/base/Log.html" class="external-link">log2</a></span><span class="op">(</span><span class="va">e</span><span class="op">[</span><span class="op">-</span><span class="fl">3</span><span class="op">]</span> <span class="op">/</span> <span class="va">e</span><span class="op">[</span><span class="op">-</span><span class="fl">1</span><span class="op">]</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt;    n          L2     rate</span></span>
+<span><span class="co">#&gt; 1  8 0.046736961       NA</span></span>
+<span><span class="co">#&gt; 2 16 0.012125241 1.946551</span></span>
+<span><span class="co">#&gt; 3 32 0.003060052 1.986385</span></span></code></pre></div>
+<p>With periodicity in both directions there is no Dirichlet condition
+and the problem is a pure Neumann problem in disguise: the data must
+have zero mean and the solution is fixed by the zero-mean gauge. Corners
+are identified transitively, so all four corners become one unknown.</p>
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">u2</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">sin</a></span><span class="op">(</span><span class="fl">2</span> <span class="op">*</span> <span class="va">pi</span> <span class="op">*</span> <span class="va">x</span><span class="op">)</span> <span class="op">*</span> <span class="fu"><a href="https://rdrr.io/r/base/Trig.html" class="external-link">cos</a></span><span class="op">(</span><span class="fl">2</span> <span class="op">*</span> <span class="va">pi</span> <span class="op">*</span> <span class="va">y</span><span class="op">)</span></span>
+<span><span class="va">both</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="../reference/periodic_bc.html">periodic_bc</a></span><span class="op">(</span><span class="st">"left"</span>, <span class="st">"right"</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span><span class="op">)</span>, <span class="fu"><a href="../reference/periodic_bc.html">periodic_bc</a></span><span class="op">(</span><span class="st">"bottom"</span>, <span class="st">"top"</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="../reference/elliptic_problem.html">elliptic_problem</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">16</span><span class="op">)</span>, source <span class="op">=</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="fl">8</span> <span class="op">*</span> <span class="va">pi</span><span class="op">^</span><span class="fl">2</span> <span class="op">*</span> <span class="fu">u2</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span>,</span>
+<span>                                bcs <span class="op">=</span> <span class="va">both</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/errornorm.html">errornorm</a></span><span class="op">(</span><span class="va">s</span>, <span class="va">u2</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] 0.02341302</span></span>
+<span><span class="co">#&gt; attr(,"norm")</span></span>
+<span><span class="co">#&gt; [1] "L2"</span></span>
+<span><span class="co">#&gt; attr(,"gradient")</span></span>
+<span><span class="co">#&gt; [1] "exact"</span></span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="../reference/elliptic_problem.html">elliptic_problem</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>, source <span class="op">=</span> <span class="fl">1</span>, bcs <span class="op">=</span> <span class="va">both</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Pure Neumann problem with incompatible data: compatibility defect     1 (relative     1). The problem has no solution.</span></span></code></pre></div>
+<p>Periodic conditions are supported for elliptic problems.
+Time-dependent, nonlinear and reaction-diffusion problems reject them
+with an error instead of ignoring them.</p>
+</div>
+<div class="section level2">
 <h2 id="markers-for-imported-meshes">Markers for imported meshes<a class="anchor" aria-label="anchor" href="#markers-for-imported-meshes"></a>
 </h2>
 <p>Meshes read from Gmsh carry their physical line names as markers.
 Otherwise <code><a href="../reference/set_boundary_marker.html">set_boundary_marker()</a></code> can label edges
 geometrically, once, after which all selection is by marker:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/set_boundary_marker.html">set_boundary_marker</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">16</span><span class="op">)</span>, <span class="st">"hot"</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="va">y</span> <span class="op">&lt;</span> <span class="fl">1e-12</span> <span class="op">&amp;</span> <span class="va">x</span> <span class="op">&lt;</span> <span class="fl">0.5</span><span class="op">)</span></span>
 <span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="../reference/elliptic_problem.html">poisson_problem</a></span><span class="op">(</span><span class="va">m</span>, source <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>                               boundary <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"hot"</span><span class="op">)</span>, <span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="fl">0</span>, <span class="st">"top"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">s</span><span class="op">)</span></span></code></pre></div>
-<p><img src="boundary-conditions_files/figure-html/unnamed-chunk-9-1.png" class="r-plt" alt="" width="576"></p>
+<p><img src="boundary-conditions_files/figure-html/unnamed-chunk-12-1.png" class="r-plt" alt="" width="576"></p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
