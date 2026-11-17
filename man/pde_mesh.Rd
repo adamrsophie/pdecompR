@@ -10,7 +10,8 @@ pde_mesh(
   boundary_edges = NULL,
   boundary_markers = NULL,
   fix_orientation = FALSE,
-  regions = NULL
+  regions = NULL,
+  check_overlap = TRUE
 )
 }
 \arguments{
@@ -30,6 +31,10 @@ edges are then marked \code{"boundary"}.}
 \item{regions}{Optional character vector with one region (subdomain) name
 per triangle, for piecewise coefficients (\code{\link[=region_coefficient]{region_coefficient()}}).
 Default: every triangle belongs to region \code{"domain"}.}
+
+\item{check_overlap}{Check that elements do not overlap geometrically
+(see the Validation section). Turn it off for meshes that intentionally contain
+coincident nodes, such as slits or cracks with duplicated nodes.}
 }
 \value{
 An object of class \code{pde_mesh} with components \code{nodes}, \code{triangles},
@@ -63,6 +68,11 @@ edges shared by more than two triangles, and boundary definitions that do
 not match the topological boundary. Clockwise triangles are rejected unless
 \code{fix_orientation = TRUE}, in which case they are reordered and the number of
 reordered elements is reported.
+
+With \code{check_overlap = TRUE} it also rejects elements that overlap without
+sharing an edge: the corner angles around every interior node must sum to
+\verb{2 pi} (at most \verb{2 pi} at boundary nodes) and boundary edges without a
+common node must not touch.
 }
 
 \examples{

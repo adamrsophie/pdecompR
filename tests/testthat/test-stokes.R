@@ -31,3 +31,11 @@ test_that("Poiseuille flow with do-nothing outflow is reproduced exactly", {
   expect_output(print(s), "Taylor-Hood")
   expect_error(stokes_problem(m, viscosity = -1), "positive")
 })
+
+test_that("closed Stokes problems need zero net boundary flux", {
+  m <- pde_mesh_rectangle(nx = 4)
+  expect_error(solve_pde(stokes_problem(m, bcs = list(velocity_bc(c(0, 0)), velocity_bc(c(1, 1), "top")))),
+               "net boundary flux")
+  expect_s3_class(solve_pde(stokes_problem(m, bcs = list(velocity_bc(c(0, 0)), velocity_bc(c(1, 0), "top")))),
+                  "pde_stokes_solution")
+})

@@ -40,7 +40,7 @@ refine_uniform <- function(mesh) {
   bd <- mesh$boundary
   bm <- n + bd$edge
   be <- rbind(cbind(bd$n1, bm), cbind(bm, bd$n2))
-  out <- pde_mesh(nodes, tris, be, c(bd$marker, bd$marker))
+  out <- pde_mesh(nodes, tris, be, c(bd$marker, bd$marker), check_overlap = FALSE)
   out <- inherit_regions(out, mesh)
   out$info <- refined_info(mesh, E, nvb = FALSE)
   out
@@ -97,7 +97,7 @@ refine_mesh <- function(mesh, marked) {
               cbind(bd$n1, bmid)[split, , drop = FALSE],
               cbind(bmid, bd$n2)[split, , drop = FALSE])
   bmk <- c(bd$marker[!split], bd$marker[split], bd$marker[split])
-  out <- pde_mesh(nodes, tris, be, bmk)
+  out <- pde_mesh(nodes, tris, be, bmk, check_overlap = FALSE)
   out <- inherit_regions(out, mesh)
   out$info <- refined_info(mesh, E[emark, , drop = FALSE], nvb = TRUE)
   out

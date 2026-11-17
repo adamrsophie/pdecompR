@@ -100,6 +100,15 @@ transient_sensitivity <- function(problem_fun, theta, objective, dt,
     hj <- h * max(1, abs(theta[j]))
     tp <- theta; tp[j] <- tp[j] + hj; tm <- theta; tm[j] <- tm[j] - hj
     pp <- problem_fun(tp); pm <- problem_fun(tm)
+    # The adjoint omits derivatives of prescribed values; check that there
+    # are none (at the first, middle and last time).
+    for (t in grid[unique(c(1L, N %/% 2L + 1L, N + 1L))]) {
+      dp <- dirichlet_data(V, pp$bcs, t); dm <- dirichlet_data(V, pm$bcs, t)
+      if (!identical(dp$dofs, d) || !identical(dm$dofs, d) ||
+          max(abs(dp$values - dm$values), 0) > 1e-12 * max(1, abs(dp$values))) {
+        stopf("The Dirichlet data must not depend on theta (parameter %d).", j)
+      }
+    }
     op <- parabolic_operators(pp); om <- parabolic_operators(pm)
     dA <- (op$A - om$A) / (2 * hj)
     du0 <- (initial_values(pp$initial, V) - initial_values(pm$initial, V)) / (2 * hj)

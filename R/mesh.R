@@ -22,6 +22,11 @@
 #' `fix_orientation = TRUE`, in which case they are reordered and the number of
 #' reordered elements is reported.
 #'
+#' With `check_overlap = TRUE` it also rejects elements that overlap without
+#' sharing an edge: the corner angles around every interior node must sum to
+#' `2 pi` (at most `2 pi` at boundary nodes) and boundary edges without a
+#' common node must not touch.
+#'
 #' @param nodes Numeric matrix with two columns (x, y).
 #' @param triangles Integer matrix with three columns of node indices.
 #' @param boundary_edges Optional two-column matrix of node pairs on the
@@ -30,6 +35,9 @@
 #'   `boundary_edges`. Ignored when `boundary_edges` is `NULL`; all boundary
 #'   edges are then marked `"boundary"`.
 #' @param fix_orientation Reorder clockwise triangles instead of failing.
+#' @param check_overlap Check that elements do not overlap geometrically
+#'   (see the Validation section). Turn it off for meshes that intentionally contain
+#'   coincident nodes, such as slits or cracks with duplicated nodes.
 #' @param regions Optional character vector with one region (subdomain) name
 #'   per triangle, for piecewise coefficients ([region_coefficient()]).
 #'   Default: every triangle belongs to region `"domain"`.
@@ -43,7 +51,8 @@
 #' mesh
 #' @export
 pde_mesh <- function(nodes, triangles, boundary_edges = NULL,
-                     boundary_markers = NULL, fix_orientation = FALSE, regions = NULL) {
+                     boundary_markers = NULL, fix_orientation = FALSE, regions = NULL,
+                     check_overlap = TRUE) {
   nodes <- as.matrix(nodes)
   if (!is.numeric(nodes) || ncol(nodes) != 2L) {
     stopf("`nodes` must be a numeric matrix with two columns.")
@@ -97,7 +106,7 @@ pde_mesh <- function(nodes, triangles, boundary_edges = NULL,
     n_fixed <- sum(neg)
   }
   mesh <- build_topology(nodes, tris)
-  check_overlap(mesh)
+  if (isTRUE(check_overlap)) mesh_overlap_check(mesh)
   mesh$boundary <- assign_boundary(mesh, boundary_edges, boundary_markers)
   if (is.null(regions)) regions <- "domain"
   if (length(regions) == 1L) regions <- rep(regions, nrow(tris))
@@ -715,7 +724,7 @@ nested_parent <- function(fine, coarse) {
 # embedded (no overlap) when the corner angles around every interior node sum
 # to 2 pi, around every boundary node to at most 2 pi, and no two boundary
 # edges without a common node touch.
-check_overlap <- function(mesh) {
+mesh_overlap_check <- function(mesh) {
   P <- mesh$nodes; T <- mesh$triangles; n <- nrow(P)
   ang <- function(i, j, k) {
     ux <- P[T[, j], 1] - P[T[, i], 1]; uy <- P[T[, j], 2] - P[T[, i], 2]

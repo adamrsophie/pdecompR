@@ -11,7 +11,8 @@
 #' `(nu grad u - p I) n`, and boundary parts with no condition get the
 #' do-nothing outflow condition (zero pseudo-traction). When the velocity is
 #' prescribed on the whole boundary, the pressure is fixed by a zero-mean
-#' gauge.
+#' gauge and the prescribed velocity must have zero net flux through the
+#' boundary.
 #'
 #' [solve_pde()] solves the saddle-point system by sparse LU
 #' (`method = "lu"`, the default) or by right-preconditioned GMRES with the
@@ -112,6 +113,16 @@ solve_pde.stokes_problem <- function(problem, method = c("lu", "gmres"), tol = 1
   rhs_u <- b[fv] - as.numeric(Avel[fv, dofs, drop = FALSE] %*% vals[dofs])
   rhs_p <- -as.numeric(B[, dofs, drop = FALSE] %*% vals[dofs])
   Aff <- Avel[fv, fv, drop = FALSE]; Bf <- B[, fv, drop = FALSE]
+  if (enclosed) {
+    # Testing div u = 0 with the constant pressure gives the net boundary
+    # flux of the prescribed velocity, which must vanish.
+    flux <- sum(rhs_p)
+    scale <- sum(abs(B[, dofs, drop = FALSE]) %*% abs(vals[dofs]))
+    if (abs(flux) > 1e-10 * max(scale, 1e-300)) {
+      stopf(paste0("The prescribed velocity has net boundary flux %s (relative %s), but incompressible ",
+                   "flow in a closed domain needs zero net flux."), fmt_num(-flux), fmt_num(abs(flux) / scale))
+    }
+  }
   mp <- assemble_vector(Q, 1)
   ng <- if (enclosed) 1L else 0L
   S <- rbind(cbind(Aff, Matrix::t(Bf), Z(length(fv), ng)),

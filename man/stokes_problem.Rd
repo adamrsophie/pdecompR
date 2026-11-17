@@ -45,7 +45,8 @@ in space); \code{\link[=traction_bc]{traction_bc()}} prescribes the pseudo-tract
 \verb{(nu grad u - p I) n}, and boundary parts with no condition get the
 do-nothing outflow condition (zero pseudo-traction). When the velocity is
 prescribed on the whole boundary, the pressure is fixed by a zero-mean
-gauge.
+gauge and the prescribed velocity must have zero net flux through the
+boundary.
 
 \code{\link[=solve_pde]{solve_pde()}} solves the saddle-point system by sparse LU
 (\code{method = "lu"}, the default) or by right-preconditioned GMRES with the

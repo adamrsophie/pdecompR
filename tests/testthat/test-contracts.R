@@ -417,3 +417,12 @@ test_that("meshes with geometrically overlapping elements are rejected", {
   expect_error(pde_mesh(Q, cbind(1, 2:9, c(3:9, 2))), "corner angles sum")
   expect_s3_class(pde_mesh(P[1:4, ], rbind(c(1, 2, 3), c(1, 3, 4))), "pde_mesh")
 })
+
+test_that("the overlap check can be turned off for meshes with coincident nodes", {
+  # A slit: the two squares share the corner positions of the left edge but
+  # not their nodes, so the meshes touch along a duplicated edge.
+  P <- rbind(c(0, 0), c(1, 0), c(1, 1), c(0, 1), c(0, 0), c(-1, 0), c(-1, 1), c(0, 1))
+  T <- rbind(c(1, 2, 3), c(1, 3, 4), c(6, 5, 8), c(6, 8, 7))
+  expect_error(pde_mesh(P, T), "overlap")
+  expect_s3_class(pde_mesh(P, T, check_overlap = FALSE), "pde_mesh")
+})

@@ -4,10 +4,12 @@
 \alias{read_gmsh}
 \title{Read a Gmsh mesh}
 \usage{
-read_gmsh(file)
+read_gmsh(file, check_overlap = TRUE)
 }
 \arguments{
 \item{file}{Path to a \code{.msh} file.}
+
+\item{check_overlap}{Passed to \code{\link[=pde_mesh]{pde_mesh()}}.}
 }
 \value{
 A \code{\link[=pde_mesh]{pde_mesh()}}.

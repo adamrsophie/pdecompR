@@ -11,13 +11,14 @@
 #' nodes renumbered; clockwise triangles are reoriented.
 #'
 #' @param file Path to a `.msh` file.
+#' @param check_overlap Passed to [pde_mesh()].
 #' @return A [pde_mesh()].
 #' @examples
 #' f <- system.file("extdata", "square.msh", package = "pdecompR")
 #' mesh <- read_gmsh(f)
 #' table(mesh$boundary$marker)
 #' @export
-read_gmsh <- function(file) {
+read_gmsh <- function(file, check_overlap = TRUE) {
   lines <- trimws(readLines(file, warn = FALSE))
   sec <- function(name) {
     s <- which(lines == paste0("$", name)); e <- which(lines == paste0("$End", name))
@@ -103,7 +104,7 @@ read_gmsh <- function(file) {
   used <- sort(unique(id))
   T2 <- matrix(match(id, used), ncol = 3)
   nodes <- xyz[used, 1:2, drop = FALSE]
-  mesh0 <- pde_mesh(nodes, T2, fix_orientation = TRUE)
+  mesh0 <- pde_mesh(nodes, T2, fix_orientation = TRUE, check_overlap = check_overlap)
   bd <- mesh0$boundary
   markers <- rep("boundary", nrow(bd))
   if (length(lin)) {
@@ -118,7 +119,8 @@ read_gmsh <- function(file) {
   }
   regions <- ifelse(as.character(tphys) %in% names(phys2), phys2[as.character(tphys)],
                     ifelse(tphys == 0, "domain", as.character(tphys)))
-  mesh <- pde_mesh(nodes, mesh0$triangles, cbind(bd$n1, bd$n2), markers, regions = unname(regions))
+  mesh <- pde_mesh(nodes, mesh0$triangles, cbind(bd$n1, bd$n2), markers, regions = unname(regions),
+                   check_overlap = FALSE)
   mesh$info$generator <- "gmsh"
   mesh$info$reoriented <- mesh0$info$reoriented
   mesh

@@ -72,4 +72,6 @@ test_that("nonlinear and transient adjoint gradients pass Taylor and difference 
     expect_equal(g, fd, tolerance = 1e-6)
   }
   expect_error(transient_sensitivity(function(th) poisson_problem(mesh, source = th), 1, ob, dt = 0.1), "parabolic")
+  pd <- function(th) parabolic_problem(mesh, bcs = dirichlet_bc(function(x, y, t) th * t), time = c(0, 0.2))
+  expect_error(transient_sensitivity(pd, 1, ob, dt = 0.05), "must not depend on theta")
 })
