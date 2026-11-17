@@ -30,7 +30,9 @@ Computes the eigenpairs \verb{K x = lambda M x} of the discrete operator of an
 \code{\link[=elliptic_problem]{elliptic_problem()}} (diffusion and reaction, with Dirichlet conditions
 removing the prescribed degrees of freedom; Neumann and Robin terms enter
 \code{K}) or an \code{\link[=elasticity_problem]{elasticity_problem()}} (vibration modes, with \code{M} the mass
-matrix of unit density), nearest to the shift \code{sigma}.
+matrix of unit density), nearest to the shift \code{sigma}. Periodic
+conditions reduce both matrices as in \code{\link[=solve_pde]{solve_pde()}}, and the returned
+eigenvectors satisfy them.
 }
 \details{
 The method is shift-and-invert subspace iteration with Rayleigh-Ritz

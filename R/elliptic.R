@@ -38,10 +38,18 @@
 #' defect is read from the Lagrange multiplier of the zero-mean constraint and
 #' compared with `compatibility_tol * sum_i |b_i|` (an argument of
 #' [solve_pde()], default `1e-6`). For a nonsymmetric operator (advection) the
-#' left null vector is not constant; there a defect above `h^2` gives a
-#' warning instead of an error, because data that are compatible for the PDE
-#' leave a defect of the size of the discretization error; defects above
-#' about one percent are still errors.
+#' left null vector is not constant, and data that are compatible for the
+#' PDE leave a discrete defect of the size of the discretization error. A
+#' relative defect up to `(h / diameter)^2` is then accepted silently, one up
+#' to one percent with a warning, and anything larger is an error on every
+#' mesh: the discrete equations have no solution, and refining the mesh is
+#' the remedy when the data are compatible. Whenever the defect exceeds
+#' `compatibility_tol`, the returned function solves the equations with the
+#' source shifted by the multiplier times the constant mass, not the
+#' original ones: `diagnostics$gauge$modified` is then `TRUE`,
+#' `diagnostics$gauge$original_problem_solved` is `FALSE`, and
+#' `diagnostics$solver$relative_residual` is the residual of the original
+#' equations.
 #'
 #' @param mesh A [pde_mesh()].
 #' @param diffusion Diffusion coefficient `k`.
@@ -271,6 +279,38 @@ solve_pde.elliptic_problem <- function(problem, method = "auto", ...) {
   sol
 }
 
+# The system on the constrained unknowns u = P u_r (P the identity without
+# periodic conditions): operator P' A P, load P' b, prescribed classes and
+# free reduced unknowns. Shared by the solvers, eigenproblems, sensitivities
+# and optimal control so that every consumer applies the same constraints.
+constrained_system <- function(disc) {
+  Pm <- disc$periodic
+  if (is.null(Pm)) {
+    return(list(A = disc$A, b = disc$b, dirichlet = disc$dirichlet, free = disc$free,
+                P = Matrix::Diagonal(nrow(disc$A))))
+  }
+  dd <- reduce_prescribed(disc$dirichlet, disc$periodic_col)
+  list(A = Matrix::drop0(Matrix::crossprod(Pm, disc$A %*% Pm)), b = as.numeric(Matrix::crossprod(Pm, disc$b)),
+       dirichlet = dd, free = setdiff(seq_len(ncol(Pm)), dd$dofs), P = Pm)
+}
+
+# Prescribed values on the reduced (periodic) unknowns: every class of
+# identified degrees of freedom must carry one value.
+reduce_prescribed <- function(dd, col) {
+  rd <- col[dd$dofs]
+  if (length(rd)) {
+    rng <- vapply(split(dd$values, rd), function(v) diff(range(v)), numeric(1))
+    tol <- 1e-10 * max(abs(dd$values), .Machine$double.xmin)
+    if (any(rng > tol)) {
+      stopf(paste0("Inconsistent prescribed values on periodically identified degrees of freedom ",
+                   "(largest difference %s): Dirichlet data must agree on both sides of a periodic pair."),
+            fmt_num(max(rng)))
+    }
+  }
+  keep <- !duplicated(rd)
+  list(dofs = rd[keep], values = dd$values[keep])
+}
+
 # Dirichlet elimination and linear solve shared by all linear stationary
 # problems.
 solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6, ...) {
@@ -283,13 +323,8 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
   if (!is.null(Pm)) {
     # Periodic constraints: u = P u_r with one unknown per class of
     # identified degrees of freedom; solve P' A P u_r = P' b.
-    col <- disc$periodic_col
-    A <- Matrix::drop0(Matrix::crossprod(Pm, A %*% Pm))
-    bv <- as.numeric(Matrix::crossprod(Pm, bv))
-    rd <- col[dd$dofs]
-    keep <- !duplicated(rd)
-    dd <- list(dofs = rd[keep], values = dd$values[keep])
-    free <- setdiff(seq_len(ncol(Pm)), dd$dofs)
+    cs <- constrained_system(disc)
+    A <- cs$A; bv <- cs$b; dd <- cs$dirichlet; free <- cs$free
   }
   nd <- nrow(A)
   u <- numeric(nd)
@@ -328,7 +363,7 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
       bb <- apply(V$mesh$nodes[cc$node == k, , drop = FALSE], 2, range)
       mesh_size(V$mesh) / sqrt(sum((bb[2, ] - bb[1, ])^2))
     }, numeric(1))
-    tol_c <- if (sym) rep(compatibility_tol, nc) else pmax(compatibility_tol, hrel^2)
+    tol_c <- if (sym) rep(compatibility_tol, nc) else pmin(pmax(compatibility_tol, hrel^2), 0.01)
     where <- function(k) if (nc > 1L) sprintf(" on connected component %d", k) else ""
     for (kk in seq_len(nc)) {
       if (abs(rel[kk]) <= tol_c[kk]) next
@@ -336,10 +371,13 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
       # continuous one, so data that are compatible for the PDE leave a
       # defect of the size of the discretization error; only defects above
       # (h / diameter)^2 are reported, and those above 1% are rejected.
-      if (sym || abs(rel[kk]) > 0.01 + 10 * tol_c[kk]) {
+      # The one percent cap does not depend on the mesh, so a coarse mesh
+      # cannot authorize a materially incompatible request.
+      if (sym || abs(rel[kk]) > 0.01) {
         stopf(paste0("Pure Neumann problem with incompatible data%s: ",
-                     "compatibility defect %s (relative %s). The problem has no solution."),
-              where(kk), fmt_num(comp[kk]), fmt_num(rel[kk]))
+                     "compatibility defect %s (relative %s). The discrete problem has no solution%s."),
+              where(kk), fmt_num(comp[kk]), fmt_num(rel[kk]),
+              if (sym) "" else "; if the data are compatible for the PDE, refine the mesh")
       }
       warnf(paste0("Pure Neumann problem: the data violate the discrete compatibility condition%s ",
                    "by %s (relative %s); the solution satisfies the equations up to a constant ",
@@ -349,7 +387,8 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
     u <- s$x[seq_len(nd)]
     gauge <- list(type = "zero mean", components = nc, multiplier = lam,
                   compatibility = comp, relative_compatibility = rel,
-                  modified = abs(rel) > tol_c)
+                  modified = abs(rel) > compatibility_tol,
+                  original_problem_solved = all(abs(rel) <= compatibility_tol))
     info <- s$info
     # Report the residual of the original equations A u = b; the bordered
     # system is solved to rounding error even when A u = b has no solution.

@@ -91,26 +91,66 @@ periodic_constraints <- function(space, bcs) {
   pb <- Filter(function(b) b$type == "periodic", bcs)
   if (!length(pb)) return(NULL)
   n <- space$ndof
-  rep_of <- seq_len(n)
   X <- space$dof_coords
-  scale <- max(abs(X), 1)
+  parent <- seq_len(n)
+  find <- function(k) {
+    r <- k
+    while (parent[r] != r) r <- parent[r]
+    while (parent[k] != r) { nx <- parent[k]; parent[k] <<- r; k <- nx }
+    r
+  }
   for (b in pb) {
     df <- boundary_dofs(space, b$from); dt <- boundary_dofs(space, b$to)
-    key <- function(xy) paste(round(xy[, 1] / scale, 9), round(xy[, 2] / scale, 9))
-    kf <- key(sweep(X[df, , drop = FALSE], 2, b$offset, `+`))
-    m <- match(key(X[dt, , drop = FALSE]), kf)
-    if (anyNA(m)) {
-      stopf("Periodic condition %s -> %s: %d degree(s) of freedom on `%s` have no partner on `%s` at offset (%s, %s).",
-            b$from, b$to, sum(is.na(m)), b$to, b$from, fmt_num(b$offset[1]), fmt_num(b$offset[2]))
+    if (length(df) != length(dt)) {
+      stopf("Periodic condition %s -> %s: `%s` has %d degrees of freedom but `%s` has %d; the boundaries must match one to one.",
+            b$from, b$to, b$from, length(df), b$to, length(dt))
     }
-    rep_of[dt] <- df[m]
+    # Match in coordinates relative to the boundaries themselves, with a
+    # tolerance tied to their smallest dof spacing, so that the pairing does
+    # not change with the length unit or the position of the origin.
+    ctr <- colMeans(X[c(df, dt), , drop = FALSE])
+    A <- sweep(sweep(X[df, , drop = FALSE], 2, b$offset, `+`), 2, ctr)
+    B <- sweep(X[dt, , drop = FALSE], 2, ctr)
+    sp <- min_spacing(X[df, , drop = FALSE])
+    m <- integer(length(dt)); d <- numeric(length(dt))
+    for (lo in seq(1L, length(dt), by = 1000L)) {
+      ii <- lo:min(lo + 999L, length(dt))
+      D2 <- outer(B[ii, 1], A[, 1], `-`)^2 + outer(B[ii, 2], A[, 2], `-`)^2
+      m[ii] <- max.col(-D2, ties.method = "first")
+      d[ii] <- sqrt(D2[cbind(seq_along(ii), m[ii])])
+    }
+    bad <- d > 1e-6 * sp
+    if (any(bad)) {
+      stopf("Periodic condition %s -> %s: %d degree(s) of freedom on `%s` have no partner on `%s` at offset (%s, %s).",
+            b$from, b$to, sum(bad), b$to, b$from, fmt_num(b$offset[1]), fmt_num(b$offset[2]))
+    }
+    if (anyDuplicated(m)) {
+      stopf("Periodic condition %s -> %s: the matching of degrees of freedom is not one to one.", b$from, b$to)
+    }
+    # Union of equivalence classes; repeated or reversed relations are
+    # idempotent.
+    for (k in seq_along(dt)) {
+      ra <- find(dt[k]); rb <- find(df[m[k]])
+      if (ra != rb) parent[max(ra, rb)] <- min(ra, rb)
+    }
   }
-  # Follow chains (corners) to the root.
-  for (k in seq_len(n)) { nx <- rep_of[rep_of]; if (identical(nx, rep_of)) break; rep_of <- nx }
-  if (any(rep_of[rep_of] != rep_of)) stopf("Periodic conditions form a cycle; check the offsets.")
+  rep_of <- vapply(seq_len(n), find, integer(1))
   roots <- sort(unique(rep_of))
   col <- match(rep_of, roots)
   list(P = Matrix::sparseMatrix(i = seq_len(n), j = col, x = 1, dims = c(n, length(roots))), col = col)
+}
+
+# Smallest distance between distinct points (rows of X), at least one
+# point pair; used as the local length scale of periodic matching.
+min_spacing <- function(X) {
+  if (nrow(X) < 2L) return(1)
+  o <- order(X[, 1], X[, 2])
+  Y <- X[o, , drop = FALSE]
+  # Boundary dofs lie on curves, so sorted neighbors give the spacing up to
+  # a small factor; take the smallest nonzero one.
+  dd <- sqrt(rowSums(diff(Y)^2))
+  dd <- dd[dd > 0]
+  if (!length(dd)) 1 else min(dd)
 }
 
 no_periodic <- function(bcs, what) {

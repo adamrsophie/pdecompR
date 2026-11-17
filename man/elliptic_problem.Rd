@@ -91,10 +91,18 @@ returns the solution with zero mean, labeled as such. The compatibility
 defect is read from the Lagrange multiplier of the zero-mean constraint and
 compared with \verb{compatibility_tol * sum_i |b_i|} (an argument of
 \code{\link[=solve_pde]{solve_pde()}}, default \code{1e-6}). For a nonsymmetric operator (advection) the
-left null vector is not constant; there a defect above \code{h^2} gives a
-warning instead of an error, because data that are compatible for the PDE
-leave a defect of the size of the discretization error; defects above
-about one percent are still errors.
+left null vector is not constant, and data that are compatible for the
+PDE leave a discrete defect of the size of the discretization error. A
+relative defect up to \code{(h / diameter)^2} is then accepted silently, one up
+to one percent with a warning, and anything larger is an error on every
+mesh: the discrete equations have no solution, and refining the mesh is
+the remedy when the data are compatible. Whenever the defect exceeds
+\code{compatibility_tol}, the returned function solves the equations with the
+source shifted by the multiplier times the constant mass, not the
+original ones: \code{diagnostics$gauge$modified} is then \code{TRUE},
+\code{diagnostics$gauge$original_problem_solved} is \code{FALSE}, and
+\code{diagnostics$solver$relative_residual} is the residual of the original
+equations.
 }
 \examples{
 mesh <- pde_mesh_rectangle(nx = 8)

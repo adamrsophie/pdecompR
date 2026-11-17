@@ -70,7 +70,10 @@ pde_sensitivity <- function(problem_fun, theta, mesh = NULL, objective = NULL,
   base <- reduced_system(call_pf(theta))
   u <- base$u
   p <- length(theta)
-  uf <- u[base$free]
+  # Work on the constrained (periodic) unknowns; P lifts them to all dofs.
+  Pm <- base$P
+  red <- function(g) as.numeric(Matrix::crossprod(Pm, g))
+  uf <- base$ur[base$free]
   ud_full <- base$ud
   # Derivatives of the reduced operators for parameter j, computed when
   # needed and discarded after use, so at most one derivative matrix is held
@@ -83,6 +86,7 @@ pde_sensitivity <- function(problem_fun, theta, mesh = NULL, objective = NULL,
       if (!inherits(dA, c("Matrix", "matrix")) || !all(dim(dA) == n) || length(db) != n) {
         stopf("`derivative(theta, j)` must return list(A = n by n matrix, b = length-n vector).")
       }
+      dA <- Matrix::crossprod(Pm, dA %*% Pm); db <- red(db)
       dud <- if (is.null(dj$dirichlet)) numeric(length(base$dofs)) else as.numeric(dj$dirichlet)
       if (length(dud) != length(base$dofs)) stopf("`derivative(theta, j)$dirichlet` must have one value per Dirichlet dof.")
       f <- base$free; d <- base$dofs
@@ -113,7 +117,7 @@ pde_sensitivity <- function(problem_fun, theta, mesh = NULL, objective = NULL,
   out <- list(solution = base$solution, theta = theta, method = method,
               derivatives = if (is.null(derivative)) "finite difference" else "exact")
   if (method == "forward") {
-    S <- matrix(0, length(u), p)
+    S <- matrix(0, ncol(Pm), p)
     for (j in seq_len(p)) {
       dj <- deriv_j(j)
       sj <- base$solver$solve(dj$dr - as.numeric(dj$dK %*% uf))
@@ -121,6 +125,7 @@ pde_sensitivity <- function(problem_fun, theta, mesh = NULL, objective = NULL,
       S[base$free, j] <- sj$x
       if (length(base$dofs)) S[base$dofs, j] <- dj$dud
     }
+    S <- as.matrix(Pm %*% S)
     out$sensitivities <- S
     if (!is.null(objective)) {
       ob <- objective(u)
@@ -129,14 +134,15 @@ pde_sensitivity <- function(problem_fun, theta, mesh = NULL, objective = NULL,
     }
   } else {
     ob <- objective(u)
+    gr_r <- red(ob$gradient)
     KT <- if (isTRUE(base$solver$info$symmetric)) base$solver else linear_solver(Matrix::t(base$K))
-    as <- KT$solve(ob$gradient[base$free])
+    as <- KT$solve(gr_r[base$free])
     warn_solver(as$info, "adjoint solve")
     lam <- as$x
     gr <- vapply(seq_len(p), function(j) {
       dj <- deriv_j(j)
       sum(lam * (dj$dr - as.numeric(dj$dK %*% uf))) +
-        if (length(base$dofs)) sum(ob$gradient[base$dofs] * dj$dud) else 0
+        if (length(base$dofs)) sum(gr_r[base$dofs] * dj$dud) else 0
     }, numeric(1))
     out$value <- ob$value
     out$gradient <- gr
@@ -234,21 +240,23 @@ reduced_system <- function(problem, solve = TRUE) {
   if (problem$stabilization != "none") stopf("Sensitivities with stabilization are not supported.")
   disc <- discretize(problem)
   if (disc$pure_neumann) stopf("Sensitivities of pure Neumann problems are not supported.")
-  f <- disc$free; d <- disc$dirichlet$dofs
-  K <- disc$A[f, f, drop = FALSE]
-  r <- disc$b[f]
-  if (length(d)) r <- r - as.numeric(disc$A[f, d, drop = FALSE] %*% disc$dirichlet$values)
-  out <- list(K = K, r = r, ud = disc$dirichlet$values, free = f, dofs = d,
-              A_fd = disc$A[f, d, drop = FALSE])
+  cs <- constrained_system(disc)
+  f <- cs$free; d <- cs$dirichlet$dofs; A <- cs$A
+  K <- A[f, f, drop = FALSE]
+  r <- cs$b[f]
+  if (length(d)) r <- r - as.numeric(A[f, d, drop = FALSE] %*% cs$dirichlet$values)
+  out <- list(K = K, r = r, ud = cs$dirichlet$values, free = f, dofs = d,
+              A_fd = A[f, d, drop = FALSE], P = cs$P)
   if (solve) {
     slv <- linear_solver(K)
-    u <- numeric(disc$space$ndof)
-    u[d] <- disc$dirichlet$values
+    ur <- numeric(ncol(cs$P))
+    ur[d] <- cs$dirichlet$values
     ts <- proc.time()[["elapsed"]]
     sv <- slv$solve(r)
     warn_solver(sv$info, "state solve")
-    u[f] <- sv$x
-    out$u <- u
+    ur[f] <- sv$x
+    u <- as.numeric(cs$P %*% ur)
+    out$u <- u; out$ur <- ur
     out$solver <- slv
     diag <- structure(list(ndof = disc$space$ndof, free = length(f), nnz = length(disc$A@x),
                            solver = sv$info, assembly_time = disc$assembly_time,

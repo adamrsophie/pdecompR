@@ -190,12 +190,17 @@ optimal_control <- function(mesh, target, alpha, diffusion = 1, source = 0,
   if (disc$pure_neumann) stopf("The state equation must have a unique solution.")
   M <- assemble_matrix(V, "mass")
   ud <- interpolate(target, V)$values
-  f <- disc$free; d <- disc$dirichlet$dofs; uD <- disc$dirichlet$values
-  A <- disc$A
+  # Constrained (periodic) state unknowns u = P u_r; the control stays a
+  # full finite-element function.
+  cs <- constrained_system(disc); Pm <- cs$P
+  f <- cs$free; d <- cs$dirichlet$dofs; uD <- cs$dirichlet$values
+  A <- cs$A
   Aff <- A[f, f, drop = FALSE]
-  r0 <- disc$b[f]
+  r0 <- cs$b[f]
   if (length(d)) r0 <- r0 - as.numeric(A[f, d, drop = FALSE] %*% uD)
-  Mf <- M[f, , drop = FALSE]
+  PM <- Matrix::crossprod(Pm, M)          # P' M
+  Mr <- PM %*% Pm                         # P' M P
+  Mf <- PM[f, , drop = FALSE]
   bad <- new.env(); bad$n <- 0L
   note <- function(info) if (!solve_ok(info)) { bad$n <- bad$n + 1L; bad$info <- info }
   # Paired state cache: the objective and gradient at the same control share
@@ -203,10 +208,11 @@ optimal_control <- function(mesh, target, alpha, diffusion = 1, source = 0,
   last <- new.env()
   state <- function(q, slv) {
     if (!is.null(last$q) && identical(last$q, q)) return(last$u)
-    u <- numeric(V$ndof); u[d] <- uD
+    ur <- numeric(ncol(Pm)); ur[d] <- uD
     sv <- slv$solve(r0 + as.numeric(Mf %*% q))
     note(sv$info)
-    u[f] <- sv$x
+    ur[f] <- sv$x
+    u <- as.numeric(Pm %*% ur)
     last$q <- q; last$u <- u
     u
   }
@@ -221,7 +227,7 @@ optimal_control <- function(mesh, target, alpha, diffusion = 1, source = 0,
   slv_t <- if (isTRUE(slv$info$symmetric)) slv else linear_solver(Matrix::t(Aff))
   grad_fun <- function(q) {
     u <- state(q, slv)
-    av <- slv_t$solve(as.numeric(M %*% (u - ud))[f]); note(av$info)
+    av <- slv_t$solve(as.numeric(PM %*% (u - ud))[f]); note(av$info)
     lam <- av$x
     as.numeric(Matrix::crossprod(Mf, lam)) + alpha * as.numeric(M %*% q)
   }
@@ -229,9 +235,9 @@ optimal_control <- function(mesh, target, alpha, diffusion = 1, source = 0,
   if (!bounded) {
     nf <- length(f); n <- V$ndof
     Z <- function(r, c) Matrix::sparseMatrix(i = integer(), j = integer(), x = numeric(), dims = c(r, c))
-    Mff <- M[f, f, drop = FALSE]
-    rhs1 <- as.numeric(M %*% ud)[f]
-    if (length(d)) rhs1 <- rhs1 - as.numeric(M[f, d, drop = FALSE] %*% uD)
+    Mff <- Mr[f, f, drop = FALSE]
+    rhs1 <- as.numeric(PM %*% ud)[f]
+    if (length(d)) rhs1 <- rhs1 - as.numeric(Mr[f, d, drop = FALSE] %*% uD)
     KKT <- rbind(cbind(Mff, Z(nf, n), -Matrix::t(Aff)),
                  cbind(Z(n, nf), alpha * M, Matrix::t(Mf)),
                  cbind(Aff, -Mf, Z(nf, nf)))
