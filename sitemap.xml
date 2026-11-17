@@ -61,6 +61,7 @@
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/pde_plots.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/pde_sensitivity.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/pdecompR-package.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/reference/periodic_bc.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/quadrature_interval.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/reaction_diffusion_problem.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/read_gmsh.html</loc></url>
@@ -68,6 +69,7 @@
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/region_coefficient.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/set_boundary_marker.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/solution_at.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/reference/solve_eigen.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/solve_linear_system.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/solve_pde.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/taylor_test.html</loc></url>
@@ -76,6 +78,7 @@
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/trial_function.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/update_mesh.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/variational_problem.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/reference/wave_problem.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/write_pvd.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/write_vtk.html</loc></url>
 </urlset>

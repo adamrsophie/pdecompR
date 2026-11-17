@@ -80,15 +80,18 @@
 <li>Coefficients given as numbers, functions of <code>(x, y)</code> or <code>(x, y, t)</code>, finite-element functions, constant or spatially varying symmetric tensors (<code><a href="../reference/tensor_coefficient.html">tensor_coefficient()</a></code>) or piecewise values by region (<code><a href="../reference/region_coefficient.html">region_coefficient()</a></code>).</li>
 <li>Interpolation, exact transfer to refined meshes, and conservative L2 projection between any two meshes of a domain (<code><a href="../reference/l2_project.html">l2_project()</a></code>).</li>
 <li>Dirichlet, Neumann and Robin conditions; pure Neumann problems with a compatibility check and a zero-mean gauge on each connected component.</li>
+<li>Periodic conditions for elliptic problems (<code><a href="../reference/periodic_bc.html">periodic_bc()</a></code>), by elimination of the identified degrees of freedom, including fully periodic problems with a zero-mean gauge.</li>
 <li>A weak-form language (<code><a href="../reference/trial_function.html">trial_function()</a></code>, <code><a href="../reference/trial_function.html">test_function()</a></code>, <code><a href="../reference/trial_function.html">grad()</a></code>, <code><a href="../reference/trial_function.html">dot()</a></code>, <code><a href="../reference/trial_function.html">integrate_domain()</a></code>, <code><a href="../reference/trial_function.html">integrate_boundary()</a></code>) for linear scalar problems.</li>
 </ul></div>
 <div class="section level3">
 <h3 id="problem-classes-0-1-0">Problem classes<a class="anchor" aria-label="anchor" href="#problem-classes-0-1-0"></a></h3>
 <ul><li>Elliptic problems with diffusion, advection and reaction, with optional SUPG stabilization.</li>
-<li>Heat and general linear parabolic problems with backward Euler and Crank-Nicolson (Rannacher startup), time-dependent data and coefficients, and mass diagnostics.</li>
+<li>Heat and general linear parabolic problems with backward Euler, Crank-Nicolson (Rannacher startup), BDF2 and L-stable SDIRK2, adaptive SDIRK2 stepping with an embedded error estimate, time-dependent data and coefficients, and mass diagnostics.</li>
 <li>Reaction-diffusion systems with IMEX and fully implicit Newton time stepping.</li>
 <li>Quasilinear diffusion, semilinear reaction and p-Laplace problems solved by damped Newton iteration.</li>
 <li>Linear elasticity in plane strain and plane stress with displacement, roller and traction conditions, and strain, stress and von Mises output.</li>
+<li>Damped wave equation and elastodynamics integrated by the Newmark average acceleration method, second order and energy conserving, with the discrete energy reported at every step.</li>
+<li>Eigenvalue problems for symmetric elliptic operators and elastic vibration modes by shift-and-invert subspace iteration (<code><a href="../reference/solve_eigen.html">solve_eigen()</a></code>).</li>
 </ul></div>
 <div class="section level3">
 <h3 id="solvers-0-1-0">Solvers<a class="anchor" aria-label="anchor" href="#solvers-0-1-0"></a></h3>

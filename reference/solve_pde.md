@@ -19,10 +19,12 @@ solve_pde(problem, ...)
 solve_pde(
   problem,
   dt,
-  method = c("crank-nicolson", "backward-euler"),
+  method = c("crank-nicolson", "backward-euler", "bdf2", "sdirk2"),
   output_times = NULL,
   solver = "auto",
   startup = 2L,
+  adaptive = FALSE,
+  tol = 1e-04,
   ...
 )
 
@@ -40,6 +42,12 @@ solve_pde(
   newton_maxit = 25,
   ...
 )
+
+# S3 method for class 'wave_problem'
+solve_pde(problem, dt, output_times = NULL, solver = "auto", ...)
+
+# S3 method for class 'elastodynamics_problem'
+solve_pde(problem, dt, output_times = NULL, solver = "auto", ...)
 ```
 
 ## Arguments
@@ -50,8 +58,12 @@ solve_pde(
 
 - method:
 
-  For time-dependent problems: `"crank-nicolson"` (second order) or
-  `"backward-euler"` (first order, L-stable).
+  For time-dependent problems: `"crank-nicolson"` (second order),
+  `"backward-euler"` (first order, L-stable), `"bdf2"` (second order,
+  L-stable two-step method started with one backward Euler step) or
+  `"sdirk2"` (Alexander's two-stage, second-order, L-stable singly
+  diagonally implicit Runge-Kutta method). BDF2 and SDIRK2 require
+  coefficients that do not depend on time (data may).
 
 - ...:
 
@@ -67,7 +79,8 @@ solve_pde(
 - output_times:
 
   Times at which to store the solution; they must lie on the time grid.
-  Default: every step.
+  Default: every step. With `adaptive = TRUE` they may be any times in
+  the interval, and the steps land on them exactly.
 
 - solver:
 
@@ -82,16 +95,27 @@ solve_pde(
   Dirichlet data; a fixed number of such steps keeps second order.
   Ignored for backward Euler.
 
-- tol, maxit:
+- adaptive:
 
-  Newton tolerance on the free residual norm (relative to the initial
-  residual, with an absolute floor of `1e-12`) and maximum number of
-  Newton iterations.
+  For `"sdirk2"`: choose the step size from an embedded first-order
+  error estimate (L2 norm through the mass matrix), starting from `dt`.
+  Steps whose estimate exceeds `tol` are rejected and retried.
+
+- tol:
+
+  Error tolerance per step for adaptive stepping, relative to
+  `max(1, ||u||)`.
 
 - newton_tol, newton_maxit:
 
   Newton tolerance (on the residual norm relative to its initial value,
   or absolute `1e-12`) and maximum iterations per step.
+
+- tol, maxit:
+
+  Newton tolerance on the free residual norm (relative to the initial
+  residual, with an absolute floor of `1e-12`) and maximum number of
+  Newton iterations.
 
 ## Value
 
@@ -115,7 +139,7 @@ summary(sol)
 #>   matrix nonzeros: 497
 #>   solver: cholesky, status solved
 #>   linear residual: 1.55e-16 (relative 1.42e-15)
-#>   assembly 0.001 s, solve 0.001 s
+#>   assembly 0.002 s, solve 0.001 s
 #>   solution range [    0, 0.07278]
 #>   (the linear residual measures the algebraic solve, not the discretization error)
 ```

@@ -82,6 +82,8 @@
   [`neumann_bc()`](https://adamrsophie.github.io/pdecompR/reference/dirichlet_bc.md)
   [`robin_bc()`](https://adamrsophie.github.io/pdecompR/reference/dirichlet_bc.md)
   : Boundary conditions
+- [`periodic_bc()`](https://adamrsophie.github.io/pdecompR/reference/periodic_bc.md)
+  : Periodic boundary conditions
 - [`elliptic_problem()`](https://adamrsophie.github.io/pdecompR/reference/elliptic_problem.md)
   [`poisson_problem()`](https://adamrsophie.github.io/pdecompR/reference/elliptic_problem.md)
   : Linear elliptic problems
@@ -97,6 +99,11 @@
   : Linear elasticity
 - [`elasticity_stress()`](https://adamrsophie.github.io/pdecompR/reference/elasticity_stress.md)
   : Stresses and strains of an elasticity solution
+- [`wave_problem()`](https://adamrsophie.github.io/pdecompR/reference/wave_problem.md)
+  [`elastodynamics_problem()`](https://adamrsophie.github.io/pdecompR/reference/wave_problem.md)
+  : Wave equation and elastodynamics
+- [`solve_eigen()`](https://adamrsophie.github.io/pdecompR/reference/solve_eigen.md)
+  : Eigenvalue problems
 - [`displacement_bc()`](https://adamrsophie.github.io/pdecompR/reference/displacement_bc.md)
   [`traction_bc()`](https://adamrsophie.github.io/pdecompR/reference/displacement_bc.md)
   : Boundary conditions for linear elasticity

@@ -39,6 +39,10 @@ of the sparse matrix classes of ‘Matrix’.
   ([`l2_project()`](https://adamrsophie.github.io/pdecompR/reference/l2_project.md)).
 - Dirichlet, Neumann and Robin conditions; pure Neumann problems with a
   compatibility check and a zero-mean gauge on each connected component.
+- Periodic conditions for elliptic problems
+  ([`periodic_bc()`](https://adamrsophie.github.io/pdecompR/reference/periodic_bc.md)),
+  by elimination of the identified degrees of freedom, including fully
+  periodic problems with a zero-mean gauge.
 - A weak-form language
   ([`trial_function()`](https://adamrsophie.github.io/pdecompR/reference/trial_function.md),
   [`test_function()`](https://adamrsophie.github.io/pdecompR/reference/trial_function.md),
@@ -52,9 +56,10 @@ of the sparse matrix classes of ‘Matrix’.
 
 - Elliptic problems with diffusion, advection and reaction, with
   optional SUPG stabilization.
-- Heat and general linear parabolic problems with backward Euler and
-  Crank-Nicolson (Rannacher startup), time-dependent data and
-  coefficients, and mass diagnostics.
+- Heat and general linear parabolic problems with backward Euler,
+  Crank-Nicolson (Rannacher startup), BDF2 and L-stable SDIRK2, adaptive
+  SDIRK2 stepping with an embedded error estimate, time-dependent data
+  and coefficients, and mass diagnostics.
 - Reaction-diffusion systems with IMEX and fully implicit Newton time
   stepping.
 - Quasilinear diffusion, semilinear reaction and p-Laplace problems
@@ -62,6 +67,12 @@ of the sparse matrix classes of ‘Matrix’.
 - Linear elasticity in plane strain and plane stress with displacement,
   roller and traction conditions, and strain, stress and von Mises
   output.
+- Damped wave equation and elastodynamics integrated by the Newmark
+  average acceleration method, second order and energy conserving, with
+  the discrete energy reported at every step.
+- Eigenvalue problems for symmetric elliptic operators and elastic
+  vibration modes by shift-and-invert subspace iteration
+  ([`solve_eigen()`](https://adamrsophie.github.io/pdecompR/reference/solve_eigen.md)).
 
 ### Solvers
 

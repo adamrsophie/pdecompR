@@ -62,7 +62,7 @@ parabolic, reaction-diffusion and nonlinear problems."><meta property="og:image"
 <div class="row">
   <main id="main" class="col-md-9"><div class="page-header">
       <img src="../logo.svg" class="logo" alt=""><h1>Solve a PDE problem</h1>
-      <small class="dont-index">Source: <a href="https://github.com/adamrsophie/pdecompR/blob/main/R/elasticity.R" class="external-link"><code>R/elasticity.R</code></a>, <a href="https://github.com/adamrsophie/pdecompR/blob/main/R/elliptic.R" class="external-link"><code>R/elliptic.R</code></a>, <a href="https://github.com/adamrsophie/pdecompR/blob/main/R/heat.R" class="external-link"><code>R/heat.R</code></a>, and 2 more</small>
+      <small class="dont-index">Source: <a href="https://github.com/adamrsophie/pdecompR/blob/main/R/elasticity.R" class="external-link"><code>R/elasticity.R</code></a>, <a href="https://github.com/adamrsophie/pdecompR/blob/main/R/elliptic.R" class="external-link"><code>R/elliptic.R</code></a>, <a href="https://github.com/adamrsophie/pdecompR/blob/main/R/heat.R" class="external-link"><code>R/heat.R</code></a>, and 3 more</small>
       <div class="d-none name"><code>solve_pde.Rd</code></div>
     </div>
 
@@ -86,10 +86,12 @@ parabolic, reaction-diffusion and nonlinear problems.</p>
 <span><span class="fu">solve_pde</span><span class="op">(</span></span>
 <span>  <span class="va">problem</span>,</span>
 <span>  <span class="va">dt</span>,</span>
-<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"crank-nicolson"</span>, <span class="st">"backward-euler"</span><span class="op">)</span>,</span>
+<span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"crank-nicolson"</span>, <span class="st">"backward-euler"</span>, <span class="st">"bdf2"</span>, <span class="st">"sdirk2"</span><span class="op">)</span>,</span>
 <span>  output_times <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  solver <span class="op">=</span> <span class="st">"auto"</span>,</span>
 <span>  startup <span class="op">=</span> <span class="fl">2L</span>,</span>
+<span>  adaptive <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  tol <span class="op">=</span> <span class="fl">1e-04</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span>
 <span></span>
@@ -106,7 +108,13 @@ parabolic, reaction-diffusion and nonlinear problems.</p>
 <span>  newton_tol <span class="op">=</span> <span class="fl">1e-10</span>,</span>
 <span>  newton_maxit <span class="op">=</span> <span class="fl">25</span>,</span>
 <span>  <span class="va">...</span></span>
-<span><span class="op">)</span></span></code></pre></div>
+<span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class 'wave_problem'</span></span>
+<span><span class="fu">solve_pde</span><span class="op">(</span><span class="va">problem</span>, <span class="va">dt</span>, output_times <span class="op">=</span> <span class="cn">NULL</span>, solver <span class="op">=</span> <span class="st">"auto"</span>, <span class="va">...</span><span class="op">)</span></span>
+<span></span>
+<span><span class="co"># S3 method for class 'elastodynamics_problem'</span></span>
+<span><span class="fu">solve_pde</span><span class="op">(</span><span class="va">problem</span>, <span class="va">dt</span>, output_times <span class="op">=</span> <span class="cn">NULL</span>, solver <span class="op">=</span> <span class="st">"auto"</span>, <span class="va">...</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -119,7 +127,11 @@ parabolic, reaction-diffusion and nonlinear problems.</p>
 
 <dt id="arg-method">method<a class="anchor" aria-label="anchor" href="#arg-method"></a></dt>
 <dd><p>For time-dependent problems: <code>"crank-nicolson"</code> (second
-order) or <code>"backward-euler"</code> (first order, L-stable).</p></dd>
+order), <code>"backward-euler"</code> (first order, L-stable), <code>"bdf2"</code> (second
+order, L-stable two-step method started with one backward Euler step) or
+<code>"sdirk2"</code> (Alexander's two-stage, second-order, L-stable singly
+diagonally implicit Runge-Kutta method). BDF2 and SDIRK2 require
+coefficients that do not depend on time (data may).</p></dd>
 
 
 <dt id="arg--">...<a class="anchor" aria-label="anchor" href="#arg--"></a></dt>
@@ -135,7 +147,8 @@ the step is then adjusted to land exactly on the final time.</p></dd>
 
 <dt id="arg-output-times">output_times<a class="anchor" aria-label="anchor" href="#arg-output-times"></a></dt>
 <dd><p>Times at which to store the solution; they must lie on
-the time grid. Default: every step.</p></dd>
+the time grid. Default: every step. With <code>adaptive = TRUE</code> they may be
+any times in the interval, and the steps land on them exactly.</p></dd>
 
 
 <dt id="arg-solver">solver<a class="anchor" aria-label="anchor" href="#arg-solver"></a></dt>
@@ -150,16 +163,27 @@ not match the Dirichlet data; a fixed number of such steps keeps second
 order. Ignored for backward Euler.</p></dd>
 
 
-<dt id="arg-tol-maxit">tol, maxit<a class="anchor" aria-label="anchor" href="#arg-tol-maxit"></a></dt>
-<dd><p>Newton tolerance on the free residual norm (relative to the
-initial residual, with an absolute floor of <code>1e-12</code>) and maximum number
-of Newton iterations.</p></dd>
+<dt id="arg-adaptive">adaptive<a class="anchor" aria-label="anchor" href="#arg-adaptive"></a></dt>
+<dd><p>For <code>"sdirk2"</code>: choose the step size from an embedded
+first-order error estimate (L2 norm through the mass matrix), starting
+from <code>dt</code>. Steps whose estimate exceeds <code>tol</code> are rejected and retried.</p></dd>
+
+
+<dt id="arg-tol">tol<a class="anchor" aria-label="anchor" href="#arg-tol"></a></dt>
+<dd><p>Error tolerance per step for adaptive stepping, relative to
+<code>max(1, ||u||)</code>.</p></dd>
 
 
 <dt id="arg-newton-tol-newton-maxit">newton_tol, newton_maxit<a class="anchor" aria-label="anchor" href="#arg-newton-tol-newton-maxit"></a></dt>
 <dd><p>Newton tolerance (on the residual norm
 relative to its initial value, or absolute <code>1e-12</code>) and maximum
 iterations per step.</p></dd>
+
+
+<dt id="arg-tol-maxit">tol, maxit<a class="anchor" aria-label="anchor" href="#arg-tol-maxit"></a></dt>
+<dd><p>Newton tolerance on the free residual norm (relative to the
+initial residual, with an absolute floor of <code>1e-12</code>) and maximum number
+of Newton iterations.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -184,7 +208,7 @@ problems with irregular data. <em>Numerische Mathematik</em>, 43, 309-327.</p>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   matrix nonzeros: 497</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   solver: cholesky, status solved</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   linear residual: 1.55e-16 (relative 1.42e-15)</span>
-<span class="r-out co"><span class="r-pr">#&gt;</span>   assembly 0.001 s, solve 0.001 s</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span>   assembly 0.002 s, solve 0.001 s</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   solution range [    0, 0.07278]</span>
 <span class="r-out co"><span class="r-pr">#&gt;</span>   (the linear residual measures the algebraic solve, not the discretization error)</span>
 </code></pre></div>

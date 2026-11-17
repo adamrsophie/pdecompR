@@ -115,7 +115,7 @@ summary(s)
 #>   solver: lu, status solved
 #>   linear residual: 6.41e-12 (relative 1.63e-11)
 #>   pure Neumann: zero-mean gauge, compatibility defect -1.57e-10
-#>   assembly 0.006 s, solve 0.008 s
+#>   assembly 0.002 s, solve 0.01 s
 #>   solution range [-0.9937, 1.003]
 #>   (the linear residual measures the algebraic solve, not the discretization error)
 ```
