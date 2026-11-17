@@ -13,7 +13,8 @@ estimate_parameters(
   upper = Inf,
   regularization = 0,
   theta_ref = theta0,
-  control = list()
+  control = list(),
+  derivative = NULL
 )
 }
 \arguments{
@@ -33,9 +34,16 @@ an \code{\link[=elliptic_problem]{elliptic_problem()}}.}
 \item{theta_ref}{Reference parameters of the regularization.}
 
 \item{control}{Passed to \code{stats::optim()}.}
+
+\item{derivative}{Optional exact operator derivatives, see
+\code{\link[=pde_sensitivity]{pde_sensitivity()}} and \code{\link[=affine_derivative]{affine_derivative()}}; indices refer to the full
+parameter vector.}
 }
 \value{
-A list of class \code{pde_estimate}.
+A list of class \code{pde_estimate} with the estimate, standard errors,
+the \code{fixed} parameters, and \code{identifiability}: singular values, condition
+number and right singular vectors of the weighted observation sensitivity
+matrix of the free parameters, and their correlation matrix.
 }
 \description{
 Estimates parameters \code{theta} of a linear elliptic model from point

@@ -4,7 +4,12 @@
 \alias{variational_problem}
 \title{Variational problems}
 \usage{
-variational_problem(bilinear, linear, bcs = list())
+variational_problem(
+  bilinear,
+  linear,
+  bcs = list(),
+  nullspace = c("auto", "constant", "none")
+)
 }
 \arguments{
 \item{bilinear}{An \code{fe_form} containing the trial and test functions.}
@@ -12,6 +17,13 @@ variational_problem(bilinear, linear, bcs = list())
 \item{linear}{An \code{fe_form} containing only the test function.}
 
 \item{bcs}{Dirichlet conditions (\code{\link[=dirichlet_bc]{dirichlet_bc()}}).}
+
+\item{nullspace}{How to treat the constants when no Dirichlet condition is
+given: \code{"auto"} (default) declares them a nullspace exactly when every
+bilinear term differentiates the trial function (\code{grad(u)}), so that
+\code{a(1, v) = 0} holds by construction; \code{"constant"} asserts the constant
+nullspace (solved with a zero-mean gauge and a compatibility check);
+\code{"none"} asserts a unique solution.}
 }
 \value{
 An object of class \code{variational_problem}.

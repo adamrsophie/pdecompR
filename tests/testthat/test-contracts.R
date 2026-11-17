@@ -259,13 +259,84 @@ test_that("disconnected meshes are rejected for pure Neumann and checked per com
   m <- pde_mesh_rectangle(nx = 2)
   m2 <- pde_mesh(rbind(m$nodes, m$nodes + 2), rbind(m$triangles, m$triangles + nrow(m$nodes)))
   expect_equal(mesh_components(m2)$n, 2L)
-  expect_error(solve_pde(elliptic_problem(m2, source = 0)), "disconnected")
+  # One zero-mean gauge per component: u = x on each piece, compatible data.
+  s <- solve_pde(elliptic_problem(m2, source = 0,
+                                  bcs = list(neumann_bc(function(x, y) ifelse(x %in% c(0, 2), -1, ifelse(x %in% c(1, 3), 1, 0))))))
+  expect_equal(s$diagnostics$gauge$components, 2L)
+  dc <- pdecompR:::dof_components(s$space)
+  ex <- s$space$dof_coords[, 1] - c(0.5, 2.5)[dc]
+  expect_lt(max(abs(s$u$values - ex)), 1e-10)
+  expect_error(solve_pde(elliptic_problem(m2, source = function(x, y) as.numeric(x > 1.5))),
+               "component 2")
   m3 <- set_boundary_marker(m2, "first", function(x, y) x <= 1)
   expect_error(solve_pde(elasticity_problem(m3, bcs = displacement_bc(0, "first"))), "component")
 })
 
-test_that("non-nested finite-element references are rejected", {
-  a <- fe_function(fe_space(pde_mesh_rectangle(nx = 4)), rep(0, 25))
-  b <- interpolate(function(x, y) x * y, fe_space(pde_mesh_rectangle(nx = 3)))
-  expect_error(errornorm(a, b), "not nested")
+test_that("finite-element references on unrelated meshes are integrated on the overlay", {
+  f <- function(x, y) x^2 * y + sin(3 * x)
+  a <- interpolate(f, fe_space(pde_mesh_rectangle(nx = 4)))
+  b <- interpolate(f, fe_space(pde_mesh_rectangle(nx = 5, pattern = "left"), 2))
+  for (ty in c("L2", "H1_semi")) expect_equal(as.numeric(errornorm(a, b, ty)), as.numeric(errornorm(b, a, ty)),
+                                              tolerance = 1e-12)
+  sq <- pde_domain("polygon", vertices = cbind(c(0, 1, 1, 0), c(0, 0, 1, 1)))
+  g <- function(x, y) 2 * x + y
+  expect_lt(errornorm(interpolate(g, fe_space(pde_mesh_rectangle(nx = 3))),
+                      interpolate(g, fe_space(pde_mesh_polygon(sq, h = 0.3))), "H1"), 1e-12)
+  fine <- interpolate(f, fe_space(refine_uniform(pde_mesh_rectangle(nx = 4))))
+  expect_equal(sqrt(sum(pdecompR:::overlay_error(a, fine, "L2", 1, 6))), as.numeric(errornorm(a, fine)),
+               tolerance = 1e-10)
+  expect_error(errornorm(a, interpolate(f, fe_space(pde_mesh_rectangle(c(0, 2), nx = 3)))), "same domain")
+})
+
+test_that("shared validators reject malformed input", {
+  m <- pde_mesh_rectangle(nx = 2)
+  expect_error(refine_mesh(m, 1.5), "whole-number")
+  expect_error(refine_mesh(m, c(TRUE, NA, rep(FALSE, 6))), "TRUE/FALSE")
+  expect_error(evaluate(interpolate(1, fe_space(m)), c(0.5, NA), c(0.5, 0.5)), "finite")
+  expect_error(evaluation_matrix(fe_space(m), c(0.1, 0.2), 0.3), "same length")
+  expect_error(set_boundary_marker(m, "", function(x, y) x == 0), "nonempty")
+  expect_error(set_boundary_marker(m, "a", function(x, y) rep(NA, length(x))), "no NA")
+  expect_error(solve_pde(heat_problem(m, time = c(0, 1)), dt = 0.5, output_times = numeric(0)), "nonempty")
+  expect_error(solve_pde(nonlinear_problem(m, bcs = dirichlet_bc(0)), maxit = 0), "maxit")
+  expect_error(mark_elements(c(1, NA)), "finite")
+})
+
+test_that("direct solvers are insensitive to diagonal scaling", {
+  s <- solve_linear_system(Matrix::Diagonal(x = c(1e-14, 1)), c(1e-14, 1))
+  expect_equal(s$info$status, "solved")
+  expect_equal(s$x, c(1, 1), tolerance = 1e-14)
+})
+
+test_that("variational problems declare the constant nullspace from the form structure", {
+  V <- fe_space(pde_mesh_rectangle(nx = 16))
+  u <- trial_function(V); v <- test_function(V)
+  s <- solve_pde(variational_problem(integrate_domain(dot(grad(u), grad(v)) + 1e-9 * u * v),
+                                     integrate_domain(1e-9 * v)))
+  expect_null(s$diagnostics$gauge)
+  expect_lt(max(abs(s$u$values - 1)), 1e-4)
+  expect_error(solve_pde(variational_problem(integrate_domain(dot(grad(u), grad(v))),
+                                             integrate_domain(1 * v))), "incompatible")
+  s2 <- solve_pde(variational_problem(integrate_domain(dot(grad(u), grad(v)) + 0 * u * v),
+                                      integrate_domain(0 * v), nullspace = "constant"))
+  expect_false(is.null(s2$diagnostics$gauge))
+})
+
+test_that("exact and affine derivatives match finite differences and pass Taylor tests", {
+  mesh <- pde_mesh_rectangle(nx = 6)
+  pf <- function(th) poisson_problem(mesh, diffusion = th[1], source = th[2], boundary = dirichlet_bc(th[3]))
+  ob <- misfit_objective(fe_space(mesh), pde_observations(c(0.3, 0.5), c(0.5, 0.6), c(0.1, 0.2)))
+  th <- c(1.5, 2, 0.3)
+  dv <- affine_derivative(pf, c(1, 1, 1))
+  g_fd <- pde_sensitivity(pf, th, objective = ob, method = "adjoint")$gradient
+  g_ad <- pde_sensitivity(pf, th, objective = ob, method = "adjoint", derivative = dv)$gradient
+  g_fw <- pde_sensitivity(pf, th, objective = ob, derivative = dv)$gradient
+  expect_equal(g_ad, g_fd, tolerance = 1e-7)
+  expect_equal(g_fw, g_ad, tolerance = 1e-10)
+  tt <- taylor_test(pf, th, ob, derivative = dv)
+  expect_gt(min(tt$rate, na.rm = TRUE), 1.9)
+  est <- estimate_parameters(function(t) pf(c(t, 2, 0)), 1, pde_observations(c(0.3, 0.5), c(0.5, 0.6),
+                             evaluate(solve_pde(pf(c(0.7, 2, 0)))$u, c(0.3, 0.5), c(0.5, 0.6)), sd = 0.01),
+                             lower = 0.1)
+  expect_equal(est$estimate, 0.7, tolerance = 1e-5)
+  expect_true(is.finite(est$identifiability$condition))
 })

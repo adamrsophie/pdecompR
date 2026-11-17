@@ -136,14 +136,13 @@ mesh_regions <- function(mesh) {
 #' @rdname mesh_regions
 #' @export
 set_region <- function(mesh, region, which) {
-  stopifnot(inherits(mesh, "pde_mesh"), is.character(region), length(region) == 1L, nzchar(region))
+  stopifnot(inherits(mesh, "pde_mesh"))
+  check_name(region, "region")
+  if (!is.function(which)) stopf("`which` must be a function(x, y).")
   P <- mesh$nodes; T <- mesh$triangles
   cx <- (P[T[, 1], 1] + P[T[, 2], 1] + P[T[, 3], 1]) / 3
   cy <- (P[T[, 1], 2] + P[T[, 2], 2] + P[T[, 3], 2]) / 3
-  sel <- which(cx, cy)
-  if (!is.logical(sel) || length(sel) != nrow(T) || anyNA(sel)) {
-    stopf("`which` must return one logical value per triangle.")
-  }
+  sel <- check_selection(which(cx, cy), nrow(T), "triangle")
   r <- mesh_regions(mesh)
   r[sel] <- region
   mesh$regions <- r
@@ -514,14 +513,13 @@ boundary_rows <- function(mesh, marker) {
 #' table(mesh$boundary$marker)
 #' @export
 set_boundary_marker <- function(mesh, marker, which) {
-  stopifnot(inherits(mesh, "pde_mesh"), is.character(marker), length(marker) == 1L)
+  stopifnot(inherits(mesh, "pde_mesh"))
+  check_name(marker, "marker")
+  if (!is.function(which)) stopf("`which` must be a function(x, y).")
   P <- mesh$nodes; bd <- mesh$boundary
   mx <- (P[bd$n1, 1] + P[bd$n2, 1]) / 2
   my <- (P[bd$n1, 2] + P[bd$n2, 2]) / 2
-  sel <- which(mx, my)
-  if (!is.logical(sel) || length(sel) != nrow(bd)) {
-    stopf("`which` must return one logical value per boundary edge.")
-  }
+  sel <- check_selection(which(mx, my), nrow(bd), "boundary edge")
   mesh$boundary$marker[sel] <- marker
   mesh$info$markers_edited <- TRUE
   mesh

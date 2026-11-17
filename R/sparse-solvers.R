@@ -98,9 +98,19 @@ linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgsta
   factor <- NULL
   note <- NULL
   used <- method
+  # Symmetric diagonal equilibration S A S with S = |diag(A)|^(-1/2) (row
+  # norms where the diagonal vanishes) for the direct methods: it preserves
+  # symmetry, improves accuracy for badly scaled systems, and makes the
+  # pivot-ratio diagnostic independent of diagonal scaling.
+  dA <- abs(Matrix::diag(A))
+  rn <- Matrix::rowSums(abs(A))
+  dA[dA == 0] <- rn[dA == 0]
+  dA[dA == 0] <- 1
+  sc <- 1 / sqrt(dA)
+  Ae <- if (method %in% c("auto", "cholesky", "lu")) Matrix::Diagonal(x = sc) %*% A %*% Matrix::Diagonal(x = sc) else A
   if (method %in% c("auto", "cholesky")) {
     if (sym) {
-      factor <- tryCatch(Matrix::Cholesky(Matrix::forceSymmetric(A, "U"), perm = TRUE, LDL = FALSE),
+      factor <- tryCatch(Matrix::Cholesky(Matrix::forceSymmetric(Ae, "U"), perm = TRUE, LDL = FALSE),
                          error = function(e) e, warning = function(w) simpleError(conditionMessage(w)))
       if (inherits(factor, "error")) {
         if (method == "cholesky") {
@@ -118,15 +128,16 @@ linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgsta
     }
   }
   if (used == "lu") {
-    factor <- tryCatch(Matrix::lu(A), error = function(e) e)
+    factor <- tryCatch(Matrix::lu(Ae), error = function(e) e)
     if (inherits(factor, "error")) {
       stopf("Sparse LU factorization failed: %s", conditionMessage(factor))
     }
   }
   if (used == "cg" && !sym) stopf("Conjugate gradients require a symmetric matrix.")
-  # Pivot ratio of the factorization: a tiny ratio means the matrix is
-  # numerically singular or nearly so (a conditioning diagnostic, not a proof
-  # of exact singularity) even though the factorization succeeded.
+  # Pivot ratio of the factorization of the equilibrated matrix: a tiny
+  # ratio means the matrix is numerically singular or nearly so (a
+  # conditioning diagnostic, not a proof of exact singularity) even though
+  # the factorization succeeded.
   singular <- FALSE
   if (!is.null(factor)) {
     piv <- tryCatch(abs(as.numeric(if (used == "lu") Matrix::diag(factor@U) else Matrix::diag(factor))),
@@ -146,7 +157,7 @@ linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgsta
     it <- NA_integer_
     if (any(!is.finite(b))) stopf("The right-hand side contains non-finite values.")
     if (used %in% c("cholesky", "lu")) {
-      x <- tryCatch(as.numeric(Matrix::solve(factor, b)),
+      x <- tryCatch(sc * as.numeric(Matrix::solve(factor, sc * b)),
                     warning = function(w) stopf("Sparse solve failed: %s", conditionMessage(w)),
                     error = function(e) stopf("Sparse solve failed: %s", conditionMessage(e)))
       status <- "solved"
@@ -285,6 +296,8 @@ krylov_gmres <- function(A, b, x0, dinv, tol, maxit, restart) {
   r <- b - as.numeric(A %*% x)
   list(x = x, iterations = total, converged = isTRUE(sqrt(sum(r^2)) <= tol * nb))
 }
+
+solve_ok <- function(info) !is.null(info$status) && info$status %in% c("solved", "converged")
 
 # Warn when a linear solve did not reach its tolerance.
 warn_solver <- function(info, where = "linear solve") {

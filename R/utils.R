@@ -44,6 +44,58 @@ check_count <- function(x, name, min = 1L) {
   as.integer(x)
 }
 
+# Shared validators, one per concept.
+
+# Point coordinates: equal-length finite numeric vectors (or a two-column
+# matrix in `x` with `y = NULL`). Returns list(x, y).
+check_points <- function(x, y = NULL, name = "points") {
+  if (is.null(y)) {
+    x <- as.matrix(x)
+    if (ncol(x) == 1L && nrow(x) == 2L) x <- t(x)
+    if (ncol(x) != 2L) stopf("Give %s as `x` and `y` vectors or as a two-column matrix.", name)
+    y <- x[, 2]; x <- x[, 1]
+  }
+  if (!is.numeric(x) || !is.numeric(y)) stopf("The coordinates of %s must be numeric.", name)
+  if (length(x) != length(y)) stopf("`x` and `y` must have the same length.")
+  if (any(!is.finite(x)) || any(!is.finite(y))) stopf("The coordinates of %s must be finite.", name)
+  list(x = as.numeric(x), y = as.numeric(y))
+}
+
+# Element (or other) indices: whole numbers in 1..n, or a logical vector of
+# length n. Returns unique integer indices.
+check_indices <- function(i, n, name) {
+  if (is.logical(i)) {
+    if (length(i) != n || anyNA(i)) stopf("`%s` must have one TRUE/FALSE value per element.", name)
+    return(which(i))
+  }
+  if (!is.numeric(i) || anyNA(i) || any(i != round(i)) || any(i < 1 | i > n)) {
+    stopf("`%s` must contain whole-number indices between 1 and %d.", name, n)
+  }
+  unique(as.integer(i))
+}
+
+# Boundary marker or region name.
+check_name <- function(x, name) {
+  if (!is.character(x) || length(x) != 1L || is.na(x) || !nzchar(x)) {
+    stopf("`%s` must be one nonempty name.", name)
+  }
+  x
+}
+
+# Logical selection returned by a user predicate.
+check_selection <- function(sel, n, what) {
+  if (!is.logical(sel) || length(sel) != n || anyNA(sel)) {
+    stopf("`which` must return one TRUE/FALSE value (no NA) per %s.", what)
+  }
+  sel
+}
+
+# Positive finite tolerance.
+check_tol <- function(x, name) {
+  check_number(x, name, positive = TRUE)
+  x
+}
+
 # Evaluate a user supplied function of space (and optionally time) at points.
 # `f` may be a number, a vector of nodal length handled elsewhere, or a
 # function(x, y) / function(x, y, t). Always returns a numeric vector of

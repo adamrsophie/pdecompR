@@ -12,7 +12,8 @@ pde_sensitivity(
   method = c("forward", "adjoint"),
   h = 1e-06,
   lower = -Inf,
-  upper = Inf
+  upper = Inf,
+  derivative = NULL
 )
 }
 \arguments{
@@ -34,6 +35,12 @@ vector returning \code{list(value = , gradient = )}, for example from
 
 \item{lower, upper}{Parameter bounds. Difference steps are shortened or
 made one-sided so that \code{problem_fun} is never called outside them.}
+
+\item{derivative}{Optional exact derivative \verb{function(theta, j)} returning
+\code{list(A = , b = , dirichlet = )}: the derivatives of the full system
+matrix and load vector (before Dirichlet elimination, as in
+\code{\link[=discretize]{discretize()}}) and, optionally, of the Dirichlet values with respect to
+\code{theta[j]}.}
 }
 \value{
 A list of class \code{pde_sensitivity} with the \code{solution}, the
@@ -61,7 +68,12 @@ The operator derivatives \code{dK/dtheta_j}, \code{dr/dtheta_j} and \code{du_d/d
 are obtained by central differences of the assembled operators with step
 \verb{h_j = h max(1, |theta_j|)}. This is exact up to rounding when the
 coefficients are affine in \code{theta}, and second-order accurate otherwise.
-The solves themselves are not differenced.
+The solves themselves are not differenced. Supply \code{derivative} for exact
+operator derivatives (for example of an affine family
+\verb{A(theta) = A0 + sum(theta_j A_j)}, where \code{derivative(theta, j)} returns
+\code{A_j}); check either route with \code{\link[=taylor_test]{taylor_test()}}. Each parameter's
+derivative is formed, used and discarded in turn, so memory does not grow
+with the number of parameters.
 }
 \examples{
 mesh <- pde_mesh_rectangle(nx = 8)

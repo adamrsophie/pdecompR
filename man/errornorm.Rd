@@ -20,12 +20,13 @@ errornorm(
 list of two gradient functions, one per component).}
 
 \item{exact}{Exact solution \verb{function(x, y)}, or an \code{\link[=fe_function]{fe_function()}}
-reference solution on the same mesh or on a nested one (coarser, or finer
-from \code{\link[=refine_uniform]{refine_uniform()}} or \code{\link[=refine_mesh]{refine_mesh()}}), possibly of another degree;
-its gradient is then used for gradient norms. The integral runs on the
-finer of the two meshes, so the result is exact up to quadrature and
-symmetric in the two functions. References on meshes that are not nested
-are rejected.}
+reference solution on any mesh of the same domain, possibly of another
+degree; its gradient is then used for gradient norms. The integral runs
+on a partition on which both functions are polynomials: the finer of two
+nested meshes (for example from \code{\link[=refine_uniform]{refine_uniform()}} or \code{\link[=refine_mesh]{refine_mesh()}}),
+or the overlay of all pairwise triangle intersections for meshes that
+are not nested (slower). The result is exact up to quadrature and
+symmetric in the two functions.}
 
 \item{type}{Norm type.}
 

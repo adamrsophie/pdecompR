@@ -57,12 +57,7 @@ refine_uniform <- function(mesh) {
 refine_mesh <- function(mesh, marked) {
   stopifnot(inherits(mesh, "pde_mesh"))
   m <- nrow(mesh$triangles)
-  if (is.logical(marked)) {
-    if (length(marked) != m) stopf("`marked` must have one value per element.")
-    marked <- which(marked)
-  }
-  marked <- unique(as.integer(marked))
-  if (any(marked < 1L | marked > m)) stopf("`marked` contains invalid element indices.")
+  marked <- check_indices(marked, m, "marked")
   if (!length(marked)) return(mesh)
   if (!isTRUE(mesh$info$nvb)) mesh <- nvb_initial_labeling(mesh)
   T <- mesh$triangles; EE <- mesh$element_edges; E <- mesh$edges

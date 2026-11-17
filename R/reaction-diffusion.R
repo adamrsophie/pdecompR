@@ -112,6 +112,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
                                                  newton_tol = 1e-10, newton_maxit = 25, ...) {
   method <- match.arg(method)
   check_number(dt, "dt", positive = TRUE)
+  check_tol(newton_tol, "newton_tol"); newton_maxit <- check_count(newton_maxit, "newton_maxit")
   ta <- proc.time()[["elapsed"]]
   V <- fe_space(problem$mesh, problem$degree)
   n <- V$ndof; sp <- problem$species; ns <- length(sp)

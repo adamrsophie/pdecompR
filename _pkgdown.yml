@@ -101,6 +101,8 @@ reference:
 - title: Sensitivities, inverse problems and control
   contents:
   - pde_sensitivity
+  - affine_derivative
+  - taylor_test
   - pde_observations
   - estimate_parameters
   - optimal_control

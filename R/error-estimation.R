@@ -24,12 +24,13 @@
 #'   [elasticity_problem()]; then `exact` returns two columns and `gradient` is a
 #'   list of two gradient functions, one per component).
 #' @param exact Exact solution `function(x, y)`, or an [fe_function()]
-#'   reference solution on the same mesh or on a nested one (coarser, or finer
-#'   from [refine_uniform()] or [refine_mesh()]), possibly of another degree;
-#'   its gradient is then used for gradient norms. The integral runs on the
-#'   finer of the two meshes, so the result is exact up to quadrature and
-#'   symmetric in the two functions. References on meshes that are not nested
-#'   are rejected.
+#'   reference solution on any mesh of the same domain, possibly of another
+#'   degree; its gradient is then used for gradient norms. The integral runs
+#'   on a partition on which both functions are polynomials: the finer of two
+#'   nested meshes (for example from [refine_uniform()] or [refine_mesh()]),
+#'   or the overlay of all pairwise triangle intersections for meshes that
+#'   are not nested (slower). The result is exact up to quadrature and
+#'   symmetric in the two functions.
 #' @param type Norm type.
 #' @param gradient Exact gradient `function(x, y)` returning a two-column
 #'   matrix.
@@ -50,7 +51,7 @@ errornorm <- function(u, exact, type = c("L2", "H1_semi", "H1", "energy"), gradi
   type <- match.arg(type)
   if (inherits(u, "pde_vector_solution")) {
     if (type == "energy") stopf("Use \"L2\", \"H1_semi\" or \"H1\" for vector solutions.")
-    return(vector_errornorm(u, exact, type, gradient))
+    return(vector_errornorm(u, exact, type, gradient, quad_degree, elementwise))
   }
   if (inherits(u, "pde_transient")) {
     stopf("Use `errornorm(solution_at(sol, time), exact)` for time-dependent solutions.")
@@ -68,16 +69,16 @@ errornorm <- function(u, exact, type = c("L2", "H1_semi", "H1", "energy"), gradi
     ref <- exact
     if (is.null(nested_parent(u$space$mesh, ref$space$mesh))) {
       par <- nested_parent(ref$space$mesh, u$space$mesh)
-      if (is.null(par)) {
-        stopf(paste0("The reference function lives on a mesh that is not nested with the mesh of `u`; ",
-                     "use a reference from refine_uniform() or refine_mesh() of the same mesh, or ",
-                     "interpolate both onto a common mesh."))
-      }
       if (is.null(quad_degree)) quad_degree <- 2L * max(u$space$degree, ref$space$degree) + 4L
-      r <- errornorm(ref, u, type, diffusion = diffusion, quad_degree = quad_degree, elementwise = TRUE)
-      e2 <- numeric(nrow(u$space$mesh$triangles))
-      s2 <- rowsum(attr(r, "elements"), par, reorder = TRUE)
-      e2[as.integer(rownames(s2))] <- s2[, 1]
+      if (is.null(par)) {
+        # Meshes that are not nested: integrate on their overlay.
+        e2 <- overlay_error(u, ref, type, diffusion, quad_degree)
+      } else {
+        r <- errornorm(ref, u, type, diffusion = diffusion, quad_degree = quad_degree, elementwise = TRUE)
+        e2 <- numeric(nrow(u$space$mesh$triangles))
+        s2 <- rowsum(attr(r, "elements"), par, reorder = TRUE)
+        e2[as.integer(rownames(s2))] <- s2[, 1]
+      }
       out <- sqrt(sum(e2))
       attr(out, "norm") <- type
       attr(out, "gradient") <- "finite-element reference"
@@ -513,6 +514,10 @@ tabulate_sum <- function(idx, val, n) {
 mark_elements <- function(eta, theta = 0.5, strategy = c("doerfler", "maximum")) {
   strategy <- match.arg(strategy)
   check_number(theta, "theta", positive = TRUE)
+  if (inherits(eta, "pde_error_estimate")) eta <- eta$eta
+  if (!is.numeric(eta) || !length(eta) || any(!is.finite(eta)) || any(eta < 0)) {
+    stopf("`eta` must be a nonempty vector of finite nonnegative indicators.")
+  }
   if (theta > 1) stopf("`theta` must be in (0, 1].")
   if (strategy == "maximum") return(which(eta >= theta * max(eta)))
   o <- order(eta, decreasing = TRUE)

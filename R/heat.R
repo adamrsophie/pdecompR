@@ -214,6 +214,9 @@ solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson"
 
 output_index <- function(output_times, grid, dt) {
   if (is.null(output_times)) return(seq_along(grid))
+  if (!is.numeric(output_times) || !length(output_times) || any(!is.finite(output_times))) {
+    stopf("`output_times` must be a nonempty vector of finite times.")
+  }
   k <- round((output_times - grid[1]) / dt)
   if (any(k < 0 | k > length(grid) - 1L) ||
       any(abs(grid[1] + k * dt - output_times) > 1e-8 * max(1, abs(output_times)))) {

@@ -92,6 +92,7 @@ eval_u <- function(f, U, name) {
 #' @export
 solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method = "auto", ...) {
   t0 <- proc.time()[["elapsed"]]
+  check_tol(tol, "tol"); maxit <- check_count(maxit, "maxit")
   V <- fe_space(problem$mesh, problem$degree)
   geo <- element_geometry(V, problem$quad_degree)
   fq <- coef_qp(problem$source, geo, name = "source")

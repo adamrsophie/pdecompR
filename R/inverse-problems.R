@@ -30,7 +30,13 @@
 #' @param regularization Tikhonov weight `lambda`.
 #' @param theta_ref Reference parameters of the regularization.
 #' @param control Passed to `stats::optim()`.
-#' @return A list of class `pde_estimate`.
+#' @param derivative Optional exact operator derivatives, see
+#'   [pde_sensitivity()] and [affine_derivative()]; indices refer to the full
+#'   parameter vector.
+#' @return A list of class `pde_estimate` with the estimate, standard errors,
+#'   the `fixed` parameters, and `identifiability`: singular values, condition
+#'   number and right singular vectors of the weighted observation sensitivity
+#'   matrix of the free parameters, and their correlation matrix.
 #' @examples
 #' mesh <- pde_mesh_rectangle(nx = 8)
 #' pf <- function(theta, mesh) poisson_problem(mesh, diffusion = theta[1], source = 1,
@@ -44,7 +50,7 @@
 #' @export
 estimate_parameters <- function(problem_fun, theta0, observations, mesh = NULL,
                                 lower = -Inf, upper = Inf, regularization = 0,
-                                theta_ref = theta0, control = list()) {
+                                theta_ref = theta0, control = list(), derivative = NULL) {
   stopifnot(inherits(observations, "pde_observations"))
   theta0 <- as.numeric(theta0)
   np <- length(theta0)
@@ -62,6 +68,7 @@ estimate_parameters <- function(problem_fun, theta0, observations, mesh = NULL,
   pf_full <- problem_fun
   problem_fun <- if (length(formals(pf_full)) >= 2L) function(th, m) pf_full(full_theta(th), m)
                  else function(th) pf_full(full_theta(th))
+  dfree <- if (is.null(derivative)) NULL else function(th, j) derivative(full_theta(th), ifree[j])
   theta0 <- theta0[ifree]; theta_ref <- theta_ref[ifree]
   lower <- lower[ifree]; upper <- upper[ifree]
   call_pf <- function(th, m = mesh) if (is.null(m)) problem_fun(th) else problem_fun(th, m)
@@ -71,7 +78,7 @@ estimate_parameters <- function(problem_fun, theta0, observations, mesh = NULL,
   eval_at <- function(theta) {
     if (!is.null(cache$theta) && identical(cache$theta, theta)) return(cache$res)
     s <- pde_sensitivity(problem_fun, theta, mesh = mesh, objective = obj, method = "adjoint",
-                         lower = lower, upper = upper)
+                         lower = lower, upper = upper, derivative = dfree)
     reg <- regularization * (theta - theta_ref)
     res <- list(value = s$value + 0.5 * sum(reg * (theta - theta_ref)),
                 gradient = s$gradient + reg, solution = s$solution)
@@ -84,11 +91,21 @@ estimate_parameters <- function(problem_fun, theta0, observations, mesh = NULL,
                       method = "L-BFGS-B", lower = lower, upper = upper, control = control)
   est <- opt$par
   fin <- eval_at(est)
-  fs <- pde_sensitivity(problem_fun, est, mesh = mesh, method = "forward", lower = lower, upper = upper)
+  fs <- pde_sensitivity(problem_fun, est, mesh = mesh, method = "forward", lower = lower, upper = upper,
+                        derivative = dfree)
   P <- evaluation_matrix(V, observations$x, observations$y)
   So <- as.matrix(P %*% fs$sensitivities)
   W <- 1 / observations$sd^2
-  G <- crossprod(So * sqrt(W))
+  Sw <- So * sqrt(W)
+  G <- crossprod(Sw)
+  # Identifiability of the free parameters from the weighted observation
+  # sensitivities: small singular values (relative to the largest) mark
+  # directions the data hardly constrain; correlations near +-1 mark
+  # parameters that trade off against each other.
+  sv <- svd(Sw, nu = 0)
+  cor_m <- tryCatch({ C <- solve(G); C / sqrt(outer(diag(C), diag(C))) }, error = function(e) NULL)
+  ident <- list(singular_values = sv$d, condition = max(sv$d) / max(min(sv$d), 1e-300),
+                directions = sv$v, correlation = cor_m)
   H <- G + diag(regularization, length(est))
   se <- tryCatch({
     Hi <- solve(H)
@@ -105,7 +122,7 @@ estimate_parameters <- function(problem_fun, theta0, observations, mesh = NULL,
   }
   est_full <- full_theta(est); se_full <- rep(NA_real_, np); se_full[ifree] <- se
   grad_full <- rep(NA_real_, np); grad_full[ifree] <- fin$gradient
-  structure(list(estimate = est_full, std_error = se_full, fixed = fixed,
+  structure(list(estimate = est_full, std_error = se_full, fixed = fixed, identifiability = ident,
                  objective = opt$value, gradient = grad_full,
                  convergence = opt$convergence, message = opt$message, counts = opt$counts,
                  forward_solves = cache$n_solves, predicted = pred,
@@ -121,6 +138,9 @@ print.pde_estimate <- function(x, ...) {
   cat("  objective ", fmt_num(x$objective), ", gradient norm ", fmt_num(sqrt(sum(x$gradient^2))),
       ", forward solves ", x$forward_solves, "\n", sep = "")
   cat("  standard errors: measurement noise only (Gauss-Newton linearization)\n")
+  if (!is.null(x$identifiability)) {
+    cat("  identifiability: sensitivity condition number ", fmt_num(x$identifiability$condition, 3), "\n", sep = "")
+  }
   if (!is.null(x$discretization_check)) {
     cat("  discretization check: predictions change by up to ", fmt_num(x$discretization_check$max_change),
         " (", fmt_num(x$discretization_check$relative_to_sd), " sd) on a refined mesh\n", sep = "")
@@ -176,9 +196,18 @@ optimal_control <- function(mesh, target, alpha, diffusion = 1, source = 0,
   r0 <- disc$b[f]
   if (length(d)) r0 <- r0 - as.numeric(A[f, d, drop = FALSE] %*% uD)
   Mf <- M[f, , drop = FALSE]
+  bad <- new.env(); bad$n <- 0L
+  note <- function(info) if (!solve_ok(info)) { bad$n <- bad$n + 1L; bad$info <- info }
+  # Paired state cache: the objective and gradient at the same control share
+  # one state solve.
+  last <- new.env()
   state <- function(q, slv) {
+    if (!is.null(last$q) && identical(last$q, q)) return(last$u)
     u <- numeric(V$ndof); u[d] <- uD
-    u[f] <- slv$solve(r0 + as.numeric(Mf %*% q))$x
+    sv <- slv$solve(r0 + as.numeric(Mf %*% q))
+    note(sv$info)
+    u[f] <- sv$x
+    last$q <- q; last$u <- u
     u
   }
   J <- function(u, q) {
@@ -192,7 +221,8 @@ optimal_control <- function(mesh, target, alpha, diffusion = 1, source = 0,
   slv_t <- if (isTRUE(slv$info$symmetric)) slv else linear_solver(Matrix::t(Aff))
   grad_fun <- function(q) {
     u <- state(q, slv)
-    lam <- slv_t$solve(as.numeric(M %*% (u - ud))[f])$x
+    av <- slv_t$solve(as.numeric(M %*% (u - ud))[f]); note(av$info)
+    lam <- av$x
     as.numeric(Matrix::crossprod(Mf, lam)) + alpha * as.numeric(M %*% q)
   }
   bounded <- !is.null(lower) || !is.null(upper)
@@ -206,6 +236,7 @@ optimal_control <- function(mesh, target, alpha, diffusion = 1, source = 0,
                  cbind(Z(n, nf), alpha * M, Matrix::t(Mf)),
                  cbind(Aff, -Mf, Z(nf, nf)))
     s <- solve_linear_system(KKT, c(rhs1, numeric(n), r0), method = "lu")
+    note(s$info)
     q <- s$x[nf + seq_len(n)]
     method <- "KKT (sparse LU)"; iters <- NA; conv <- 0L
   } else {
@@ -223,10 +254,11 @@ optimal_control <- function(mesh, target, alpha, diffusion = 1, source = 0,
     act <- (q <= lo + 1e-10 & g > 0) | (q >= hi - 1e-10 & g < 0)
     g[act] <- 0
   }
+  if (bad$n) warn_solver(bad$info, sprintf("state, adjoint or KKT solve (%d time(s))", bad$n))
   structure(list(control = fe_function(V, q, "q"), state = fe_function(V, u, "u"),
                  target = fe_function(V, ud, "u_target"), objective = J(u, q),
                  gradient_norm = sqrt(sum(g^2)), method = method, iterations = iters,
-                 convergence = conv, time = proc.time()[["elapsed"]] - t0),
+                 convergence = conv, solver_failures = bad$n, time = proc.time()[["elapsed"]] - t0),
             class = "pde_control")
 }
 

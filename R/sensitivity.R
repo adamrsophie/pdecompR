@@ -20,7 +20,12 @@
 #' are obtained by central differences of the assembled operators with step
 #' `h_j = h max(1, |theta_j|)`. This is exact up to rounding when the
 #' coefficients are affine in `theta`, and second-order accurate otherwise.
-#' The solves themselves are not differenced.
+#' The solves themselves are not differenced. Supply `derivative` for exact
+#' operator derivatives (for example of an affine family
+#' `A(theta) = A0 + sum(theta_j A_j)`, where `derivative(theta, j)` returns
+#' `A_j`); check either route with [taylor_test()]. Each parameter's
+#' derivative is formed, used and discarded in turn, so memory does not grow
+#' with the number of parameters.
 #'
 #' @param problem_fun `function(theta)` or `function(theta, mesh)` returning
 #'   an [elliptic_problem()].
@@ -34,6 +39,11 @@
 #' @param h Relative difference step for the operator derivatives.
 #' @param lower,upper Parameter bounds. Difference steps are shortened or
 #'   made one-sided so that `problem_fun` is never called outside them.
+#' @param derivative Optional exact derivative `function(theta, j)` returning
+#'   `list(A = , b = , dirichlet = )`: the derivatives of the full system
+#'   matrix and load vector (before Dirichlet elimination, as in
+#'   [discretize()]) and, optionally, of the Dirichlet values with respect to
+#'   `theta[j]`.
 #' @return A list of class `pde_sensitivity` with the `solution`, the
 #'   `sensitivities` matrix (forward), and the objective `value` and
 #'   `gradient` when `objective` is given.
@@ -48,16 +58,42 @@
 #'   *Optimization with PDE Constraints*. Springer.
 #' @export
 pde_sensitivity <- function(problem_fun, theta, mesh = NULL, objective = NULL,
-                            method = c("forward", "adjoint"), h = 1e-6, lower = -Inf, upper = Inf) {
+                            method = c("forward", "adjoint"), h = 1e-6, lower = -Inf, upper = Inf,
+                            derivative = NULL) {
   method <- match.arg(method)
   if (method == "adjoint" && is.null(objective)) stopf("The adjoint method needs an `objective`.")
+  if (!is.null(derivative) && !is.function(derivative)) stopf("`derivative` must be a function(theta, j).")
+  check_tol(h, "h")
   theta <- as.numeric(theta)
+  if (!length(theta) || any(!is.finite(theta))) stopf("`theta` must be a nonempty finite vector.")
   call_pf <- function(th) if (is.null(mesh)) problem_fun(th) else problem_fun(th, mesh)
   base <- reduced_system(call_pf(theta))
   u <- base$u
   p <- length(theta)
-  dK <- vector("list", p); dr <- vector("list", p); dud <- vector("list", p)
-  for (j in seq_len(p)) {
+  uf <- u[base$free]
+  ud_full <- base$ud
+  # Derivatives of the reduced operators for parameter j, computed when
+  # needed and discarded after use, so at most one derivative matrix is held
+  # at a time.
+  deriv_j <- function(j) {
+    if (!is.null(derivative)) {
+      dj <- derivative(theta, j)
+      dA <- dj$A; db <- dj$b
+      n <- length(u)
+      if (!inherits(dA, c("Matrix", "matrix")) || !all(dim(dA) == n) || length(db) != n) {
+        stopf("`derivative(theta, j)` must return list(A = n by n matrix, b = length-n vector).")
+      }
+      dud <- if (is.null(dj$dirichlet)) numeric(length(base$dofs)) else as.numeric(dj$dirichlet)
+      if (length(dud) != length(base$dofs)) stopf("`derivative(theta, j)$dirichlet` must have one value per Dirichlet dof.")
+      f <- base$free; d <- base$dofs
+      dK <- dA[f, f, drop = FALSE]
+      dr <- as.numeric(db[f])
+      if (length(d)) {
+        dr <- dr - as.numeric(dA[f, d, drop = FALSE] %*% ud_full) -
+          as.numeric(base$A_fd %*% dud)
+      }
+      return(list(dK = dK, dr = dr, dud = dud))
+    }
     hj <- h * max(1, abs(theta[j]))
     lo <- rep_len(lower, p)[j]; hi <- rep_len(upper, p)[j]
     # Shrink the step or switch to a one-sided difference to stay in bounds.
@@ -72,18 +108,18 @@ pde_sensitivity <- function(problem_fun, theta, mesh = NULL, objective = NULL,
     if (!identical(sp$dofs, base$dofs) || !identical(sm$dofs, base$dofs)) {
       stopf("The Dirichlet degrees of freedom must not depend on theta.")
     }
-    dK[[j]] <- (sp$K - sm$K) / (2 * hj)
-    dr[[j]] <- (sp$r - sm$r) / (2 * hj)
-    dud[[j]] <- (sp$ud - sm$ud) / (2 * hj)
+    list(dK = (sp$K - sm$K) / (2 * hj), dr = (sp$r - sm$r) / (2 * hj), dud = (sp$ud - sm$ud) / (2 * hj))
   }
-  uf <- u[base$free]
-  rhs_j <- function(j) dr[[j]] - as.numeric(dK[[j]] %*% uf)
-  out <- list(solution = base$solution, theta = theta, method = method)
+  out <- list(solution = base$solution, theta = theta, method = method,
+              derivatives = if (is.null(derivative)) "finite difference" else "exact")
   if (method == "forward") {
     S <- matrix(0, length(u), p)
     for (j in seq_len(p)) {
-      S[base$free, j] <- base$solver$solve(rhs_j(j))$x
-      if (length(base$dofs)) S[base$dofs, j] <- dud[[j]]
+      dj <- deriv_j(j)
+      sj <- base$solver$solve(dj$dr - as.numeric(dj$dK %*% uf))
+      warn_solver(sj$info, "sensitivity solve")
+      S[base$free, j] <- sj$x
+      if (length(base$dofs)) S[base$dofs, j] <- dj$dud
     }
     out$sensitivities <- S
     if (!is.null(objective)) {
@@ -94,15 +130,96 @@ pde_sensitivity <- function(problem_fun, theta, mesh = NULL, objective = NULL,
   } else {
     ob <- objective(u)
     KT <- if (isTRUE(base$solver$info$symmetric)) base$solver else linear_solver(Matrix::t(base$K))
-    lam <- KT$solve(ob$gradient[base$free])$x
+    as <- KT$solve(ob$gradient[base$free])
+    warn_solver(as$info, "adjoint solve")
+    lam <- as$x
     gr <- vapply(seq_len(p), function(j) {
-      sum(lam * rhs_j(j)) + if (length(base$dofs)) sum(ob$gradient[base$dofs] * dud[[j]]) else 0
+      dj <- deriv_j(j)
+      sum(lam * (dj$dr - as.numeric(dj$dK %*% uf))) +
+        if (length(base$dofs)) sum(ob$gradient[base$dofs] * dj$dud) else 0
     }, numeric(1))
     out$value <- ob$value
     out$gradient <- gr
     out$adjoint <- lam
   }
   structure(out, class = "pde_sensitivity")
+}
+
+#' Exact derivatives of an affine problem family
+#'
+#' For problems whose assembled system is affine in the parameters,
+#' `A(theta) = A0 + sum(theta_j A_j)` and `b(theta) = b0 + sum(theta_j b_j)`
+#' (for example a diffusion, reaction or source that is a linear
+#' combination of fixed fields), the components are the unit differences
+#' `A_j = A(theta + e_j) - A(theta)`. `affine_derivative()` assembles them once
+#' and returns a `derivative` function for [pde_sensitivity()] and
+#' [taylor_test()]; later calls cost no assembly. The result is exact only
+#' for affine families: verify with [taylor_test()].
+#'
+#' @param problem_fun,mesh As in [pde_sensitivity()].
+#' @param theta Parameter vector at which the components are assembled.
+#' @return A `function(theta, j)` returning `list(A = , b = , dirichlet = )`.
+#' @examples
+#' mesh <- pde_mesh_rectangle(nx = 6)
+#' pf <- function(theta) poisson_problem(mesh, diffusion = theta[1], source = theta[2],
+#'                                       boundary = dirichlet_bc(0))
+#' dv <- affine_derivative(pf, c(1, 1))
+#' obs <- pde_observations(0.5, 0.5, 0.1)
+#' pde_sensitivity(pf, c(2, 3), objective = misfit_objective(fe_space(mesh), obs),
+#'                 method = "adjoint", derivative = dv)$gradient
+#' @export
+affine_derivative <- function(problem_fun, theta, mesh = NULL) {
+  theta <- as.numeric(theta)
+  call_pf <- function(th) if (is.null(mesh)) problem_fun(th) else problem_fun(th, mesh)
+  d0 <- discretize(call_pf(theta))
+  comps <- lapply(seq_along(theta), function(j) {
+    tj <- theta; tj[j] <- tj[j] + 1
+    dj <- discretize(call_pf(tj))
+    if (!identical(dj$dirichlet$dofs, d0$dirichlet$dofs)) {
+      stopf("The Dirichlet degrees of freedom must not depend on theta.")
+    }
+    list(A = Matrix::drop0(dj$A - d0$A), b = dj$b - d0$b,
+         dirichlet = dj$dirichlet$values - d0$dirichlet$values)
+  })
+  function(theta, j) comps[[j]]
+}
+
+#' Taylor remainder test of an objective gradient
+#'
+#' Checks a gradient `g` of `J(theta)` by the remainders
+#' `|J(theta + e d) - J(theta) - e g . d|` for decreasing `e`. They must
+#' decrease at second order (observed rates near 2) for a correct gradient
+#' and only at first order for a wrong one.
+#'
+#' @param problem_fun,mesh,objective,lower,upper,derivative As in
+#'   [pde_sensitivity()].
+#' @param theta Parameter vector.
+#' @param direction Perturbation direction (default: all ones).
+#' @param eps Step sizes, decreasing.
+#' @param method Gradient method, `"adjoint"` or `"forward"`.
+#' @return A data frame with `eps`, `remainder` and observed `rate`.
+#' @examples
+#' mesh <- pde_mesh_rectangle(nx = 6)
+#' pf <- function(theta) poisson_problem(mesh, diffusion = theta[1], source = theta[2],
+#'                                       boundary = dirichlet_bc(0))
+#' V <- fe_space(mesh)
+#' obs <- pde_observations(0.5, 0.5, 0.1)
+#' taylor_test(pf, c(1, 1), objective = misfit_objective(V, obs))
+#' @export
+taylor_test <- function(problem_fun, theta, objective, direction = NULL, mesh = NULL,
+                        eps = 10^-(1:4), method = c("adjoint", "forward"), derivative = NULL,
+                        lower = -Inf, upper = Inf) {
+  method <- match.arg(method)
+  theta <- as.numeric(theta)
+  d <- if (is.null(direction)) rep(1, length(theta)) else as.numeric(direction)
+  if (length(d) != length(theta)) stopf("`direction` must have one entry per parameter.")
+  s0 <- pde_sensitivity(problem_fun, theta, mesh = mesh, objective = objective, method = method,
+                        derivative = derivative, lower = lower, upper = upper)
+  call_pf <- function(th) if (is.null(mesh)) problem_fun(th) else problem_fun(th, mesh)
+  Jt <- function(th) objective(solve_pde(call_pf(th))$u$values)$value
+  rem <- vapply(eps, function(e) abs(Jt(theta + e * d) - s0$value - e * sum(s0$gradient * d)), numeric(1))
+  data.frame(eps = eps, remainder = rem,
+             rate = c(NA, log(rem[-length(rem)] / rem[-1]) / log(eps[-length(eps)] / eps[-1])))
 }
 
 #' @export
@@ -121,13 +238,15 @@ reduced_system <- function(problem, solve = TRUE) {
   K <- disc$A[f, f, drop = FALSE]
   r <- disc$b[f]
   if (length(d)) r <- r - as.numeric(disc$A[f, d, drop = FALSE] %*% disc$dirichlet$values)
-  out <- list(K = K, r = r, ud = disc$dirichlet$values, free = f, dofs = d)
+  out <- list(K = K, r = r, ud = disc$dirichlet$values, free = f, dofs = d,
+              A_fd = disc$A[f, d, drop = FALSE])
   if (solve) {
     slv <- linear_solver(K)
     u <- numeric(disc$space$ndof)
     u[d] <- disc$dirichlet$values
     ts <- proc.time()[["elapsed"]]
     sv <- slv$solve(r)
+    warn_solver(sv$info, "state solve")
     u[f] <- sv$x
     out$u <- u
     out$solver <- slv

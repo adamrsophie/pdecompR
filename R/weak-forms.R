@@ -302,6 +302,12 @@ assemble_form <- function(form, kind = c("bilinear", "linear")) {
 #' @param bilinear An `fe_form` containing the trial and test functions.
 #' @param linear An `fe_form` containing only the test function.
 #' @param bcs Dirichlet conditions ([dirichlet_bc()]).
+#' @param nullspace How to treat the constants when no Dirichlet condition is
+#'   given: `"auto"` (default) declares them a nullspace exactly when every
+#'   bilinear term differentiates the trial function (`grad(u)`), so that
+#'   `a(1, v) = 0` holds by construction; `"constant"` asserts the constant
+#'   nullspace (solved with a zero-mean gauge and a compatibility check);
+#'   `"none"` asserts a unique solution.
 #' @return An object of class `variational_problem`.
 #' @examples
 #' V <- fe_space(pde_mesh_rectangle(nx = 8))
@@ -311,7 +317,9 @@ assemble_form <- function(form, kind = c("bilinear", "linear")) {
 #' sol <- solve_pde(variational_problem(a, L, dirichlet_bc(0)))
 #' max(sol$u$values)
 #' @export
-variational_problem <- function(bilinear, linear, bcs = list()) {
+variational_problem <- function(bilinear, linear, bcs = list(),
+                                nullspace = c("auto", "constant", "none")) {
+  nullspace <- match.arg(nullspace)
   stopifnot(inherits(bilinear, "fe_form"), inherits(linear, "fe_form"))
   check_same_space(bilinear, linear)
   bcs <- normalize_bcs(bcs)
@@ -320,7 +328,7 @@ variational_problem <- function(bilinear, linear, bcs = list()) {
   }
   check_bc_markers(bcs, bilinear$space$mesh)
   structure(list(a = bilinear, L = linear, bcs = bcs, space = bilinear$space,
-                 mesh = bilinear$space$mesh, degree = bilinear$space$degree),
+                 mesh = bilinear$space$mesh, degree = bilinear$space$degree, nullspace = nullspace),
             class = c("variational_problem", "pde_problem"))
 }
 
@@ -331,8 +339,13 @@ discretize.variational_problem <- function(problem, ...) {
   A <- assemble_form(problem$a, "bilinear")
   b <- assemble_form(problem$L, "linear")
   dd <- dirichlet_data(V, problem$bcs)
+  ns <- if (is.null(problem$nullspace)) "auto" else problem$nullspace
+  structural <- all(vapply(problem$a$parts, function(pt) {
+    all(vapply(pt$expr$terms, function(t) t$trial %in% c("grad", "none"), logical(1)))
+  }, logical(1)))
+  pn <- !length(dd$dofs) && switch(ns, auto = structural, constant = TRUE, none = FALSE)
   structure(list(space = V, A = A, b = b, dirichlet = dd,
-                 free = setdiff(seq_len(V$ndof), dd$dofs), pure_neumann = constant_kernel(A, dd),
+                 free = setdiff(seq_len(V$ndof), dd$dofs), pure_neumann = pn,
                  assembly_time = proc.time()[["elapsed"]] - t0),
             class = "pde_discretization")
 }

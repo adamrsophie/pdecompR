@@ -132,13 +132,7 @@ print.fe_function <- function(x, ...) {
 #' @export
 evaluate <- function(u, x, y = NULL, gradient = FALSE) {
   stopifnot(inherits(u, "fe_function"))
-  if (is.null(y)) {
-    x <- as.matrix(x)
-    if (ncol(x) == 1L && nrow(x) == 2L) x <- t(x)
-    if (ncol(x) != 2L) stopf("Give points as `x` and `y` vectors or as a two-column matrix.")
-    y <- x[, 2]; x <- x[, 1]
-  }
-  if (length(x) != length(y)) stopf("`x` and `y` must have the same length.")
+  pts <- check_points(x, y); x <- pts$x; y <- pts$y
   loc <- locate_points(u$space$mesh, x, y)
   ok <- !is.na(loc$element)
   val <- rep(NA_real_, length(x))
@@ -164,9 +158,7 @@ evaluate <- function(u, x, y = NULL, gradient = FALSE) {
 #' @export
 evaluation_matrix <- function(space, x, y = NULL) {
   stopifnot(inherits(space, "fe_space"))
-  if (is.null(y)) {
-    x <- as.matrix(x); y <- x[, 2]; x <- x[, 1]
-  }
+  pts <- check_points(x, y); x <- pts$x; y <- pts$y
   loc <- locate_points(space$mesh, x, y)
   if (anyNA(loc$element)) {
     stopf("%d point(s) lie outside the mesh (first: %d).",

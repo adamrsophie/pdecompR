@@ -270,16 +270,6 @@ solve_pde.elliptic_problem <- function(problem, method = "auto", ...) {
 
 # Dirichlet elimination and linear solve shared by all linear stationary
 # problems.
-# For general weak forms (no coefficient provenance): TRUE when no Dirichlet
-# data are imposed and A %*% 1 vanishes to rounding error, measured against
-# the row sums of |A| so that a small but genuine reaction term still counts.
-constant_kernel <- function(A, dd) {
-  if (length(dd$dofs)) return(FALSE)
-  r <- abs(as.numeric(A %*% rep(1, nrow(A))))
-  scale <- as.numeric(abs(A) %*% rep(1, nrow(A)))
-  all(r <= 64 * .Machine$double.eps * scale)
-}
-
 solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6, ...) {
   V <- disc$space
   u <- numeric(V$ndof)
@@ -290,49 +280,53 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
   t0 <- proc.time()[["elapsed"]]
   gauge <- NULL
   if (disc$pure_neumann) {
-    if (mesh_components(V$mesh)$n > 1L) {
-      stopf(paste0("Pure Neumann problems on disconnected meshes are not supported: each ",
-                   "component needs its own constant. Add a Dirichlet condition on every component."))
-    }
-    # Bordered system [A m; m' 0] with m the mass of the constant: it is
-    # nonsingular, and its multiplier lambda = w'b / w'm vanishes exactly when
-    # b is orthogonal to the left null vector w of A (w = 1 when A is
-    # symmetric, so the test is int f + int g = 0; with advection w is not
-    # constant). lambda * sum(m) is therefore the compatibility defect.
+    # Bordered system [A M; M' 0], where column k of M is the mass of the
+    # constant on connected component k (one gauge per component). It is
+    # nonsingular, and multiplier lambda_k = w_k'b / w_k'm_k vanishes exactly
+    # when b is orthogonal to the left null vector w_k of A on component k
+    # (w_k = 1 there when A is symmetric, so the test is int f + int g = 0
+    # per component; with advection w_k is not constant). lambda_k * sum(m_k)
+    # is therefore the compatibility defect of component k.
     one <- assemble_vector(V, 1)
-    K <- rbind(cbind(A, one), c(one, 0))
-    s <- solve_linear_system(K, c(disc$b, 0), method = "lu", ...)
-    comp <- s$x[V$ndof + 1L] * sum(one)
-    scale <- sum(abs(disc$b))
-    rel <- comp / max(scale, 1e-300)
+    cc <- mesh_components(V$mesh)
+    dc <- dof_components(V, cc)
+    nc <- cc$n
+    Mc <- Matrix::sparseMatrix(i = seq_len(V$ndof), j = dc, x = one, dims = c(V$ndof, nc))
+    Z <- Matrix::sparseMatrix(i = integer(), j = integer(), x = numeric(), dims = c(nc, nc))
+    K <- rbind(cbind(A, Mc), cbind(Matrix::t(Mc), Z))
+    s <- solve_linear_system(K, c(disc$b, numeric(nc)), method = "lu", ...)
+    lam <- s$x[V$ndof + seq_len(nc)]
+    mass <- as.numeric(Matrix::colSums(Mc))
+    comp <- lam * mass
+    scale <- as.numeric(tapply(abs(disc$b), factor(dc, levels = seq_len(nc)), sum))
+    rel <- comp / pmax(scale, 1e-300)
     sym <- Matrix::isSymmetric(A, tol = 1e-12)
-    # (h / diameter)^2 is dimensionless, so the decision does not change
-    # with the length unit.
-    bb <- apply(V$mesh$nodes, 2, range)
-    hrel <- mesh_size(V$mesh) / sqrt(sum((bb[2, ] - bb[1, ])^2))
-    tol_c <- if (sym) compatibility_tol else max(compatibility_tol, hrel^2)
-    if (abs(rel) > tol_c) {
-      if (sym) {
-        stopf(paste0("Pure Neumann problem with incompatible data: ",
-                     "compatibility defect %s (relative %s). The problem has no solution."),
-              fmt_num(comp), fmt_num(rel))
-      }
+    # (h / diameter)^2 per component is dimensionless, so the decision does
+    # not change with the length unit.
+    hrel <- vapply(seq_len(nc), function(k) {
+      bb <- apply(V$mesh$nodes[cc$node == k, , drop = FALSE], 2, range)
+      mesh_size(V$mesh) / sqrt(sum((bb[2, ] - bb[1, ])^2))
+    }, numeric(1))
+    tol_c <- if (sym) rep(compatibility_tol, nc) else pmax(compatibility_tol, hrel^2)
+    where <- function(k) if (nc > 1L) sprintf(" on connected component %d", k) else ""
+    for (kk in seq_len(nc)) {
+      if (abs(rel[kk]) <= tol_c[kk]) next
       # With advection the left null vector is only an approximation of the
       # continuous one, so data that are compatible for the PDE leave a
       # defect of the size of the discretization error; only defects above
-      # (h / diameter)^2 are reported.
-      if (abs(rel) > 0.01 + 10 * tol_c) {
-        stopf(paste0("Pure Neumann problem with incompatible data: ",
+      # (h / diameter)^2 are reported, and those above 1% are rejected.
+      if (sym || abs(rel[kk]) > 0.01 + 10 * tol_c[kk]) {
+        stopf(paste0("Pure Neumann problem with incompatible data%s: ",
                      "compatibility defect %s (relative %s). The problem has no solution."),
-              fmt_num(comp), fmt_num(rel))
+              where(kk), fmt_num(comp[kk]), fmt_num(rel[kk]))
       }
-      warnf(paste0("Pure Neumann problem: the data violate the discrete compatibility condition ",
+      warnf(paste0("Pure Neumann problem: the data violate the discrete compatibility condition%s ",
                    "by %s (relative %s); the solution satisfies the equations up to a constant ",
                    "times the multiplier. Check that the data are compatible."),
-            fmt_num(comp), fmt_num(rel))
+            where(kk), fmt_num(comp[kk]), fmt_num(rel[kk]))
     }
     u <- s$x[seq_len(V$ndof)]
-    gauge <- list(type = "zero mean", multiplier = s$x[V$ndof + 1L],
+    gauge <- list(type = "zero mean", components = nc, multiplier = lam,
                   compatibility = comp, relative_compatibility = rel,
                   modified = abs(rel) > tol_c)
     info <- s$info

@@ -262,16 +262,19 @@ plot.pde_vector_solution <- function(x, scale = NULL, main = "Deformed mesh (col
 
 # Error norms of vector solutions: the exact displacement returns two columns,
 # the gradient is a list of two gradient functions (one per component).
-vector_errornorm <- function(u, exact, type, gradient) {
+vector_errornorm <- function(u, exact, type, gradient, quad_degree = NULL, elementwise = FALSE) {
   comp <- function(k) function(x, y) eval_vector(exact, x, y, "exact")[, k]
   if (!is.null(gradient) && !(is.list(gradient) && length(gradient) == 2L)) {
     stopf("For vector solutions `gradient` must be a list of two gradient functions.")
   }
-  ex <- errornorm(u$ux, comp(1), type, gradient = gradient[[1]])
-  ey <- errornorm(u$uy, comp(2), type, gradient = gradient[[2]])
+  ex <- errornorm(u$ux, comp(1), type, gradient = gradient[[1]], quad_degree = quad_degree,
+                  elementwise = elementwise)
+  ey <- errornorm(u$uy, comp(2), type, gradient = gradient[[2]], quad_degree = quad_degree,
+                  elementwise = elementwise)
   out <- sqrt(as.numeric(ex)^2 + as.numeric(ey)^2)
   attr(out, "norm") <- type
   attr(out, "gradient") <- attr(ex, "gradient")
+  if (elementwise) attr(out, "elements") <- attr(ex, "elements") + attr(ey, "elements")
   out
 }
 
