@@ -42,7 +42,8 @@
 #' @param tol Relative residual tolerance for iterative methods.
 #' @param maxit Maximum iterations for iterative methods.
 #' @param preconditioner `"jacobi"`, `"ssor"`, `"none"`, a `function(r)`, or
-#'   a preconditioner from [multigrid_preconditioner()].
+#'   a preconditioner from [multigrid_preconditioner()] or
+#'   [amg_preconditioner()].
 #' @param restart Restart length for GMRES.
 #' @param x0 Initial guess for iterative methods.
 #' @return `solve_linear_system()` returns a list with `x` and `info`, a list
@@ -322,23 +323,116 @@ multigrid_preconditioner <- function(meshes, smoothing = 2L) {
         Pl[[k]] <- Pt[, rows, drop = FALSE]
       }
     }
-    ops <- vector("list", top + 1L)
-    ops[[top + 1L]] <- A
-    for (k in top:1) ops[[k]] <- Matrix::drop0(Matrix::crossprod(Pl[[k]], ops[[k + 1L]] %*% Pl[[k]]))
-    coarse <- linear_solver(ops[[1]])
-    Lo <- lapply(ops, Matrix::tril); Up <- lapply(ops, Matrix::triu)
-    vcycle <- function(k, b) {
-      if (k == 1L) return(coarse$solve(b)$x)
-      Ak <- ops[[k]]
-      x <- numeric(length(b))
-      for (s in seq_len(smoothing)) x <- x + as.numeric(Matrix::solve(Lo[[k]], b - as.numeric(Ak %*% x)))
-      r <- b - as.numeric(Ak %*% x)
-      x <- x + as.numeric(Pl[[k - 1L]] %*% vcycle(k - 1L, as.numeric(Matrix::crossprod(Pl[[k - 1L]], r))))
-      for (s in seq_len(smoothing)) x <- x + as.numeric(Matrix::solve(Up[[k]], b - as.numeric(Ak %*% x)))
-      x
-    }
-    function(r) vcycle(top + 1L, as.numeric(r))
+    mg_cycle(A, Pl, smoothing)
   }, levels = length(meshes)), class = "pde_preconditioner")
+}
+
+# Symmetric V-cycle for A with prolongations Pl[[k]] from level k to k + 1
+# (coarse to fine): Galerkin coarse operators, forward Gauss-Seidel before
+# and backward after the coarse correction, direct solve on level 1.
+mg_cycle <- function(A, Pl, smoothing) {
+  top <- length(Pl)
+  ops <- vector("list", top + 1L)
+  ops[[top + 1L]] <- A
+  for (k in top:1) ops[[k]] <- Matrix::drop0(Matrix::crossprod(Pl[[k]], ops[[k + 1L]] %*% Pl[[k]]))
+  coarse <- linear_solver(ops[[1]])
+  Lo <- lapply(ops, Matrix::tril); Up <- lapply(ops, Matrix::triu)
+  vcycle <- function(k, b) {
+    if (k == 1L) return(coarse$solve(b)$x)
+    Ak <- ops[[k]]
+    x <- numeric(length(b))
+    for (s in seq_len(smoothing)) x <- x + as.numeric(Matrix::solve(Lo[[k]], b - as.numeric(Ak %*% x)))
+    r <- b - as.numeric(Ak %*% x)
+    x <- x + as.numeric(Pl[[k - 1L]] %*% vcycle(k - 1L, as.numeric(Matrix::crossprod(Pl[[k - 1L]], r))))
+    for (s in seq_len(smoothing)) x <- x + as.numeric(Matrix::solve(Up[[k]], b - as.numeric(Ak %*% x)))
+    x
+  }
+  function(r) vcycle(top + 1L, as.numeric(r))
+}
+
+#' Algebraic multigrid preconditioner
+#'
+#' Builds a smoothed aggregation V-cycle from the matrix alone, so it applies
+#' to P2 spaces, unstructured meshes and systems without a mesh hierarchy,
+#' where [multigrid_preconditioner()] does not. Unknowns are grouped into
+#' aggregates of strongly connected neighbors (`|a_ij| >= strength *
+#' sqrt(a_ii a_jj)`); the tentative prolongation is piecewise constant on
+#' the aggregates and, with `smoothed = TRUE`, is improved by one damped
+#' Jacobi step. Coarse operators are Galerkin products, smoothing is
+#' symmetric Gauss-Seidel and the coarsest level (at most `coarse_size`
+#' unknowns) is solved directly. It targets scalar symmetric positive
+#' definite systems such as diffusion problems; use it with
+#' `method = "cg"`.
+#'
+#' @param strength Strength of connection threshold in `[0, 1)`.
+#' @param smoothed Smooth the tentative prolongation.
+#' @param smoothing Gauss-Seidel sweeps before and after the coarse
+#'   correction.
+#' @param coarse_size Largest system solved directly.
+#' @return An object of class `pde_preconditioner`; its setup time is
+#'   recorded in the solver diagnostics as part of the solve time.
+#' @references Vanek, P., Mandel, J. and Brezina, M. (1996). Algebraic
+#'   multigrid by smoothed aggregation for second and fourth order elliptic
+#'   problems. *Computing*, 56, 179-196.
+#' @examples
+#' prob <- poisson_problem(pde_mesh_rectangle(nx = 24), source = 1,
+#'                         boundary = dirichlet_bc(0), degree = 2)
+#' sol <- solve_pde(prob, method = "cg", preconditioner = amg_preconditioner())
+#' sol$diagnostics$solver$iterations
+#' @export
+amg_preconditioner <- function(strength = 0.08, smoothed = TRUE, smoothing = 1L, coarse_size = 300L) {
+  check_number(strength, "strength")
+  if (strength < 0 || strength >= 1) stopf("`strength` must lie in [0, 1).")
+  smoothing <- check_count(smoothing, "smoothing", min = 1L)
+  coarse_size <- check_count(coarse_size, "coarse_size", min = 1L)
+  structure(list(setup = function(A, free = NULL) {
+    A <- methods::as(A, "CsparseMatrix")
+    Pl <- list(); Ak <- A
+    while (nrow(Ak) > coarse_size) {
+      P <- aggregation_prolongation(Ak, strength, smoothed)
+      if (ncol(P) >= 0.9 * nrow(Ak)) break   # aggregation stalled
+      Pl <- c(list(P), Pl)
+      Ak <- Matrix::drop0(Matrix::crossprod(P, Ak %*% P))
+    }
+    if (!length(Pl)) return(make_preconditioner("ssor", A))
+    mg_cycle(A, Pl, smoothing)
+  }, levels = NA_integer_), class = "pde_preconditioner")
+}
+
+# Smoothed aggregation prolongation for a symmetric matrix A.
+aggregation_prolongation <- function(A, strength, smoothed) {
+  n <- nrow(A)
+  d <- abs(Matrix::diag(A)); d[d == 0] <- 1
+  S <- methods::as(Matrix::drop0(A), "TsparseMatrix")
+  i <- S@i + 1L; j <- S@j + 1L
+  keep <- i != j & abs(S@x) >= strength * sqrt(d[i] * d[j])
+  G <- Matrix::sparseMatrix(i = i[keep], j = j[keep], x = 1, dims = c(n, n))
+  G <- methods::as(G, "CsparseMatrix")
+  ptr <- G@p; idx <- G@i + 1L
+  nb <- function(v) if (ptr[v + 1L] > ptr[v]) idx[(ptr[v] + 1L):ptr[v + 1L]] else integer(0)
+  agg <- integer(n); na <- 0L
+  # ponytail: node-by-node R loops (about 1 s per 10^5 unknowns); move to
+  # compiled code if setup ever dominates.
+  for (v in seq_len(n)) {           # pass 1: whole free neighborhoods
+    if (agg[v]) next
+    nv <- nb(v)
+    if (all(agg[nv] == 0L)) { na <- na + 1L; agg[c(v, nv)] <- na }
+  }
+  for (v in which(agg == 0L)) {     # pass 2: join a neighboring aggregate
+    nv <- nb(v); a <- agg[nv][agg[nv] > 0L]
+    if (length(a)) agg[v] <- a[1]
+  }
+  for (v in which(agg == 0L)) {     # pass 3: leftovers
+    if (agg[v]) next
+    nv <- nb(v); na <- na + 1L; agg[c(v, nv[agg[nv] == 0L])] <- na
+  }
+  P <- Matrix::sparseMatrix(i = seq_len(n), j = agg, x = 1, dims = c(n, na))
+  if (!smoothed) return(P)
+  # Damped Jacobi with omega = 4 / (3 rho(D^-1 A)); rho by power iteration.
+  Dinv <- 1 / Matrix::diag(A)
+  x <- sin(seq_len(n)); x <- x / sqrt(sum(x^2)); rho <- 1
+  for (k in 1:15) { y <- Dinv * as.numeric(A %*% x); rho <- sqrt(sum(y^2)); x <- y / rho }
+  Matrix::drop0(P - (4 / (3 * rho)) * (Matrix::Diagonal(x = Dinv) %*% (A %*% P)), tol = 1e-14 * max(abs(Dinv)))
 }
 
 # P1 prolongation from `coarse` to `fine` = one refinement of `coarse`.

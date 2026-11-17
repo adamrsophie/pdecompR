@@ -81,6 +81,7 @@ reference:
   - assemble_matrix
   - solve_linear_system
   - multigrid_preconditioner
+  - amg_preconditioner
 - title: Problems and solvers
   contents:
   - dirichlet_bc

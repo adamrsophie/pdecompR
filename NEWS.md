@@ -59,6 +59,9 @@ the sparse matrix classes of 'Matrix'.
   the discrete energy reported at every step.
 * `pde_mesh()` rejects elements that overlap without sharing an edge
   (folded node neighborhoods or crossing boundary edges).
+* `amg_preconditioner()` adds smoothed aggregation algebraic multigrid for
+  CG, with nearly constant iteration counts on unstructured and P2 meshes
+  where geometric multigrid does not apply.
 * `elasticity_problem(formulation = "mixed")` solves nearly incompressible
   elasticity with P2 displacements and a P1 pressure, free of volumetric
   locking; `elasticity_stress()` uses the pressure unknown.

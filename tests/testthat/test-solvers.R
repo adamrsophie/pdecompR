@@ -51,3 +51,20 @@ test_that("Poisson solves are solver independent", {
   b <- solve_pde(prob, method = "cg", tol = 1e-13)
   expect_equal(a$u$values, b$u$values, tolerance = 1e-10)
 })
+
+test_that("smoothed aggregation AMG gives mesh-independent CG iterations", {
+  L <- pde_domain("polygon", vertices = cbind(c(0, 2, 2, 1, 1, 0), c(0, 0, 1, 1, 2, 2)))
+  it <- vapply(c(0.1, 0.05), function(h) {
+    p <- poisson_problem(pde_mesh_polygon(L, h = h), source = 1, boundary = dirichlet_bc(0), degree = 2)
+    s <- solve_pde(p, method = "cg", preconditioner = amg_preconditioner(), tol = 1e-10)
+    d <- solve_pde(p)
+    expect_equal(s$u$values, d$u$values, tolerance = 1e-7)
+    s$diagnostics$solver$iterations
+  }, numeric(1))
+  expect_lt(it[2], 1.5 * it[1])
+  expect_lt(it[2], 60)
+  A <- assemble_matrix(fe_space(pde_mesh_rectangle(nx = 4)), "stiffness") + assemble_matrix(fe_space(pde_mesh_rectangle(nx = 4)), "mass")
+  s <- solve_linear_system(A, rep(1, nrow(A)), method = "cg", preconditioner = amg_preconditioner())
+  expect_equal(s$info$status, "converged")
+  expect_error(amg_preconditioner(strength = 1), "strength")
+})

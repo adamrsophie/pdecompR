@@ -38,7 +38,8 @@ column; direct methods solve all columns with one factorization).}
 \item{maxit}{Maximum iterations for iterative methods.}
 
 \item{preconditioner}{\code{"jacobi"}, \code{"ssor"}, \code{"none"}, a \verb{function(r)}, or
-a preconditioner from \code{\link[=multigrid_preconditioner]{multigrid_preconditioner()}}.}
+a preconditioner from \code{\link[=multigrid_preconditioner]{multigrid_preconditioner()}} or
+\code{\link[=amg_preconditioner]{amg_preconditioner()}}.}
 
 \item{restart}{Restart length for GMRES.}
 
