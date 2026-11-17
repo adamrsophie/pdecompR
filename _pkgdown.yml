@@ -90,6 +90,7 @@ reference:
   - elasticity_stress
   - wave_problem
   - solve_eigen
+  - stokes_problem
   - displacement_bc
   - trial_function
   - variational_problem
