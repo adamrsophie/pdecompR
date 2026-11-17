@@ -74,6 +74,7 @@ reference:
   contents:
   - assemble_matrix
   - solve_linear_system
+  - multigrid_preconditioner
 - title: Problems and solvers
   contents:
   - dirichlet_bc

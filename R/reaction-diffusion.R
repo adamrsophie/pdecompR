@@ -179,7 +179,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
         f <- free[[s]]
         r <- rhs[f]
         if (length(dd$dofs)) r <- r - as.numeric(Lfd[[s]] %*% dd$values)
-        sol <- solvers[[s]]$solve(r)
+        sol <- solvers[[s]]$solve(r, x0 = U[f, s])
         max_rel <- max(max_rel, sol$info$relative_residual)
         if (!sol$info$status %in% c("solved", "converged")) bad <- sol$info
         Unew[f, s] <- sol$x

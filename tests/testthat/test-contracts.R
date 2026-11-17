@@ -356,3 +356,30 @@ test_that("reference-element kernels agree with the quadrature loop", {
     }
   }
 })
+
+test_that("preconditioners, multigrid and block right-hand sides", {
+  ms <- list(pde_mesh_rectangle(nx = 4))
+  for (k in 1:3) ms[[k + 1]] <- refine_uniform(ms[[k]])
+  its <- vapply(2:4, function(L) {
+    prob <- poisson_problem(ms[[L]], source = 1, boundary = dirichlet_bc(0))
+    s <- solve_pde(prob, method = "cg", preconditioner = multigrid_preconditioner(ms[1:L]))
+    expect_equal(s$diagnostics$solver$status, "converged")
+    expect_lt(max(abs(s$u$values - solve_pde(prob)$u$values)), 1e-10)
+    s$diagnostics$solver$iterations
+  }, numeric(1))
+  expect_lte(max(its) - min(its), 3)
+  expect_error(multigrid_preconditioner(list(ms[[1]], ms[[3]])), "one refine")
+  V <- fe_space(ms[[2]])
+  A <- assemble_matrix(V, "stiffness") + assemble_matrix(V, "mass")
+  B <- cbind(assemble_vector(V, 1), assemble_vector(V, function(x, y) x))
+  d <- solve_linear_system(A, B)
+  expect_equal(dim(d$x), dim(B))
+  expect_equal(d$info$status, "solved")
+  for (pc in list("ssor", "none", function(r) 2 * r)) {
+    s <- solve_linear_system(A, B[, 1], method = "cg", preconditioner = pc, tol = 1e-12)
+    expect_lt(max(abs(s$x - d$x[, 1])), 1e-9)
+  }
+  s <- solve_linear_system(A, B, method = "gmres", preconditioner = "ssor", tol = 1e-12)
+  expect_lt(max(abs(s$x - d$x)), 1e-9)
+  expect_error(solve_linear_system(A, B[, 1], method = "cg", preconditioner = function(r) NA), "invalid")
+})

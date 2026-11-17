@@ -28,7 +28,7 @@ the sparse matrix classes of 'Matrix'.
   finite-element functions, constant symmetric tensors or piecewise values
   by region (`region_coefficient()`).
 * Dirichlet, Neumann and Robin conditions; pure Neumann problems with a
-  compatibility check and a zero-mean gauge.
+  compatibility check and a zero-mean gauge on each connected component.
 * A weak-form language (`trial_function()`, `test_function()`, `grad()`,
   `dot()`, `integrate_domain()`, `integrate_boundary()`) for linear scalar
   problems.
@@ -49,14 +49,20 @@ the sparse matrix classes of 'Matrix'.
 
 ## Solvers
 
-* Sparse Cholesky and LU, and preconditioned conjugate gradients, BiCGSTAB
-  and GMRES, with residual and conditioning diagnostics and an explicit
-  status for every solve.
+* Sparse Cholesky and LU with symmetric equilibration, and preconditioned
+  conjugate gradients, BiCGSTAB and GMRES, with residual and conditioning
+  diagnostics and an explicit status for every solve. Several right-hand
+  sides are solved with one factorization, and time stepping warm starts
+  iterative solvers.
+* Jacobi, symmetric Gauss-Seidel (SSOR) and user-supplied preconditioners,
+  and a geometric multigrid V-cycle on nested meshes
+  (`multigrid_preconditioner()`) with mesh-independent iteration counts.
 
 ## Verification and adaptivity
 
 * L2, H1 and energy error norms against exact or finite-element reference
-  solutions, and convergence studies with observed orders.
+  solutions on nested or unrelated meshes (integrated on the mesh
+  overlay), and convergence studies with observed orders.
 * Symbolic manufactured solutions through the optional 'symcompR' package.
 * A residual a posteriori error estimator, Doerfler marking and an adaptive
   solve loop.
@@ -64,7 +70,10 @@ the sparse matrix classes of 'Matrix'.
 
 ## Inference and control
 
-* Discrete forward and adjoint sensitivities of linear elliptic problems.
+* Discrete forward and adjoint sensitivities of linear elliptic problems,
+  with finite-difference or exact operator derivatives
+  (`affine_derivative()`) and Taylor remainder checks (`taylor_test()`).
 * Parameter estimation with adjoint gradients, bounds (including fixed
-  parameters) and Gauss-Newton standard errors.
+  parameters), Gauss-Newton standard errors and identifiability
+  diagnostics.
 * Distributed optimal control with optional control bounds.

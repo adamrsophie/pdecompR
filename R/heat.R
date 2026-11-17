@@ -190,7 +190,7 @@ solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson"
     rhs <- rhs[free]
     ud <- if (length(bdofs)) dirichlet_data(V, problem$bcs, tn)$values else numeric()
     if (length(bdofs)) rhs <- rhs - as.numeric((if (be) Lfd_be else Lfd) %*% ud)
-    s <- (if (be) slv_be else slv)$solve(rhs)
+    s <- (if (be) slv_be else slv)$solve(rhs, x0 = u[free])  # warm start for iterative methods
     u[free] <- s$x
     if (length(bdofs)) u[bdofs] <- ud
     max_rel <- max(max_rel, s$info$relative_residual)

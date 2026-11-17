@@ -345,7 +345,14 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
       Aff <- A[free, free, drop = FALSE]
       rhs <- disc$b[free]
       if (length(dd$dofs)) rhs <- rhs - as.numeric(A[free, dd$dofs, drop = FALSE] %*% dd$values)
-      s <- solve_linear_system(Aff, rhs, method = method, ...)
+      dots <- list(...)
+      pcs <- dots$preconditioner
+      if (inherits(pcs, "pde_preconditioner")) {
+        # Tell a mesh-based preconditioner which degrees of freedom are free.
+        dots$preconditioner <- structure(list(setup = function(A) pcs$setup(A, free)),
+                                         class = "pde_preconditioner")
+      }
+      s <- do.call(solve_linear_system, c(list(Aff, rhs, method = method), dots))
       u[free] <- s$x
       info <- s$info
       warn_solver(info)

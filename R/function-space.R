@@ -251,6 +251,18 @@ locate_points <- function(mesh, x, y, tol = 1e-10) {
 transfer_function <- function(u, mesh, degree = u$space$degree) {
   stopifnot(inherits(u, "fe_function"))
   V <- fe_space(mesh, degree)
+  # One refinement step of u's mesh: P1 values at new nodes are the averages
+  # of the two parent edge endpoints (exact, and no point location).
+  inf <- mesh$info; P0 <- u$space$mesh$nodes
+  if (degree == 1L && u$space$degree == 1L && !is.null(inf$new_nodes) &&
+      identical(inf$parent_nodes, nrow(P0)) && nrow(mesh$nodes) == nrow(P0) + nrow(inf$new_nodes) &&
+      isTRUE(all.equal(mesh$nodes[seq_len(nrow(P0)), , drop = FALSE], P0, tolerance = 0, check.attributes = FALSE))) {
+    E <- inf$new_nodes
+    mid <- (P0[E[, 1], , drop = FALSE] + P0[E[, 2], , drop = FALSE]) / 2
+    if (max(abs(mid - mesh$nodes[-seq_len(nrow(P0)), , drop = FALSE]), 0) <= 1e-12 * max(1, abs(P0))) {
+      return(fe_function(V, c(u$values, (u$values[E[, 1]] + u$values[E[, 2]]) / 2), name = u$name))
+    }
+  }
   vals <- evaluate(u, V$dof_coords)
   if (anyNA(vals)) stopf("The target mesh is not covered by the source mesh.")
   fe_function(V, vals, name = u$name)

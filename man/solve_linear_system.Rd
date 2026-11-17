@@ -11,7 +11,7 @@ solve_linear_system(
   method = c("auto", "cholesky", "lu", "cg", "bicgstab", "gmres"),
   tol = 1e-10,
   maxit = 10 * length(b),
-  preconditioner = c("jacobi", "none"),
+  preconditioner = "jacobi",
   restart = 50,
   x0 = NULL
 )
@@ -21,14 +21,15 @@ linear_solver(
   method = c("auto", "cholesky", "lu", "cg", "bicgstab", "gmres"),
   tol = 1e-10,
   maxit = NULL,
-  preconditioner = c("jacobi", "none"),
+  preconditioner = "jacobi",
   restart = 50
 )
 }
 \arguments{
 \item{A}{A square sparse matrix (\code{Matrix} class) or base matrix.}
 
-\item{b}{Right-hand side vector.}
+\item{b}{Right-hand side vector, or a matrix of right-hand sides (one per
+column; direct methods solve all columns with one factorization).}
 
 \item{method}{Solver, see Details.}
 
@@ -36,7 +37,8 @@ linear_solver(
 
 \item{maxit}{Maximum iterations for iterative methods.}
 
-\item{preconditioner}{\code{"jacobi"} or \code{"none"}.}
+\item{preconditioner}{\code{"jacobi"}, \code{"ssor"}, \code{"none"}, a \verb{function(r)}, or
+a preconditioner from \code{\link[=multigrid_preconditioner]{multigrid_preconditioner()}}.}
 
 \item{restart}{Restart length for GMRES.}
 
@@ -68,7 +70,12 @@ matrices only).
 general matrices.
 }
 
-Iterative methods use Jacobi (diagonal) preconditioning by default and
+Iterative methods use Jacobi (diagonal) preconditioning by default;
+\code{"ssor"} is symmetric Gauss-Seidel (two sparse triangular solves per
+application, symmetric for symmetric matrices, so usable with CG); a
+\code{\link[=multigrid_preconditioner]{multigrid_preconditioner()}} gives mesh-independent iteration counts on
+nested meshes; and any \verb{function(r)} returning an approximation of
+\verb{A^\{-1\} r} can be passed. Iterative methods
 iterate on the scaled system \verb{A y = b / max|b|}, which avoids overflow and
 underflow. They report \code{"converged"} only when the true residual of the
 returned solution satisfies \verb{||b - A x|| <= tol * ||b||}, and

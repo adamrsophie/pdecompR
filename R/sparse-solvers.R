@@ -17,7 +17,12 @@
 #' * `"bicgstab"`, `"gmres"`: preconditioned BiCGSTAB and restarted GMRES for
 #'   general matrices.
 #'
-#' Iterative methods use Jacobi (diagonal) preconditioning by default and
+#' Iterative methods use Jacobi (diagonal) preconditioning by default;
+#' `"ssor"` is symmetric Gauss-Seidel (two sparse triangular solves per
+#' application, symmetric for symmetric matrices, so usable with CG); a
+#' [multigrid_preconditioner()] gives mesh-independent iteration counts on
+#' nested meshes; and any `function(r)` returning an approximation of
+#' `A^{-1} r` can be passed. Iterative methods
 #' iterate on the scaled system `A y = b / max|b|`, which avoids overflow and
 #' underflow. They report `"converged"` only when the true residual of the
 #' returned solution satisfies `||b - A x|| <= tol * ||b||`, and
@@ -31,11 +36,13 @@
 #' it says nothing about the discretization error of the PDE.
 #'
 #' @param A A square sparse matrix (`Matrix` class) or base matrix.
-#' @param b Right-hand side vector.
+#' @param b Right-hand side vector, or a matrix of right-hand sides (one per
+#'   column; direct methods solve all columns with one factorization).
 #' @param method Solver, see Details.
 #' @param tol Relative residual tolerance for iterative methods.
 #' @param maxit Maximum iterations for iterative methods.
-#' @param preconditioner `"jacobi"` or `"none"`.
+#' @param preconditioner `"jacobi"`, `"ssor"`, `"none"`, a `function(r)`, or
+#'   a preconditioner from [multigrid_preconditioner()].
 #' @param restart Restart length for GMRES.
 #' @param x0 Initial guess for iterative methods.
 #' @return `solve_linear_system()` returns a list with `x` and `info`, a list
@@ -55,10 +62,9 @@
 #' @export
 solve_linear_system <- function(A, b, method = c("auto", "cholesky", "lu", "cg", "bicgstab", "gmres"),
                                 tol = 1e-10, maxit = 10 * length(b),
-                                preconditioner = c("jacobi", "none"), restart = 50,
+                                preconditioner = "jacobi", restart = 50,
                                 x0 = NULL) {
   method <- match.arg(method)
-  preconditioner <- match.arg(preconditioner)
   t0 <- proc.time()[["elapsed"]]
   s <- linear_solver(A, method, tol = tol, maxit = maxit,
                      preconditioner = preconditioner, restart = restart)
@@ -70,10 +76,14 @@ solve_linear_system <- function(A, b, method = c("auto", "cholesky", "lu", "cg",
 #' @rdname solve_linear_system
 #' @export
 linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgstab", "gmres"),
-                          tol = 1e-10, maxit = NULL, preconditioner = c("jacobi", "none"),
+                          tol = 1e-10, maxit = NULL, preconditioner = "jacobi",
                           restart = 50) {
   method <- match.arg(method)
-  preconditioner <- match.arg(preconditioner)
+  if (is.character(preconditioner)) {
+    preconditioner <- match.arg(preconditioner, c("jacobi", "ssor", "none"))
+  } else if (!is.function(preconditioner) && !inherits(preconditioner, "pde_preconditioner")) {
+    stopf("`preconditioner` must be \"jacobi\", \"ssor\", \"none\" or a function.")
+  }
   A_res <- if (inherits(A, "Matrix")) A else methods::as(A, "CsparseMatrix")  # for residuals, as passed
   A <- Matrix::drop0(methods::as(methods::as(A, "CsparseMatrix"), "generalMatrix"))
   n <- nrow(A)
@@ -147,11 +157,9 @@ linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgsta
       singular <- !is.finite(ratio) || ratio < 1e3 * .Machine$double.eps
     }
   }
-  dinv <- if (preconditioner == "jacobi") {
-    d <- Matrix::diag(A)
-    ifelse(d != 0, 1 / d, 1)
-  } else rep(1, n)
+  pc <- if (!used %in% c("cg", "bicgstab", "gmres")) NULL else make_preconditioner(preconditioner, A)
   solve_fun <- function(b, x0 = NULL) {
+    if (is.matrix(b) && ncol(b) != 1L) return(solve_block(b, x0))
     b <- as.numeric(b)
     if (length(b) != n) stopf("The right-hand side has length %d; expected %d.", length(b), n)
     it <- NA_integer_
@@ -170,9 +178,9 @@ linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgsta
       } else {
         xs <- if (is.null(x0)) NULL else as.numeric(x0) / sc
         res <- switch(used,
-                      cg = krylov_cg(A, b / sc, xs, dinv, tol, maxit),
-                      bicgstab = krylov_bicgstab(A, b / sc, xs, dinv, tol, maxit),
-                      gmres = krylov_gmres(A, b / sc, xs, dinv, tol, maxit, restart))
+                      cg = krylov_cg(A, b / sc, xs, pc, tol, maxit),
+                      bicgstab = krylov_bicgstab(A, b / sc, xs, pc, tol, maxit),
+                      gmres = krylov_gmres(A, b / sc, xs, pc, tol, maxit, restart))
         res$x <- res$x * sc
       }
       x <- res$x; it <- res$iterations
@@ -198,14 +206,162 @@ linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgsta
     if (!is.null(note)) info$note <- note
     list(x = x, info = info)
   }
+  # Several right-hand sides: one triangular solve pair for all columns with
+  # a factorization, column by column otherwise. The info reports the worst
+  # column.
+  solve_block <- function(B, X0 = NULL) {
+    B <- as.matrix(B)
+    if (nrow(B) != n) stopf("The right-hand side has %d rows; expected %d.", nrow(B), n)
+    if (any(!is.finite(B))) stopf("The right-hand side contains non-finite values.")
+    if (!ncol(B)) return(list(x = matrix(0, n, 0), info = c(list(method = used, status = "solved"), base)))
+    if (used %in% c("cholesky", "lu")) {
+      X <- tryCatch(sc * as.matrix(Matrix::solve(factor, sc * B)),
+                    error = function(e) stopf("Sparse solve failed: %s", conditionMessage(e)))
+      R <- B - as.matrix(A_res %*% X)
+      r <- apply(R, 2, safe_norm); nb <- apply(B, 2, safe_norm)
+      rel <- ifelse(nb > 0, r / nb, r)
+      den <- normA * apply(X, 2, safe_norm) + nb
+      bwe <- ifelse(den > 0, r / den, r)
+      status <- if (!all(is.finite(X))) "failed" else if (!all(is.finite(bwe) & bwe < 1e-8)) "inaccurate"
+                else if (singular) "near-singular" else "solved"
+      k <- which.max(rel)
+      info <- c(list(method = used, status = status, residual = r[k], relative_residual = rel[k],
+                     iterations = NA_integer_, columns = ncol(B)), base)
+      if (!is.null(note)) info$note <- note
+      return(list(x = X, info = info))
+    }
+    cols <- lapply(seq_len(ncol(B)), function(j) solve_fun(B[, j], if (is.null(X0)) NULL else as.matrix(X0)[, j]))
+    rel <- vapply(cols, function(c) c$info$relative_residual, numeric(1))
+    ok <- vapply(cols, function(c) solve_ok(c$info), logical(1))
+    k <- if (all(ok)) which.max(rel) else which(!ok)[1]
+    info <- cols[[k]]$info
+    info$iterations <- max(vapply(cols, function(c) c$info$iterations, numeric(1)))
+    info$columns <- ncol(B)
+    list(x = vapply(cols, function(c) c$x, numeric(n)), info = info)
+  }
   list(solve = solve_fun, info = c(list(method = used), base), matrix = A)
 }
 
-krylov_cg <- function(A, b, x0, dinv, tol, maxit) {
+# Turn the `preconditioner` argument into a function r -> M^{-1} r.
+make_preconditioner <- function(pc, A) {
+  if (inherits(pc, "pde_preconditioner")) return(pc$setup(A))
+  if (is.function(pc)) {
+    return(function(r) {
+      z <- as.numeric(pc(r))
+      if (length(z) != length(r) || any(!is.finite(z))) stopf("The preconditioner returned an invalid vector.")
+      z
+    })
+  }
+  switch(pc,
+    none = function(r) r,
+    jacobi = {
+      d <- Matrix::diag(A); dinv <- ifelse(d != 0, 1 / d, 1)
+      function(r) dinv * r
+    },
+    ssor = {
+      d <- Matrix::diag(A)
+      if (any(d == 0)) stopf("SSOR needs a nonzero diagonal.")
+      Lo <- Matrix::tril(A); Up <- Matrix::triu(A)
+      function(r) as.numeric(Matrix::solve(Up, d * as.numeric(Matrix::solve(Lo, r))))
+    })
+}
+
+#' Geometric multigrid preconditioner
+#'
+#' Builds a V-cycle preconditioner for P1 systems on a hierarchy of nested
+#' meshes, each obtained from the previous one by one call of
+#' [refine_uniform()] or [refine_mesh()]. Prolongation is exact P1
+#' interpolation (new nodes are edge midpoints, taken from the refinement
+#' record), coarse operators are Galerkin products `P^T A P`, smoothing is
+#' forward Gauss-Seidel before and backward Gauss-Seidel after the coarse
+#' correction (so the cycle is symmetric for symmetric `A` and can
+#' precondition CG), and the coarsest level is solved directly. With
+#' Dirichlet conditions the fine-level prolongation is restricted to the
+#' free degrees of freedom automatically.
+#'
+#' Pass it as `preconditioner` to [solve_linear_system()],
+#' [linear_solver()] or [solve_pde()] for elliptic problems, together with
+#' an iterative `method`. The iteration count then stays nearly constant as
+#' the mesh is refined.
+#'
+#' @param meshes List of nested meshes, coarse to fine; the last one is the
+#'   mesh of the system.
+#' @param smoothing Gauss-Seidel sweeps before and after the coarse
+#'   correction.
+#' @return An object of class `pde_preconditioner`.
+#' @examples
+#' m0 <- pde_mesh_rectangle(nx = 4)
+#' ms <- list(m0)
+#' for (k in 1:3) ms[[k + 1]] <- refine_uniform(ms[[k]])
+#' prob <- poisson_problem(ms[[4]], source = 1, boundary = dirichlet_bc(0))
+#' sol <- solve_pde(prob, method = "cg", preconditioner = multigrid_preconditioner(ms))
+#' sol$diagnostics$solver$iterations
+#' @export
+multigrid_preconditioner <- function(meshes, smoothing = 2L) {
+  if (!is.list(meshes) || length(meshes) < 2L || !all(vapply(meshes, inherits, logical(1), "pde_mesh"))) {
+    stopf("`meshes` must be a list of at least two nested meshes, coarse to fine.")
+  }
+  smoothing <- check_count(smoothing, "smoothing", min = 1L)
+  P <- lapply(seq_len(length(meshes) - 1L), function(k) refinement_prolongation(meshes[[k]], meshes[[k + 1L]]))
+  nf <- nrow(meshes[[length(meshes)]]$nodes)
+  structure(list(setup = function(A, free = NULL) {
+    n <- nrow(A)
+    Pl <- P
+    top <- length(Pl)
+    if (is.null(free)) {
+      if (n != nf) stopf("The system has %d unknowns but the finest mesh has %d nodes; give `free`.", n, nf)
+    } else {
+      if (length(free) != n) stopf("`free` has %d entries; the system has %d unknowns.", length(free), n)
+      # Restrict to the free rows level by level, dropping coarse unknowns
+      # that no longer influence any free fine unknown.
+      rows <- free
+      for (k in top:1) {
+        Pt <- Pl[[k]][rows, , drop = FALSE]
+        rows <- which(Matrix::colSums(abs(Pt)) > 0)
+        Pl[[k]] <- Pt[, rows, drop = FALSE]
+      }
+    }
+    ops <- vector("list", top + 1L)
+    ops[[top + 1L]] <- A
+    for (k in top:1) ops[[k]] <- Matrix::drop0(Matrix::crossprod(Pl[[k]], ops[[k + 1L]] %*% Pl[[k]]))
+    coarse <- linear_solver(ops[[1]])
+    Lo <- lapply(ops, Matrix::tril); Up <- lapply(ops, Matrix::triu)
+    vcycle <- function(k, b) {
+      if (k == 1L) return(coarse$solve(b)$x)
+      Ak <- ops[[k]]
+      x <- numeric(length(b))
+      for (s in seq_len(smoothing)) x <- x + as.numeric(Matrix::solve(Lo[[k]], b - as.numeric(Ak %*% x)))
+      r <- b - as.numeric(Ak %*% x)
+      x <- x + as.numeric(Pl[[k - 1L]] %*% vcycle(k - 1L, as.numeric(Matrix::crossprod(Pl[[k - 1L]], r))))
+      for (s in seq_len(smoothing)) x <- x + as.numeric(Matrix::solve(Up[[k]], b - as.numeric(Ak %*% x)))
+      x
+    }
+    function(r) vcycle(top + 1L, as.numeric(r))
+  }, levels = length(meshes)), class = "pde_preconditioner")
+}
+
+# P1 prolongation from `coarse` to `fine` = one refinement of `coarse`.
+refinement_prolongation <- function(coarse, fine) {
+  inf <- fine$info; P0 <- coarse$nodes; n0 <- nrow(P0)
+  ok <- !is.null(inf$new_nodes) && identical(inf$parent_nodes, n0) &&
+    nrow(fine$nodes) == n0 + nrow(inf$new_nodes) &&
+    max(abs(fine$nodes[seq_len(n0), , drop = FALSE] - P0), 0) == 0
+  if (ok) {
+    E <- inf$new_nodes
+    mid <- (P0[E[, 1], , drop = FALSE] + P0[E[, 2], , drop = FALSE]) / 2
+    ok <- max(abs(mid - fine$nodes[-seq_len(n0), , drop = FALSE]), 0) <= 1e-12 * max(1, abs(P0))
+  }
+  if (!ok) stopf("Each mesh must come from the previous one by one refine_uniform() or refine_mesh() step.")
+  ne <- nrow(E)
+  Matrix::sparseMatrix(i = c(seq_len(n0), n0 + rep(seq_len(ne), 2)), j = c(seq_len(n0), E[, 1], E[, 2]),
+                       x = c(rep(1, n0), rep(0.5, 2 * ne)), dims = c(n0 + ne, n0))
+}
+
+krylov_cg <- function(A, b, x0, pc, tol, maxit) {
   x <- if (is.null(x0)) numeric(length(b)) else as.numeric(x0)
   r <- b - as.numeric(A %*% x)
   nb <- sqrt(sum(b^2)); if (nb == 0) return(list(x = numeric(length(b)), iterations = 0L, converged = TRUE))
-  z <- dinv * r; p <- z; rz <- sum(r * z)
+  z <- pc(r); p <- z; rz <- sum(r * z)
   for (k in seq_len(maxit)) {
     if (sqrt(sum(r^2)) <= tol * nb) return(list(x = x, iterations = k - 1L, converged = TRUE))
     Ap <- as.numeric(A %*% p)
@@ -213,13 +369,13 @@ krylov_cg <- function(A, b, x0, dinv, tol, maxit) {
     if (pAp <= 0) return(list(x = x, iterations = k, converged = FALSE))
     a <- rz / pAp
     x <- x + a * p; r <- r - a * Ap
-    z <- dinv * r; rz_new <- sum(r * z)
+    z <- pc(r); rz_new <- sum(r * z)
     p <- z + (rz_new / rz) * p; rz <- rz_new
   }
   list(x = x, iterations = maxit, converged = sqrt(sum(r^2)) <= tol * nb)
 }
 
-krylov_bicgstab <- function(A, b, x0, dinv, tol, maxit) {
+krylov_bicgstab <- function(A, b, x0, pc, tol, maxit) {
   x <- if (is.null(x0)) numeric(length(b)) else as.numeric(x0)
   r <- b - as.numeric(A %*% x)
   nb <- sqrt(sum(b^2)); if (nb == 0) return(list(x = numeric(length(b)), iterations = 0L, converged = TRUE))
@@ -231,7 +387,7 @@ krylov_bicgstab <- function(A, b, x0, dinv, tol, maxit) {
     if (rho_new == 0) break
     beta <- (rho_new / rho) * (alpha / omega)
     p <- r + beta * (p - omega * v)
-    ph <- dinv * p
+    ph <- pc(p)
     v <- as.numeric(A %*% ph)
     rv <- sum(rhat * v)
     if (!is.finite(rv) || rv == 0) break
@@ -241,7 +397,7 @@ krylov_bicgstab <- function(A, b, x0, dinv, tol, maxit) {
       x <- x + alpha * ph
       return(list(x = x, iterations = k, converged = TRUE))
     }
-    sh <- dinv * s
+    sh <- pc(s)
     tt <- as.numeric(A %*% sh)
     t2 <- sum(tt * tt)
     if (!is.finite(t2) || t2 == 0) { x <- x + alpha * ph; r <- s; break }
@@ -254,7 +410,7 @@ krylov_bicgstab <- function(A, b, x0, dinv, tol, maxit) {
   list(x = x, iterations = k, converged = isTRUE(sqrt(sum(r^2)) <= tol * nb))
 }
 
-krylov_gmres <- function(A, b, x0, dinv, tol, maxit, restart) {
+krylov_gmres <- function(A, b, x0, pc, tol, maxit, restart) {
   n <- length(b)
   x <- if (is.null(x0)) numeric(n) else as.numeric(x0)
   nb <- sqrt(sum(b^2)); if (nb == 0) return(list(x = numeric(length(b)), iterations = 0L, converged = TRUE))
@@ -270,7 +426,7 @@ krylov_gmres <- function(A, b, x0, dinv, tol, maxit, restart) {
     j_used <- 0L
     for (j in seq_len(m)) {
       total <- total + 1L
-      w <- as.numeric(A %*% (dinv * V[, j]))
+      w <- as.numeric(A %*% pc(V[, j]))
       for (i in seq_len(j)) {
         H[i, j] <- sum(w * V[, i]); w <- w - H[i, j] * V[, i]
       }
@@ -291,7 +447,7 @@ krylov_gmres <- function(A, b, x0, dinv, tol, maxit, restart) {
     }
     if (j_used == 0L) break
     y <- backsolve(H[seq_len(j_used), seq_len(j_used), drop = FALSE], g[seq_len(j_used)])
-    x <- x + dinv * as.numeric(V[, seq_len(j_used), drop = FALSE] %*% y)
+    x <- x + pc(as.numeric(V[, seq_len(j_used), drop = FALSE] %*% y))
   }
   r <- b - as.numeric(A %*% x)
   list(x = x, iterations = total, converged = isTRUE(sqrt(sum(r^2)) <= tol * nb))
