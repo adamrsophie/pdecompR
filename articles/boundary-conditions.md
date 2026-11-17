@@ -113,9 +113,9 @@ summary(s)
 #>   degrees of freedom: 625 (625 free)
 #>   matrix nonzeros: 4177
 #>   solver: lu, status solved
-#>   linear residual: 6.84e-15 (relative 1.74e-14)
+#>   linear residual: 6.41e-12 (relative 1.63e-11)
 #>   pure Neumann: zero-mean gauge, compatibility defect -1.57e-10
-#>   assembly 0.007 s, solve 0.005 s
+#>   assembly 0.004 s, solve 0.011 s
 #>   solution range [-0.9937, 1.003]
 #>   (the linear residual measures the algebraic solve, not the discretization error)
 ```

@@ -6,7 +6,7 @@ linear elliptic solution:
 ## Usage
 
 ``` r
-estimate_error(solution)
+estimate_error(solution, diffusion_gradient = NULL)
 ```
 
 ## Arguments
@@ -15,6 +15,11 @@ estimate_error(solution)
 
   A `pde_solution` of an
   [`elliptic_problem()`](https://adamrsophie.github.io/pdecompR/reference/elliptic_problem.md).
+
+- diffusion_gradient:
+
+  Optional exact gradient of a scalar diffusion coefficient,
+  `function(x, y)` returning a two-column matrix.
 
 ## Value
 
@@ -37,9 +42,14 @@ on each side of an edge separately, so coefficients that jump across
 element edges are handled; finite-element coefficients are allowed. For
 P1 with constant diffusion the divergence term vanishes; variable scalar
 diffusion contributes `grad k . grad u_h`, computed with central
-differences of `k`. The estimator is reliable and efficient up to
-constants for diffusion-dominated problems (Verfurth 2013); it is not
-robust for strongly advection-dominated problems.
+differences of `k` with a step of `1e-3` times the inradius of each
+element, so the differences stay inside the element (pass
+`diffusion_gradient` for an exact gradient). Region coefficients
+([`region_coefficient()`](https://adamrsophie.github.io/pdecompR/reference/region_coefficient.md))
+are constant on each element and contribute nothing. The estimator is
+reliable and efficient up to constants for diffusion-dominated problems
+(Verfurth 2013); it is not robust for strongly advection-dominated
+problems.
 
 ## References
 

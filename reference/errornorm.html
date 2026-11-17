@@ -102,8 +102,12 @@ list of two gradient functions, one per component).</p></dd>
 
 <dt id="arg-exact">exact<a class="anchor" aria-label="anchor" href="#arg-exact"></a></dt>
 <dd><p>Exact solution <code>function(x, y)</code>, or an <code><a href="fe_function.html">fe_function()</a></code>
-reference solution (for example on a finer mesh, possibly of another
-degree); its gradient is then used for gradient norms.</p></dd>
+reference solution on the same mesh or on a nested one (coarser, or finer
+from <code><a href="refine_uniform.html">refine_uniform()</a></code> or <code><a href="refine_uniform.html">refine_mesh()</a></code>), possibly of another degree;
+its gradient is then used for gradient norms. The integral runs on the
+finer of the two meshes, so the result is exact up to quadrature and
+symmetric in the two functions. References on meshes that are not nested
+are rejected.</p></dd>
 
 
 <dt id="arg-type">type<a class="anchor" aria-label="anchor" href="#arg-type"></a></dt>
@@ -140,10 +144,12 @@ function of <code>(x, y)</code> or a constant 2 by 2 matrix.</p></dd>
 <li><p><code>"H1"</code>: the full norm <code>sqrt(L2^2 + H1_semi^2)</code>;</p></li>
 <li><p><code>"energy"</code>: <code>sqrt(int k |grad(u - u_h)|^2)</code> with diffusion <code>k</code>.</p></li>
 </ul><p>Gradient-based norms need the exact gradient. When <code>gradient</code> is not given
-it is approximated by central differences (step <code>1e-5</code>); the result is then
-labeled with attribute <code>gradient = "finite difference"</code> and is accurate to
-about 1e-9 relative, which is adequate for convergence studies on
-moderately fine meshes.</p>
+it is approximated by central differences with step <code>1e-5</code> times the
+domain diameter; the result is then labeled with attribute
+<code>gradient = "finite difference"</code>. Its accuracy depends on the smoothness of
+<code>exact</code> (the truncation error is of order step squared times the third
+derivative), and it is wrong near jumps of the gradient, so pass <code>gradient</code>
+for verification work.</p>
     </div>
 
     <div class="section level2">

@@ -152,12 +152,17 @@ symmetric positive definite.</p></li>
 matrices only).</p></li>
 <li><p><code>"bicgstab"</code>, <code>"gmres"</code>: preconditioned BiCGSTAB and restarted GMRES for
 general matrices.</p></li>
-</ul><p>Iterative methods use Jacobi (diagonal) preconditioning by default and stop
-when <code>||b - A x|| &lt;= tol * ||b||</code>. Direct methods report the same relative
-residual, and status <code>"singular"</code> when the ratio of the smallest to the
-largest pivot of the factorization is below about <code>2e-13</code> (the matrix is
-singular to working precision, for example a stiffness matrix without
-boundary conditions). A small residual says the linear system was solved accurately;
+</ul><p>Iterative methods use Jacobi (diagonal) preconditioning by default and
+iterate on the scaled system <code>A y = b / max|b|</code>, which avoids overflow and
+underflow. They report <code>"converged"</code> only when the true residual of the
+returned solution satisfies <code>||b - A x|| &lt;= tol * ||b||</code>, and
+<code>"not converged"</code> otherwise. Direct methods report the same relative
+residual, status <code>"inaccurate"</code> when the normwise backward error
+<code>||b - A x|| / (||A|| ||x|| + ||b||)</code> exceeds <code>1e-8</code>, and status <code>"near-singular"</code> when the ratio of the smallest to
+the largest pivot of the factorization is below about <code>2e-13</code>. That ratio
+is a conditioning diagnostic: the matrix is singular or nearly singular to
+working precision, for example a stiffness matrix without boundary
+conditions. A system with no unknowns returns method <code>"none"</code>. A small residual says the linear system was solved accurately;
 it says nothing about the discretization error of the PDE.</p>
     </div>
     <div class="section level2">
@@ -174,7 +179,7 @@ Systems</em>, 2nd edition. SIAM.</p>
 <span class="r-in"><span><span class="va">s1</span> <span class="op">&lt;-</span> <span class="fu">solve_linear_system</span><span class="op">(</span><span class="va">A</span>, <span class="va">b</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="va">s2</span> <span class="op">&lt;-</span> <span class="fu">solve_linear_system</span><span class="op">(</span><span class="va">A</span>, <span class="va">b</span>, method <span class="op">=</span> <span class="st">"cg"</span>, tol <span class="op">=</span> <span class="fl">1e-12</span><span class="op">)</span></span></span>
 <span class="r-in"><span><span class="fu"><a href="https://rdrr.io/r/base/Extremes.html" class="external-link">max</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/MathFun.html" class="external-link">abs</a></span><span class="op">(</span><span class="va">s1</span><span class="op">$</span><span class="va">x</span> <span class="op">-</span> <span class="va">s2</span><span class="op">$</span><span class="va">x</span><span class="op">)</span><span class="op">)</span></span></span>
-<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 1.687539e-14</span>
+<span class="r-out co"><span class="r-pr">#&gt;</span> [1] 7.105427e-15</span>
 <span class="r-in"><span><span class="va">s2</span><span class="op">$</span><span class="va">info</span><span class="op">$</span><span class="va">iterations</span></span></span>
 <span class="r-out co"><span class="r-pr">#&gt;</span> [1] 23</span>
 </code></pre></div>

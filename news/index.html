@@ -65,41 +65,46 @@
 
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.0" id="pdecompr-010">pdecompR 0.1.0<a class="anchor" aria-label="anchor" href="#pdecompr-010"></a></h2>
-<ul><li>First version. A pure R finite-element framework for two-dimensional scalar PDEs:
-<ul><li>domains (rectangles, simple polygons), structured and polygon triangular meshes with validation, quality measures and named boundary markers, Gmsh 2.2 and 4.1 import, VTK export;</li>
-<li>continuous Lagrange P1 and P2 elements, Gaussian quadrature on intervals and triangles, sparse assembly through ‘Matrix’;</li>
-<li>Dirichlet, Neumann and Robin conditions, pure Neumann problems with compatibility checks and a zero-mean gauge;</li>
-<li>linear elasticity with vector-valued P1 and P2 displacements, plane strain and plane stress, displacement (including roller) and traction conditions;</li>
-<li>elliptic (diffusion, advection with optional SUPG, reaction), heat and general parabolic (backward Euler, Crank-Nicolson), reaction-diffusion systems (IMEX and Newton), quasilinear and p-Laplace solvers;</li>
-<li>a weak-form language (<code><a href="../reference/trial_function.html">trial_function()</a></code>, <code><a href="../reference/trial_function.html">grad()</a></code>, <code><a href="../reference/trial_function.html">dot()</a></code>, <code><a href="../reference/trial_function.html">integrate_domain()</a></code>, <code><a href="../reference/trial_function.html">integrate_boundary()</a></code>);</li>
-<li>error norms, convergence studies, a residual error estimator, Doerfler marking and newest vertex bisection;</li>
-<li>discrete forward and adjoint sensitivities, parameter estimation and distributed optimal control.</li>
-</ul></li>
-<li>Robustness before release:
-<ul><li>singular systems are detected from the assembled operator: Robin conditions with <code>alpha = 0</code>, variational problems, advection with zero-flux boundaries (left null vector compatibility) and elasticity constraints that leave a rigid motion;</li>
-<li>linear solves that do not reach their tolerance give a warning, and iterative solvers guard against breakdown and zero right-hand sides;</li>
-<li>the error estimator evaluates the diffusion on each side of an edge, gives Dirichlet conditions precedence as the solver does, and measures how well the space represents Dirichlet data;</li>
-<li>finite-element coefficients and initial data are evaluated on their own space, so they may come from another mesh or degree; <code><a href="../reference/errornorm.html">errornorm()</a></code> accepts a reference <code>fe_function</code>;</li>
-<li>time-dependent Neumann and Robin data work in heat and reaction-diffusion problems; only a third argument named <code>t</code> makes a function time dependent;</li>
-<li>Crank-Nicolson starts with two backward Euler steps (<code>startup</code>) to damp oscillations from rough initial data;</li>
-<li>the weak-form language rejects products of directional derivatives, gradients of coefficient products and mixed function spaces;</li>
-<li>SUPG accepts tensor diffusion; P2 functions are plotted on subdivided elements; plots compose with <code>par(mfrow = ...)</code>; <code><a href="../reference/write_vtk.html">write_vtk()</a></code> writes displacement vectors and time-dependent solutions;</li>
-<li>stricter input checks for reaction-diffusion species, boundary edges, observations, Dirichlet values, polygon size and Gmsh files.</li>
-</ul></li>
-</ul><div class="section level3">
-<h3 id="additional-features-0-1-0">Additional features<a class="anchor" aria-label="anchor" href="#additional-features-0-1-0"></a></h3>
-<ul><li>
-<code><a href="../reference/manufactured_solution.html">manufactured_solution()</a></code> derives source terms and gradients symbolically with ‘symcompR’ (optional) for verification studies.</li>
-<li>Mesh regions: <code>pde_mesh(regions = )</code>, <code><a href="../reference/mesh_regions.html">set_region()</a></code>, <code><a href="../reference/mesh_regions.html">mesh_regions()</a></code>, Gmsh physical surfaces, and <code><a href="../reference/region_coefficient.html">region_coefficient()</a></code> for piecewise coefficients that keep their geometry under refinement.</li>
-<li>
-<code><a href="../reference/elasticity_stress.html">elasticity_stress()</a></code> returns strains, stresses and the von Mises stress per element or averaged to vertices; <code>write_vtk(stress = TRUE)</code> writes them.</li>
-<li>
-<code><a href="../reference/write_vtk.html">write_vtk()</a></code> writes P2 data on quadratic triangles (VTK cell type 22).</li>
-<li>Parabolic problems accept time-dependent diffusion, advection and reaction coefficients (reassembled each step, second order with Crank-Nicolson).</li>
-<li>Heat and reaction-diffusion solutions record the integral of each species at the stored times (<code>diagnostics$integral</code>), shown by <code><a href="https://rdrr.io/r/base/summary.html" class="external-link">summary()</a></code>.</li>
-<li>Direct solvers report <code>"singular"</code> when the factorization has a pivot ratio near machine precision; nonlinear problems without Dirichlet, Robin or reaction terms stop with a message.</li>
-<li>
-<code>benchmarks/reference-problems.R</code> runs the ten reference problems and records errors, observed orders, timings and peak memory.</li>
+<p>First release. pdecompR is a finite-element framework for partial differential equations on two-dimensional domains, written in R on top of the sparse matrix classes of ‘Matrix’.</p>
+<div class="section level3">
+<h3 id="geometry-and-meshes-0-1-0">Geometry and meshes<a class="anchor" aria-label="anchor" href="#geometry-and-meshes-0-1-0"></a></h3>
+<ul><li>Rectangular and simple polygonal domains with validation.</li>
+<li>Structured triangular meshes and polygon meshes, with checks of connectivity, orientation and degeneracy, quality measures, named boundary markers and named regions (subdomains).</li>
+<li>Uniform refinement and newest vertex bisection; boundary markers and regions are inherited by refined meshes.</li>
+<li>Import of Gmsh 2.2 and 4.1 meshes (physical lines become boundary markers, physical surfaces become regions) and export to VTK, including quadratic P2 cells, displacement vectors and stress fields.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="discretization-0-1-0">Discretization<a class="anchor" aria-label="anchor" href="#discretization-0-1-0"></a></h3>
+<ul><li>Continuous Lagrange P1 and P2 elements on triangles, scalar and vector valued, with Gaussian quadrature on intervals and triangles.</li>
+<li>Sparse assembly of stiffness, mass, advection and boundary operators and load vectors.</li>
+<li>Coefficients given as numbers, functions of <code>(x, y)</code> or <code>(x, y, t)</code>, finite-element functions, constant symmetric tensors or piecewise values by region (<code><a href="../reference/region_coefficient.html">region_coefficient()</a></code>).</li>
+<li>Dirichlet, Neumann and Robin conditions; pure Neumann problems with a compatibility check and a zero-mean gauge.</li>
+<li>A weak-form language (<code><a href="../reference/trial_function.html">trial_function()</a></code>, <code><a href="../reference/trial_function.html">test_function()</a></code>, <code><a href="../reference/trial_function.html">grad()</a></code>, <code><a href="../reference/trial_function.html">dot()</a></code>, <code><a href="../reference/trial_function.html">integrate_domain()</a></code>, <code><a href="../reference/trial_function.html">integrate_boundary()</a></code>) for linear scalar problems.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="problem-classes-0-1-0">Problem classes<a class="anchor" aria-label="anchor" href="#problem-classes-0-1-0"></a></h3>
+<ul><li>Elliptic problems with diffusion, advection and reaction, with optional SUPG stabilization.</li>
+<li>Heat and general linear parabolic problems with backward Euler and Crank-Nicolson (Rannacher startup), time-dependent data and coefficients, and mass diagnostics.</li>
+<li>Reaction-diffusion systems with IMEX and fully implicit Newton time stepping.</li>
+<li>Quasilinear diffusion, semilinear reaction and p-Laplace problems solved by damped Newton iteration.</li>
+<li>Linear elasticity in plane strain and plane stress with displacement, roller and traction conditions, and strain, stress and von Mises output.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="solvers-0-1-0">Solvers<a class="anchor" aria-label="anchor" href="#solvers-0-1-0"></a></h3>
+<ul><li>Sparse Cholesky and LU, and preconditioned conjugate gradients, BiCGSTAB and GMRES, with residual and conditioning diagnostics and an explicit status for every solve.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="verification-and-adaptivity-0-1-0">Verification and adaptivity<a class="anchor" aria-label="anchor" href="#verification-and-adaptivity-0-1-0"></a></h3>
+<ul><li>L2, H1 and energy error norms against exact or finite-element reference solutions, and convergence studies with observed orders.</li>
+<li>Symbolic manufactured solutions through the optional ‘symcompR’ package.</li>
+<li>A residual a posteriori error estimator, Doerfler marking and an adaptive solve loop.</li>
+<li>A benchmark suite of ten reference problems in <code>benchmarks/</code>.</li>
+</ul></div>
+<div class="section level3">
+<h3 id="inference-and-control-0-1-0">Inference and control<a class="anchor" aria-label="anchor" href="#inference-and-control-0-1-0"></a></h3>
+<ul><li>Discrete forward and adjoint sensitivities of linear elliptic problems.</li>
+<li>Parameter estimation with adjoint gradients, bounds (including fixed parameters) and Gauss-Newton standard errors.</li>
+<li>Distributed optimal control with optional control bounds.</li>
 </ul></div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

@@ -90,12 +90,18 @@ Methods:
   for general matrices.
 
 Iterative methods use Jacobi (diagonal) preconditioning by default and
-stop when `||b - A x|| <= tol * ||b||`. Direct methods report the same
-relative residual, and status `"singular"` when the ratio of the
-smallest to the largest pivot of the factorization is below about
-`2e-13` (the matrix is singular to working precision, for example a
-stiffness matrix without boundary conditions). A small residual says the
-linear system was solved accurately; it says nothing about the
+iterate on the scaled system `A y = b / max|b|`, which avoids overflow
+and underflow. They report `"converged"` only when the true residual of
+the returned solution satisfies `||b - A x|| <= tol * ||b||`, and
+`"not converged"` otherwise. Direct methods report the same relative
+residual, status `"inaccurate"` when the normwise backward error
+`||b - A x|| / (||A|| ||x|| + ||b||)` exceeds `1e-8`, and status
+`"near-singular"` when the ratio of the smallest to the largest pivot of
+the factorization is below about `2e-13`. That ratio is a conditioning
+diagnostic: the matrix is singular or nearly singular to working
+precision, for example a stiffness matrix without boundary conditions. A
+system with no unknowns returns method `"none"`. A small residual says
+the linear system was solved accurately; it says nothing about the
 discretization error of the PDE.
 
 ## References
@@ -112,7 +118,7 @@ b <- assemble_vector(V, 1)
 s1 <- solve_linear_system(A, b)
 s2 <- solve_linear_system(A, b, method = "cg", tol = 1e-12)
 max(abs(s1$x - s2$x))
-#> [1] 1.687539e-14
+#> [1] 7.105427e-15
 s2$info$iterations
 #> [1] 23
 ```

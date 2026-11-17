@@ -35,8 +35,15 @@ errornorm(
 
   Exact solution `function(x, y)`, or an
   [`fe_function()`](https://adamrsophie.github.io/pdecompR/reference/fe_function.md)
-  reference solution (for example on a finer mesh, possibly of another
-  degree); its gradient is then used for gradient norms.
+  reference solution on the same mesh or on a nested one (coarser, or
+  finer from
+  [`refine_uniform()`](https://adamrsophie.github.io/pdecompR/reference/refine_uniform.md)
+  or
+  [`refine_mesh()`](https://adamrsophie.github.io/pdecompR/reference/refine_uniform.md)),
+  possibly of another degree; its gradient is then used for gradient
+  norms. The integral runs on the finer of the two meshes, so the result
+  is exact up to quadrature and symmetric in the two functions.
+  References on meshes that are not nested are rejected.
 
 - type:
 
@@ -76,10 +83,12 @@ Norms:
 - `"energy"`: `sqrt(int k |grad(u - u_h)|^2)` with diffusion `k`.
 
 Gradient-based norms need the exact gradient. When `gradient` is not
-given it is approximated by central differences (step `1e-5`); the
-result is then labeled with attribute `gradient = "finite difference"`
-and is accurate to about 1e-9 relative, which is adequate for
-convergence studies on moderately fine meshes.
+given it is approximated by central differences with step `1e-5` times
+the domain diameter; the result is then labeled with attribute
+`gradient = "finite difference"`. Its accuracy depends on the smoothness
+of `exact` (the truncation error is of order step squared times the
+third derivative), and it is wrong near jumps of the gradient, so pass
+`gradient` for verification work.
 
 ## Examples
 

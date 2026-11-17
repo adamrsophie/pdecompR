@@ -129,7 +129,7 @@ hard <- nonlinear_problem(pde_mesh_rectangle(nx = 8), diffusion = function(u) 1 
                           source = 50, bcs = dirichlet_bc(0))
 res <- tryCatch(solve_pde(hard, maxit = 1), warning = function(w) conditionMessage(w))
 res
-#> [1] "Newton did not converge in 1 iterations (residual 6.954, initial 25.15)."
+#> [1] "Newton stopped (not converged) after 1 iterations (residual 6.954, initial 25.15)."
 ```
 
 With enough iterations the same problem converges:

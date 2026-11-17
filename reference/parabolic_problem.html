@@ -163,7 +163,7 @@ time (<code>function(x, y, t)</code>); the operator is then reassembled and
 refactorized at every step, with <code>A(t_{n+1})</code> on the implicit side and
 <code>A(t_n)</code> on the explicit side of the theta scheme (second order for
 Crank-Nicolson). Otherwise the matrices are assembled and factorized once.
-The Rannacher startup steps are skipped for time-dependent coefficients.
+The Rannacher startup steps also apply with time-dependent coefficients.
 SUPG requires time-independent coefficients.</p>
 <p><code>heat_problem()</code> is the heat equation <code>du/dt - kappa Laplace(u) = f</code>.</p>
 <p>The finite-element semidiscretization is <code>M du/dt + A u = F(t)</code> with mass

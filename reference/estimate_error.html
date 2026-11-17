@@ -73,7 +73,7 @@ linear elliptic solution:</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">estimate_error</span><span class="op">(</span><span class="va">solution</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">estimate_error</span><span class="op">(</span><span class="va">solution</span>, diffusion_gradient <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -82,6 +82,11 @@ linear elliptic solution:</p>
 
 <dl><dt id="arg-solution">solution<a class="anchor" aria-label="anchor" href="#arg-solution"></a></dt>
 <dd><p>A <code>pde_solution</code> of an <code><a href="elliptic_problem.html">elliptic_problem()</a></code>.</p></dd>
+
+
+<dt id="arg-diffusion-gradient">diffusion_gradient<a class="anchor" aria-label="anchor" href="#arg-diffusion-gradient"></a></dt>
+<dd><p>Optional exact gradient of a scalar diffusion
+coefficient, <code>function(x, y)</code> returning a two-column matrix.</p></dd>
 
 </dl></div>
     <div class="section level2">
@@ -103,7 +108,11 @@ differences). The diffusion coefficient in the flux jumps is evaluated on
 each side of an edge separately, so coefficients that jump across element
 edges are handled; finite-element coefficients are allowed. For P1 with constant diffusion the divergence term vanishes;
 variable scalar diffusion contributes <code>grad k . grad u_h</code>, computed with
-central differences of <code>k</code>. The estimator is reliable and efficient up to
+central differences of <code>k</code> with a step of <code>1e-3</code> times the inradius of
+each element, so the differences stay inside the element (pass
+<code>diffusion_gradient</code> for an exact gradient). Region coefficients
+(<code><a href="region_coefficient.html">region_coefficient()</a></code>) are constant on each element and contribute
+nothing. The estimator is reliable and efficient up to
 constants for diffusion-dominated problems (Verfurth 2013); it is not robust
 for strongly advection-dominated problems.</p>
     </div>
