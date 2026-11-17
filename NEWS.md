@@ -57,6 +57,8 @@ the sparse matrix classes of 'Matrix'.
 * Damped wave equation and elastodynamics integrated by the Newmark
   average acceleration method, second order and energy conserving, with
   the discrete energy reported at every step.
+* `pde_mesh()` rejects elements that overlap without sharing an edge
+  (folded node neighborhoods or crossing boundary edges).
 * Polygon domains with holes (`pde_domain(holes = )`), meshed by bridging
   each hole to the outer boundary before ear clipping; hole sides carry
   their own markers.

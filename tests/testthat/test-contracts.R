@@ -408,3 +408,12 @@ test_that("estimate_parameters uses exact derivatives with fixed parameters", {
   expect_equal(e2$estimate, e1$estimate, tolerance = 1e-6)
   expect_equal(e2$fixed, c(FALSE, TRUE))
 })
+
+test_that("meshes with geometrically overlapping elements are rejected", {
+  P <- rbind(c(0, 0), c(1, 0), c(1, 1), c(0, 1), c(.5, .5), c(1.5, .5), c(1.5, 1.5), c(.5, 1.5))
+  expect_error(pde_mesh(P, rbind(c(1, 2, 3), c(1, 3, 4), c(5, 6, 7), c(5, 7, 8))), "overlap")
+  th <- seq(0, 4 * pi, length.out = 9)[-9]
+  Q <- rbind(c(0, 0), cbind(cos(th), sin(th)) * c(1, 1.0001)[rep(1:2, 4)])
+  expect_error(pde_mesh(Q, cbind(1, 2:9, c(3:9, 2))), "corner angles sum")
+  expect_s3_class(pde_mesh(P[1:4, ], rbind(c(1, 2, 3), c(1, 3, 4))), "pde_mesh")
+})

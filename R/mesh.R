@@ -97,6 +97,7 @@ pde_mesh <- function(nodes, triangles, boundary_edges = NULL,
     n_fixed <- sum(neg)
   }
   mesh <- build_topology(nodes, tris)
+  check_overlap(mesh)
   mesh$boundary <- assign_boundary(mesh, boundary_edges, boundary_markers)
   if (is.null(regions)) regions <- "domain"
   if (length(regions) == 1L) regions <- rep(regions, nrow(tris))
@@ -707,4 +708,41 @@ nested_parent <- function(fine, coarse) {
     if (any(xi < -tol | eta < -tol | xi + eta > 1 + tol)) return(NULL)
   }
   par
+}
+
+# Geometric overlap of elements that do not share an edge. With consistently
+# oriented counterclockwise elements, the mesh is an immersion; it is
+# embedded (no overlap) when the corner angles around every interior node sum
+# to 2 pi, around every boundary node to at most 2 pi, and no two boundary
+# edges without a common node touch.
+check_overlap <- function(mesh) {
+  P <- mesh$nodes; T <- mesh$triangles; n <- nrow(P)
+  ang <- function(i, j, k) {
+    ux <- P[T[, j], 1] - P[T[, i], 1]; uy <- P[T[, j], 2] - P[T[, i], 2]
+    vx <- P[T[, k], 1] - P[T[, i], 1]; vy <- P[T[, k], 2] - P[T[, i], 2]
+    atan2(ux * vy - uy * vx, ux * vx + uy * vy)
+  }
+  # Every node belongs to an element (checked earlier), so the groups are 1..n.
+  tot <- rowsum(c(ang(1, 2, 3), ang(2, 3, 1), ang(3, 1, 2)), as.vector(T), reorder = TRUE)[, 1]
+  bn <- logical(n); bn[c(mesh$boundary$n1, mesh$boundary$n2)] <- TRUE
+  bad <- which((!bn & abs(tot - 2 * pi) > 1e-8) | (bn & tot > 2 * pi + 1e-8))
+  if (length(bad)) {
+    stopf("Elements overlap around node %d (corner angles sum to %s pi).", bad[1], fmt_num(tot[bad[1]] / pi, 4))
+  }
+  b1 <- mesh$boundary$n1; b2 <- mesh$boundary$n2
+  x0 <- pmin(P[b1, 1], P[b2, 1]); x1 <- pmax(P[b1, 1], P[b2, 1])
+  y0 <- pmin(P[b1, 2], P[b2, 2]); y1 <- pmax(P[b1, 2], P[b2, 2])
+  o <- order(x0); xs <- x0[o]
+  last <- findInterval(x1[o], xs)
+  for (p in seq_along(o)) {
+    if (last[p] <= p) next
+    i <- o[p]; j <- o[(p + 1L):last[p]]
+    j <- j[y0[j] <= y1[i] & y1[j] >= y0[i] & b1[j] != b1[i] & b1[j] != b2[i] & b2[j] != b1[i] & b2[j] != b2[i]]
+    for (k in j) {
+      if (segments_touch(P[b1[i], ], P[b2[i], ], P[b1[k], ], P[b2[k], ])) {
+        stopf("Boundary edges (%d, %d) and (%d, %d) intersect: elements overlap.", b1[i], b2[i], b1[k], b2[k])
+      }
+    }
+  }
+  invisible(TRUE)
 }
