@@ -101,8 +101,8 @@ The input, invisibly.
 
 ## Details
 
-- `plot.pde_mesh()` draws the triangles and colors boundary edges by
-  marker.
+- `plot.pde_mesh()` draws the triangles, colors boundary edges by marker
+  and, when the mesh has several regions, fills triangles by region.
 
 - `plot.fe_function()` draws a filled plot (each triangle colored by the
   mean of its vertex values, with a color bar beside the domain; P2

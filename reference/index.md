@@ -19,6 +19,11 @@
   : Boundary queries
 - [`set_boundary_marker()`](https://adamrsophie.github.io/pdecompR/reference/set_boundary_marker.md)
   : Relabel boundary edges
+- [`mesh_regions()`](https://adamrsophie.github.io/pdecompR/reference/mesh_regions.md)
+  [`set_region()`](https://adamrsophie.github.io/pdecompR/reference/mesh_regions.md)
+  : Subdomains (regions) of a mesh
+- [`region_coefficient()`](https://adamrsophie.github.io/pdecompR/reference/region_coefficient.md)
+  : Piecewise coefficients by region
 - [`refine_uniform()`](https://adamrsophie.github.io/pdecompR/reference/refine_uniform.md)
   [`refine_mesh()`](https://adamrsophie.github.io/pdecompR/reference/refine_uniform.md)
   : Mesh refinement
@@ -82,6 +87,8 @@
   : Nonlinear stationary problems
 - [`elasticity_problem()`](https://adamrsophie.github.io/pdecompR/reference/elasticity_problem.md)
   : Linear elasticity
+- [`elasticity_stress()`](https://adamrsophie.github.io/pdecompR/reference/elasticity_stress.md)
+  : Stresses and strains of an elasticity solution
 - [`displacement_bc()`](https://adamrsophie.github.io/pdecompR/reference/displacement_bc.md)
   [`traction_bc()`](https://adamrsophie.github.io/pdecompR/reference/displacement_bc.md)
   : Boundary conditions for linear elasticity
@@ -110,6 +117,8 @@
   : Errors against a reference solution
 - [`convergence_study()`](https://adamrsophie.github.io/pdecompR/reference/convergence_study.md)
   : Mesh convergence studies
+- [`manufactured_solution()`](https://adamrsophie.github.io/pdecompR/reference/manufactured_solution.md)
+  : Manufactured solutions with symbolic derivatives
 - [`estimate_error()`](https://adamrsophie.github.io/pdecompR/reference/estimate_error.md)
   : A posteriori error estimation
 - [`mark_elements()`](https://adamrsophie.github.io/pdecompR/reference/mark_elements.md)

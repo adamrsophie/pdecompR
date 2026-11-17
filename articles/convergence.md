@@ -126,6 +126,35 @@ cs
 #>  0.03125 1617 6.892e-05 0.01736       2       0.9999
 ```
 
+## Symbolic manufactured solutions
+
+Deriving the source term of a manufactured solution by hand is a common
+source of mistakes. With the optional
+[symcompR](https://github.com/adamrsophie/symcompR) package,
+[`manufactured_solution()`](https://adamrsophie.github.io/pdecompR/reference/manufactured_solution.md)
+differentiates the exact solution and the coefficients symbolically and
+returns R functions for u, \nabla u and f = -\nabla\cdot(k\nabla u) +
+b\cdot\nabla u + c u (plus \partial_t u when u depends on t):
+
+``` r
+
+ms <- manufactured_solution("exp(x) * sin(pi * y)", diffusion = "1 + x * y",
+                            advection = c("1", "-y"), reaction = 1)
+ms
+#> <pde_manufactured> stationary 
+#>   u = exp(x)*sin(pi*y)
+#>   f = (-pi*x*cos(pi*y) - y*sin(pi*y) - pi*y*cos(pi*y) - (x*y + 1)*sin(pi*y) + pi^2*(x*y + 1)*sin(pi*y) + 2*sin(pi*y))*exp(x)
+p <- elliptic_problem(pde_mesh_rectangle(nx = 4), diffusion = ms$diffusion,
+                      advection = ms$advection, reaction = ms$reaction,
+                      source = ms$source, bcs = dirichlet_bc(ms$exact))
+convergence_study(p, ms$exact, ms$gradient, mesh_sizes = c(8, 16, 32))
+#> Mesh convergence study
+#>        h ndof        L2 H1_semi rate_L2 rate_H1_semi
+#>  0.17678   81 0.0152702  0.5337      NA           NA
+#>  0.08839  289 0.0038095  0.2675   2.003       0.9964
+#>  0.04419 1089 0.0009519  0.1339   2.001       0.9991
+```
+
 ## The validation suite
 
 The package tests encode these verifications permanently:

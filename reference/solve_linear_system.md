@@ -91,8 +91,12 @@ Methods:
 
 Iterative methods use Jacobi (diagonal) preconditioning by default and
 stop when `||b - A x|| <= tol * ||b||`. Direct methods report the same
-relative residual. A small residual says the linear system was solved
-accurately; it says nothing about the discretization error of the PDE.
+relative residual, and status `"singular"` when the ratio of the
+smallest to the largest pivot of the factorization is below about
+`2e-13` (the matrix is singular to working precision, for example a
+stiffness matrix without boundary conditions). A small residual says the
+linear system was solved accurately; it says nothing about the
+discretization error of the PDE.
 
 ## References
 

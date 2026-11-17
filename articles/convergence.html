@@ -219,6 +219,33 @@ refines uniformly:</p>
 <span><span class="co">#&gt;  0.03125 1617 6.892e-05 0.01736       2       0.9999</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="symbolic-manufactured-solutions">Symbolic manufactured solutions<a class="anchor" aria-label="anchor" href="#symbolic-manufactured-solutions"></a>
+</h2>
+<p>Deriving the source term of a manufactured solution by hand is a
+common source of mistakes. With the optional <a href="https://github.com/adamrsophie/symcompR" class="external-link">symcompR</a> package,
+<code><a href="../reference/manufactured_solution.html">manufactured_solution()</a></code> differentiates the exact solution
+and the coefficients symbolically and returns R functions for <span class="math inline">u</span>, <span class="math inline">\nabla u</span>
+and <span class="math inline">f = -\nabla\cdot(k\nabla u) + b\cdot\nabla
+u + c u</span> (plus <span class="math inline">\partial_t u</span> when
+<span class="math inline">u</span> depends on <span class="math inline">t</span>):</p>
+<div class="sourceCode" id="cb6"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">ms</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/manufactured_solution.html">manufactured_solution</a></span><span class="op">(</span><span class="st">"exp(x) * sin(pi * y)"</span>, diffusion <span class="op">=</span> <span class="st">"1 + x * y"</span>,</span>
+<span>                            advection <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"1"</span>, <span class="st">"-y"</span><span class="op">)</span>, reaction <span class="op">=</span> <span class="fl">1</span><span class="op">)</span></span>
+<span><span class="va">ms</span></span>
+<span><span class="co">#&gt; &lt;pde_manufactured&gt; stationary </span></span>
+<span><span class="co">#&gt;   u = exp(x)*sin(pi*y)</span></span>
+<span><span class="co">#&gt;   f = (-pi*x*cos(pi*y) - y*sin(pi*y) - pi*y*cos(pi*y) - (x*y + 1)*sin(pi*y) + pi^2*(x*y + 1)*sin(pi*y) + 2*sin(pi*y))*exp(x)</span></span>
+<span><span class="va">p</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/elliptic_problem.html">elliptic_problem</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>, diffusion <span class="op">=</span> <span class="va">ms</span><span class="op">$</span><span class="va">diffusion</span>,</span>
+<span>                      advection <span class="op">=</span> <span class="va">ms</span><span class="op">$</span><span class="va">advection</span>, reaction <span class="op">=</span> <span class="va">ms</span><span class="op">$</span><span class="va">reaction</span>,</span>
+<span>                      source <span class="op">=</span> <span class="va">ms</span><span class="op">$</span><span class="va">source</span>, bcs <span class="op">=</span> <span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="va">ms</span><span class="op">$</span><span class="va">exact</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="fu"><a href="../reference/convergence_study.html">convergence_study</a></span><span class="op">(</span><span class="va">p</span>, <span class="va">ms</span><span class="op">$</span><span class="va">exact</span>, <span class="va">ms</span><span class="op">$</span><span class="va">gradient</span>, mesh_sizes <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">8</span>, <span class="fl">16</span>, <span class="fl">32</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; Mesh convergence study</span></span>
+<span><span class="co">#&gt;        h ndof        L2 H1_semi rate_L2 rate_H1_semi</span></span>
+<span><span class="co">#&gt;  0.17678   81 0.0152702  0.5337      NA           NA</span></span>
+<span><span class="co">#&gt;  0.08839  289 0.0038095  0.2675   2.003       0.9964</span></span>
+<span><span class="co">#&gt;  0.04419 1089 0.0009519  0.1339   2.001       0.9991</span></span></code></pre></div>
+</div>
+<div class="section level2">
 <h2 id="the-validation-suite">The validation suite<a class="anchor" aria-label="anchor" href="#the-validation-suite"></a>
 </h2>
 <p>The package tests encode these verifications permanently:</p>

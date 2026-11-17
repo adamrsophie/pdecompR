@@ -1,18 +1,21 @@
 # Write a VTK file
 
 Writes a mesh, finite-element function or solution in the legacy ASCII
-VTK unstructured-grid format, readable by ParaView and VisIt. Point data
-are the vertex values; for P2 functions only the vertex values are
-written (the triangles are linear cells). A displacement solution of
+VTK unstructured-grid format, readable by ParaView and VisIt. P1 data
+are written on linear triangles; P2 data on quadratic triangles (VTK
+cell type 22) with all six nodal values, which ParaView renders with
+curved interpolation. A displacement solution of
 [`elasticity_problem()`](https://adamrsophie.github.io/pdecompR/reference/elasticity_problem.md)
-is written as a `VECTORS` array; a time-dependent solution is written at
-one stored time (all species for reaction-diffusion systems). Call it
+is written as a `VECTORS` array, optionally with the nodal stresses of
+[`elasticity_stress()`](https://adamrsophie.github.io/pdecompR/reference/elasticity_stress.md)
+(on the vertices, as P1 data). A time-dependent solution is written at
+one stored time (all species for reaction-diffusion systems); call it
 once per time to write a series.
 
 ## Usage
 
 ``` r
-write_vtk(x, file, name = "u", time = NULL)
+write_vtk(x, file, name = "u", time = NULL, stress = FALSE)
 ```
 
 ## Arguments
@@ -35,6 +38,11 @@ write_vtk(x, file, name = "u", time = NULL)
 - time:
 
   Stored time to write for a `pde_transient` (default: the last).
+
+- stress:
+
+  For elasticity solutions, also write `sxx`, `syy`, `sxy` and
+  `von_mises` (P1 solutions only, since the stresses are vertex values).
 
 ## Value
 

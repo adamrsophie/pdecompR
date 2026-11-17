@@ -78,7 +78,8 @@ node coordinates and element connectivity.</p>
 <span>  <span class="va">triangles</span>,</span>
 <span>  boundary_edges <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  boundary_markers <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  fix_orientation <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  fix_orientation <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  regions <span class="op">=</span> <span class="cn">NULL</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
 
@@ -107,6 +108,12 @@ edges are then marked <code>"boundary"</code>.</p></dd>
 
 <dt id="arg-fix-orientation">fix_orientation<a class="anchor" aria-label="anchor" href="#arg-fix-orientation"></a></dt>
 <dd><p>Reorder clockwise triangles instead of failing.</p></dd>
+
+
+<dt id="arg-regions">regions<a class="anchor" aria-label="anchor" href="#arg-regions"></a></dt>
+<dd><p>Optional character vector with one region (subdomain) name
+per triangle, for piecewise coefficients (<code><a href="region_coefficient.html">region_coefficient()</a></code>).
+Default: every triangle belongs to region <code>"domain"</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

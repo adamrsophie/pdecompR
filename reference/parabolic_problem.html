@@ -158,8 +158,13 @@ receive the natural condition <code>k du/dn = 0</code>.</p></dd>
     <p><code>du/dt - div(k grad u) + b . grad u + c u = f(x, y, t)</code> for <code>t</code> in
 <code>(time[1], time[2])</code>, with <code>u(x, y, time[1]) = initial(x, y)</code> and
 boundary conditions whose data may depend on time (<code>function(x, y, t)</code>).
-The diffusion, advection and reaction coefficients are time independent,
-so the system matrices are assembled once.</p>
+Scalar diffusion, advection and reaction coefficients may also depend on
+time (<code>function(x, y, t)</code>); the operator is then reassembled and
+refactorized at every step, with <code>A(t_{n+1})</code> on the implicit side and
+<code>A(t_n)</code> on the explicit side of the theta scheme (second order for
+Crank-Nicolson). Otherwise the matrices are assembled and factorized once.
+The Rannacher startup steps are skipped for time-dependent coefficients.
+SUPG requires time-independent coefficients.</p>
 <p><code>heat_problem()</code> is the heat equation <code>du/dt - kappa Laplace(u) = f</code>.</p>
 <p>The finite-element semidiscretization is <code>M du/dt + A u = F(t)</code> with mass
 matrix <code>M</code> and operator matrix <code>A</code> (including Robin terms). Time stepping

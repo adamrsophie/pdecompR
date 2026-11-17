@@ -30,6 +30,7 @@
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/discretize.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/displacement_bc.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/elasticity_problem.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/reference/elasticity_stress.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/element_stiffness_p1.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/elliptic_problem.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/errornorm.html</loc></url>
@@ -41,8 +42,10 @@
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/fe_space.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/index.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/integrate_mesh.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/reference/manufactured_solution.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/mark_elements.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/mesh_quality.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/reference/mesh_regions.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/mesh_size.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/nonlinear_problem.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/optimal_control.html</loc></url>
@@ -59,6 +62,7 @@
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/reaction_diffusion_problem.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/read_gmsh.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/refine_uniform.html</loc></url>
+<url><loc>https://adamrsophie.github.io/pdecompR/reference/region_coefficient.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/set_boundary_marker.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/solution_at.html</loc></url>
 <url><loc>https://adamrsophie.github.io/pdecompR/reference/solve_linear_system.html</loc></url>

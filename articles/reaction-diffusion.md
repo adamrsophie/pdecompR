@@ -57,7 +57,8 @@ summary(sol)
 #>   degrees of freedom: 243  ( 243  free)
 #>   linear solver: auto  max relative residual: 4.18e-16 
 #>   Newton iterations per step: max 3  mean     3 
-#>   assembly 0.025 s, time stepping 0.791 s
+#>   integral of the solution, first and last stored time: 0.9375 to 7.069 
+#>   assembly 0.02 s, time stepping 0.589 s
 xs <- seq(0, 10, length.out = 300)
 plot(NULL, xlim = c(0, 10), ylim = c(0, 1.05), xlab = "x", ylab = "u", main = "Fisher-KPP front")
 for (k in seq_along(sol$times)) {

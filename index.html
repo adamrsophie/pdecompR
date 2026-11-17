@@ -155,7 +155,7 @@
 <tbody>
 <tr>
 <td>Geometry and meshes</td>
-<td>rectangles and simple polygons; structured meshes (three diagonal patterns); polygon meshes (ear clipping, Delaunay flips, refinement); validation of connectivity, orientation, degeneracy and boundary markers; quality measures; Gmsh 2.2 and 4.1 import; VTK export</td>
+<td>rectangles and simple polygons; structured meshes (three diagonal patterns); polygon meshes (ear clipping, Delaunay flips, refinement); validation of connectivity, orientation, degeneracy and boundary markers; quality measures; subdomain regions with piecewise coefficients; Gmsh 2.2 and 4.1 import (physical lines and surfaces); VTK export (P1 and quadratic P2 cells, vectors, stresses)</td>
 </tr>
 <tr>
 <td>Finite elements</td>
@@ -179,7 +179,7 @@
 </tr>
 <tr>
 <td>PDE classes</td>
-<td>elliptic (diffusion, advection, reaction), linear elasticity (vector P1/P2, plane strain and stress), SUPG stabilization, heat and parabolic problems (backward Euler, Crank-Nicolson), reaction-diffusion systems (IMEX, Newton), quasilinear diffusion, semilinear reaction, p-Laplacian</td>
+<td>elliptic (diffusion, advection, reaction), linear elasticity (vector P1/P2, plane strain and stress, stress and von Mises output), SUPG stabilization, heat and parabolic problems (backward Euler, Crank-Nicolson, time-dependent coefficients, mass diagnostics), reaction-diffusion systems (IMEX, Newton), quasilinear diffusion, semilinear reaction, p-Laplacian</td>
 </tr>
 <tr>
 <td>Weak forms</td>
@@ -189,7 +189,7 @@
 </tr>
 <tr>
 <td>Verification</td>
-<td>L2, H1 and energy errors, convergence studies with observed orders</td>
+<td>L2, H1 and energy errors, convergence studies with observed orders, symbolic manufactured solutions through symcompR, a reference benchmark suite</td>
 </tr>
 <tr>
 <td>Adaptivity</td>
@@ -201,7 +201,7 @@
 </tr>
 </tbody>
 </table>
-<p>Not available yet: three-dimensional and one-dimensional meshes, subdomain markers and holes, mixed elements (Stokes), discontinuous Galerkin methods, time-dependent coefficients in parabolic problems, nonlinear weak forms, adjoints for nonlinear and transient problems, and parallel or GPU backends.</p>
+<p>Not available yet: three-dimensional and one-dimensional meshes, holes, mixed elements (Stokes), discontinuous Galerkin methods, nonlinear weak forms, adjoints for nonlinear and transient problems, and parallel or GPU backends.</p>
 </div>
 <div class="section level2">
 <h2 id="validation">Validation<a class="anchor" aria-label="anchor" href="#validation"></a>
@@ -276,6 +276,7 @@
 <h2 data-toc-skip>Dev status</h2>
 <ul class="list-unstyled">
 <li><a href="https://github.com/adamrsophie/pdecompR/actions/workflows/R-CMD-check.yaml" class="external-link"><img src="https://github.com/adamrsophie/pdecompR/actions/workflows/R-CMD-check.yaml/badge.svg" alt="R-CMD-check"></a></li>
+<li><a href="https://app.codecov.io/gh/adamrsophie/pdecompR" class="external-link"><img src="https://codecov.io/gh/adamrsophie/pdecompR/graph/badge.svg" alt="Codecov test coverage"></a></li>
 <li><a href="https://adamrsophie.github.io/pdecompR/"><img src="https://github.com/adamrsophie/pdecompR/actions/workflows/pkgdown.yaml/badge.svg" alt="pkgdown"></a></li>
 <li><a href="https://lifecycle.r-lib.org/articles/stages.html#experimental" class="external-link"><img src="https://img.shields.io/badge/lifecycle-experimental-orange.svg" alt="Lifecycle: experimental"></a></li>
 <li><a href="https://www.gnu.org/licenses/gpl-3.0" class="external-link"><img src="https://img.shields.io/badge/License-GPLv3-blue.svg" alt="License: GPL v3"></a></li>

@@ -11,7 +11,8 @@ pde_mesh(
   triangles,
   boundary_edges = NULL,
   boundary_markers = NULL,
-  fix_orientation = FALSE
+  fix_orientation = FALSE,
+  regions = NULL
 )
 ```
 
@@ -39,6 +40,13 @@ pde_mesh(
 - fix_orientation:
 
   Reorder clockwise triangles instead of failing.
+
+- regions:
+
+  Optional character vector with one region (subdomain) name per
+  triangle, for piecewise coefficients
+  ([`region_coefficient()`](https://adamrsophie.github.io/pdecompR/reference/region_coefficient.md)).
+  Default: every triangle belongs to region `"domain"`.
 
 ## Value
 

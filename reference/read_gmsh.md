@@ -3,11 +3,14 @@
 Reads two-dimensional triangular meshes in the ASCII Gmsh formats 2.2
 and 4.1. Triangles (element type 2) become mesh elements; line elements
 (type 1) on the boundary carry boundary markers taken from their
-physical group names (or numbers when names are absent). Other element
-types (points, quadrilaterals, higher-order elements) are ignored with a
-message. Boundary edges not covered by a physical line receive the
-marker `"boundary"`. Nodes not used by triangles are dropped and the
-remaining nodes renumbered; clockwise triangles are reoriented.
+physical group names (or numbers when names are absent); physical
+surfaces become the regions of the triangles
+([`mesh_regions()`](https://adamrsophie.github.io/pdecompR/reference/mesh_regions.md)),
+`"domain"` when absent. Other element types (points, quadrilaterals,
+higher-order elements) are ignored with a message. Boundary edges not
+covered by a physical line receive the marker `"boundary"`. Nodes not
+used by triangles are dropped and the remaining nodes renumbered;
+clockwise triangles are reoriented.
 
 ## Usage
 
