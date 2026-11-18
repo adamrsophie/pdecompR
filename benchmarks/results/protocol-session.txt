@@ -1,4 +1,4 @@
-commit 1f950dae4ca3bc6451bb777d8581e69025f86c41 
+commit 437196f4556fc2f3a180bda7d064c181124c4cee 
 R version 4.6.0 (2026-04-24)
 Matrix 1.7.6
 BLAS /Library/Frameworks/R.framework/Versions/4.6/Resources/lib/libRblas.0.dylib
@@ -7,4 +7,4 @@ CPU Apple M2 ; cores 8
 threads OMP_NUM_THREADS=unset OPENBLAS_NUM_THREADS=unset VECLIB_MAXIMUM_THREADS=unset MKL_NUM_THREADS=unset
 Darwin 27.2.0 arm64
 warmups 2, repeats 5
-2026-11-17 23:23:32 UTC
+2026-11-18 01:44:18 UTC
