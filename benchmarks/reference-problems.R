@@ -96,7 +96,7 @@ cases <- list(
     t0 <- proc.time()[["elapsed"]]
     est <- estimate_parameters(pf, theta0 = 1, observations = pde_observations(xo, yo, yv, sd = 0.01),
                                mesh = mesh, lower = 0.01)
-    list(error = abs(est$estimate - truth), error_L2 = NA, ndof = est$solution$diagnostics$ndof,
+    list(error = abs(est$estimate - truth), metric = "parameter", error_L2 = NA, ndof = est$solution$diagnostics$ndof,
          assembly = NA, solve = proc.time()[["elapsed"]] - t0, solver = "L-BFGS-B, adjoint", tol = NA)
   }
 )
@@ -110,8 +110,12 @@ for (nm in names(cases)) {
     g <- gc(); mem <- sum(g[, ncol(g)])  # "max used" in Mb since the reset
     h <- 1 / n
     rate <- if (is.null(prev)) NA else log(prev$error / r$error) / log(prev$h / h)
-    rows[[length(rows) + 1L]] <- data.frame(problem = nm, n = n, h = h, ndof = r$ndof,
-      error_H1_semi = r$error, error_L2 = r$error_L2, rate = rate,
+    # `rate` is the observed order of `metric`: the state H1 seminorm, or the
+    # parameter error for the inverse problem (which has no state norm here).
+    metric <- if (is.null(r$metric)) "H1_semi" else r$metric
+    rows[[length(rows) + 1L]] <- data.frame(problem = nm, n = n, h = h, ndof = r$ndof, metric = metric,
+      error_H1_semi = if (metric == "H1_semi") r$error else NA_real_,
+      parameter_error = if (metric == "parameter") r$error else NA_real_, error_L2 = r$error_L2, rate = rate,
       assembly_s = r$assembly, solve_s = r$solve, peak_mb = mem,
       solver = r$solver, tol = r$tol, stringsAsFactors = FALSE)
     prev <- list(error = r$error, h = h)

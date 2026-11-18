@@ -58,7 +58,9 @@ mesh_overlay <- function(a, b) {
   }
   area_b <- abs((bx[, 2] - bx[, 1]) * (by[, 3] - by[, 1]) - (bx[, 3] - bx[, 1]) * (by[, 2] - by[, 1])) / 2
   ax <- matrix(Pa[Ta, 1], ma); ay <- matrix(Pa[Ta, 2], ma)
-  out_ea <- integer(0); out_eb <- integer(0); out_v <- list()
+  # One record (parents and vertices) per piece, bound once at the end;
+  # growing the parent vectors piece by piece copied them every time.
+  out_v <- list()
   for (e in seq_len(ma)) {
     xa <- ax[e, ]; ya <- ay[e, ]
     cand <- unique(unlist(cells[outer(bin(min(xa), xr[1], wx):bin(max(xa), xr[1], wx),
@@ -77,11 +79,12 @@ mesh_overlay <- function(a, b) {
         v <- c(pg$x[1], pg$y[1], pg$x[k], pg$y[k], pg$x[k + 1L], pg$y[k + 1L])
         ar <- ((v[3] - v[1]) * (v[6] - v[2]) - (v[5] - v[1]) * (v[4] - v[2])) / 2
         if (abs(ar) <= small) next
-        out_ea <- c(out_ea, e); out_eb <- c(out_eb, t); out_v[[length(out_v) + 1L]] <- v
+        out_v[[length(out_v) + 1L]] <- c(e, t, v)
       }
     }
   }
-  V <- if (length(out_v)) do.call(rbind, out_v) else matrix(numeric(0), 0, 6)
+  R <- if (length(out_v)) do.call(rbind, out_v) else matrix(numeric(0), 0, 8)
+  out_ea <- as.integer(R[, 1]); out_eb <- as.integer(R[, 2]); V <- R[, 3:8, drop = FALSE]
   aa <- abs((ax[, 2] - ax[, 1]) * (ay[, 3] - ay[, 1]) - (ax[, 3] - ax[, 1]) * (ay[, 2] - ay[, 1])) / 2
   list(ea = out_ea, eb = out_eb, vertices = V, origin = o, area_a = aa, area_b = area_b)
 }

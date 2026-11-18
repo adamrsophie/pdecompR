@@ -163,3 +163,33 @@ test_that("Stokes reports free translations and too few velocity unknowns", {
   s <- suppressWarnings(solve_pde(stokes_problem(b, bcs = list(velocity_bc(0, "wall"), traction_bc(c(-1, 0), "out")))))
   expect_equal(range(tail(s$pressure$values, n)), c(1, 1), tolerance = 1e-8)
 })
+
+test_that("repeated assembly switches to plans without changing results", {
+  V <- fe_space(pde_mesh_rectangle(nx = 4), 2)
+  geo <- element_geometry(V, NULL)
+  loc <- local_bilinear(geo, diff = coef_qp(function(x, y) 1 + x, geo))
+  lv <- local_linear(geo, f = coef_qp(function(x, y) y, geo))
+  asm <- repeated_assembler(V)
+  for (i in 1:25) { A <- asm$matrix(loc); b <- asm$vector(lv) }
+  expect_lt(max(abs(A - global_matrix(V, loc))), 1e-14)
+  expect_lt(max(abs(b - global_vector(V, lv))), 1e-15)
+  # The plan closure keeps only its summation map and pattern.
+  expect_setequal(ls(environment(assembly_plan(V))), c("S", "tmpl"))
+})
+
+test_that("errors against a reference on the same space use the difference directly", {
+  s <- solve_pde(poisson_problem(pde_mesh_rectangle(nx = 6), degree = 2, source = 1, boundary = dirichlet_bc(0)))
+  v <- interpolate(function(x, y) x * y, s$space); z <- s$u$values - v$values
+  expect_equal(as.numeric(errornorm(s, v)), sqrt(sum(z * as.numeric(assemble_matrix(s$space, "mass") %*% z))),
+               tolerance = 1e-12)
+  expect_equal(as.numeric(errornorm(s, v, "H1_semi")),
+               sqrt(sum(z * as.numeric(assemble_matrix(s$space, "stiffness") %*% z))), tolerance = 1e-12)
+})
+
+test_that("moving Dirichlet data do not reassemble a static load", {
+  calls <- 0L
+  f <- function(x, y) { calls <<- calls + 1L; x }
+  solve_pde(heat_problem(pde_mesh_rectangle(nx = 3), source = f, bcs = dirichlet_bc(function(x, y, t) t * x),
+                         time = c(0, .1)), dt = .01)
+  expect_equal(calls, 1L)
+})

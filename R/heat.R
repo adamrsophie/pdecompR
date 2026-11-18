@@ -103,25 +103,28 @@ parabolic_operators <- function(problem) {
   robin <- natural_bc_terms(V, rb, problem$time[1])$A
   if (!is.null(robin)) A <- A + robin
   # Operator at time t, reassembled when a coefficient depends on time.
-  plan <- if (coef_td) assembly_plan(V)
+  asm <- repeated_assembler(V)
   A_at <- function(t) {
     if (!coef_td) return(A)
     Dt <- diffusion_qp(problem$diffusion, geo, t)
     if (!is.list(Dt) && min(Dt) <= 0) stopf("The diffusion coefficient must be positive (t = %s).", fmt_num(t))
     ct <- coef_qp(problem$reaction, geo, t, name = "reaction")
     if (all(ct == 0)) ct <- NULL
-    At <- plan(local_bilinear(geo, mass = ct, adv = vec_qp(problem$advection, geo, t), diff = Dt))
+    At <- asm$matrix(local_bilinear(geo, mass = ct, adv = vec_qp(problem$advection, geo, t), diff = Dt))
     if (!is.null(robin)) At <- At + robin
     At
   }
   load <- function(t) {
     fq <- coef_qp(problem$source, geo, t, "source")
     g <- if (!is.null(tq)) list(x = tq * fq * bq$x, y = tq * fq * bq$y) else NULL
-    global_vector(V, local_linear(geo, f = fq, g = g)) +
+    asm$vector(local_linear(geo, f = fq, g = g)) +
       natural_bc_terms(V, problem$bcs, t, problem$quad_degree, matrix = FALSE)$b
   }
+  # Only the source and natural boundary data enter the load; prescribed
+  # values are applied separately, so moving Dirichlet data do not force a
+  # reassembly of the load at every step.
   time_dep <- is_time_function(problem$source) ||
-    any(vapply(problem$bcs, function(b) is_time_function(b$value), logical(1)))
+    any(vapply(problem$bcs, function(b) b$type %in% c("neumann", "robin") && is_time_function(b$value), logical(1)))
   list(V = V, M = M, A = A, A_at = A_at, coef_time_dependent = coef_td, load = load,
        time_dependent = time_dep,
        assembly_time = proc.time()[["elapsed"]] - t0)

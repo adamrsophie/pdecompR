@@ -198,11 +198,49 @@ assembly_plan <- function(space) {
   u <- sort(unique(key))
   S <- Matrix::sparseMatrix(i = match(key, u), j = seq_along(key), x = 1, dims = c(length(u), length(key)))
   tmpl <- Matrix::sparseMatrix(i = (u - 1) %% n + 1, j = (u - 1) %/% n + 1, x = rep(1, length(u)), dims = c(n, n))
+  plan_closure(S, tmpl)
+}
+
+# The fill function is created in a frame that holds only the summation map
+# and the pattern, so the construction arrays above are not retained.
+plan_closure <- function(S, tmpl) {
   function(A) {
     out <- tmpl
     out@x <- as.numeric(S %*% as.vector(A))
     out
   }
+}
+
+# Load vectors by one sparse product with the element-to-dof summation map.
+vector_plan <- function(space) {
+  D <- space$cell_dofs
+  S <- Matrix::sparseMatrix(i = as.vector(D), j = seq_along(D), x = 1, dims = c(space$ndof, length(D)))
+  vector_closure(S)
+}
+
+vector_closure <- function(S) function(b) as.numeric(S %*% as.vector(b))
+
+# Repeated assembly on one space. Building a plan costs about as much as 9
+# (P1) to 20 (P2) direct assemblies, so the first fills are assembled
+# directly and the plan is built only once that many fills have been
+# requested; short runs never pay for it, long ones pay at most twice the
+# break-even cost.
+repeated_assembler <- function(space) {
+  nm <- 0L; nv <- 0L; mp <- NULL; vp <- NULL
+  thr <- if (space$degree == 1L) 9L else 20L
+  list(
+    matrix = function(A) {
+      nm <<- nm + 1L
+      if (nm <= thr) return(global_matrix(space, A))
+      if (is.null(mp)) mp <<- assembly_plan(space)
+      mp(A)
+    },
+    vector = function(b) {
+      nv <<- nv + 1L
+      if (nv <= thr) return(global_vector(space, b))
+      if (is.null(vp)) vp <<- vector_plan(space)
+      vp(b)
+    })
 }
 
 global_vector <- function(space, b) {

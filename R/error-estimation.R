@@ -70,7 +70,17 @@ errornorm <- function(u, exact, type = c("L2", "H1_semi", "H1", "energy"), gradi
     # reference mesh (when nested the other way), with contributions summed
     # back to the triangles of `u`.
     ref <- exact
-    if (is.null(nested_parent(u$space$mesh, ref$space$mesh))) {
+    fast <- same_space(u$space, ref$space) && is.null(gradient)
+    if (fast) {
+      # Same space: the error is the finite-element function u - ref, whose
+      # values and gradients are read at the quadrature points directly,
+      # without locating points in the reference mesh.
+      u$values <- u$values - ref$values
+      exact <- function(x, y) numeric(length(x))
+      gradient <- function(x, y) matrix(0, length(x), 2)
+      label <- "finite-element reference"
+      ref_degree <- ref$space$degree
+    } else if (is.null(nested_parent(u$space$mesh, ref$space$mesh))) {
       par <- nested_parent(ref$space$mesh, u$space$mesh)
       if (is.null(quad_degree)) quad_degree <- 2L * max(u$space$degree, ref$space$degree) + 4L
       if (is.null(par)) {
@@ -88,12 +98,14 @@ errornorm <- function(u, exact, type = c("L2", "H1_semi", "H1", "energy"), gradi
       if (elementwise) attr(out, "elements") <- e2
       return(out)
     }
-    exact <- function(x, y) evaluate(ref, x, y)
-    if (is.null(gradient)) {
-      gradient <- function(x, y) as.matrix(evaluate(ref, x, y, gradient = TRUE)[, 2:3])
-      label <- "finite-element reference"
+    if (!fast) {
+      exact <- function(x, y) evaluate(ref, x, y)
+      if (is.null(gradient)) {
+        gradient <- function(x, y) as.matrix(evaluate(ref, x, y, gradient = TRUE)[, 2:3])
+        label <- "finite-element reference"
+      }
+      ref_degree <- ref$space$degree
     }
-    ref_degree <- ref$space$degree
   }
   V <- u$space
   if (is.null(quad_degree)) quad_degree <- 2L * max(V$degree, ref_degree) + 4L

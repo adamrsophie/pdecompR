@@ -5,7 +5,7 @@
 #
 # Each case runs in a fresh R process started under /usr/bin/time, which
 # reports the peak resident set size of that process (`-l` on macOS, `-v`
-# on Linux). Two kinds of worker are kept apart:
+# on Linux). Three kinds of worker are kept apart:
 #
 # * "solve": the clean public workload, mesh creation plus one solve_pde()
 #   call, and nothing else. Its total time and the peak RSS of its process
@@ -13,11 +13,13 @@
 # * "components": diagnostic timing of the assembly pieces (local element
 #   matrices, sparse construction) on a prepared space, in its own process,
 #   so neither its time nor its memory enters the solve figures.
+# * "accuracy": one solve followed by the L2 error, in its own process, so
+#   the error quadrature enters neither the solve time nor its peak RSS. The
+#   error is joined to the solve rows by case and mesh size.
 #
 # Inside a process the case runs twice to warm up (loading, byte
 # compilation, first allocations) and then `repeats` more times serially;
-# every repeat is saved, and the median and range are reported. The error is
-# computed after the timed repeats, outside the clock. The peak RSS includes
+# every repeat is saved, and the median and range are reported. The peak RSS includes
 # about 290 MB of R and pkgload::load_all() before any work. Methods are
 # compared at a fixed error: for each target, the coarsest mesh of each
 # method that reaches it is used.
@@ -46,12 +48,17 @@ if (length(args) && args[1] == "--worker") {
                      method = method, preconditioner = pc)
       t1 <- el()
       # Only scalars leave run(), so no solution of an earlier repeat stays
-      # alive and inflates the peak RSS; the error is computed off the clock.
+      # alive and inflates the peak RSS.
       out <- list(time = c(total = t1 - t0, assembly = s$diagnostics$assembly_time, solve = s$diagnostics$solve_time),
-                  extra = c(error = as.numeric(errornorm(s, u, "L2")), ndof = s$space$ndof))
+                  extra = c(error = NA_real_, ndof = s$space$ndof))
       rm(s, mesh)
       out
     }
+  } else if (kind == "accuracy") {
+    s <- solve_pde(poisson_problem(pde_mesh_rectangle(nx = n), source = f, boundary = dirichlet_bc(0), degree = degree),
+                   method = method, preconditioner = pc)
+    cat("EXTRA", paste(c("error", "ndof"), c(as.numeric(errornorm(s, u, "L2")), s$space$ndof), sep = "=", collapse = ";"), "\n")
+    quit(save = "no")
   } else {
     V <- fe_space(pde_mesh_rectangle(nx = n), degree)
     run <- function() {
@@ -93,8 +100,15 @@ parse_kv <- function(line, tag) {
 }
 cases <- list(P1_direct = c(32, 64, 128, 256), P2_direct = c(16, 32, 64, 128), P2_amg = c(16, 32, 64, 128))
 reps_rows <- list(); rows <- list()
-for (case in names(cases)) for (n in cases[[case]]) for (kind in c("solve", "components")) {
+for (case in names(cases)) for (n in cases[[case]]) for (kind in c("accuracy", "solve", "components")) {
   if (kind == "components" && grepl("amg", case)) next   # same assembly as P2_direct
+  if (kind == "accuracy") {
+    out <- system2("Rscript", c("benchmarks/protocol.R", "--worker", kind, case, n, 1), stdout = TRUE, stderr = TRUE)
+    xl <- grep("^EXTRA", out, value = TRUE)
+    if (!length(xl)) { cat(out, sep = "\n"); stop("worker failed: ", kind, " ", case, " ", n) }
+    err_now <- parse_kv(xl, "EXTRA")[["error"]]
+    next
+  }
   out <- suppressWarnings(system2("/usr/bin/time", c(time_flag, "Rscript", "benchmarks/protocol.R", "--worker",
                                                      kind, case, n, reps), stdout = TRUE, stderr = TRUE))
   rl <- grep("^REPEAT", out, value = TRUE); xl <- grep("^EXTRA", out, value = TRUE)
@@ -105,10 +119,11 @@ for (case in names(cases)) for (n in cases[[case]]) for (kind in c("solve", "com
   med <- apply(tm[, colnames(tm) != "repeat", drop = FALSE], 2, stats::median)
   rows[[length(rows) + 1L]] <- data.frame(kind = kind, case = case, n = n, ndof = ex[["ndof"]], t(med),
                                           total_min = min(tm[, "total"]), total_max = max(tm[, "total"]),
-                                          repeats = nrow(tm), error = ex[["error"]], peak_rss_mb = rss)
+                                          repeats = nrow(tm), error = if (kind == "solve") err_now else NA_real_,
+                                          peak_rss_mb = rss)
   cat(sprintf("%-10s %-10s n=%4d ndof=%7d total %.3fs [%.3f, %.3f] rss %.0f MB%s\n", kind, case, n,
               as.integer(ex[["ndof"]]), med[["total"]], min(tm[, "total"]), max(tm[, "total"]), rss,
-              if (kind == "solve") sprintf(" err %.2e", ex[["error"]]) else
+              if (kind == "solve") sprintf(" err %.2e", err_now) else
                 sprintf(" local %.3fs sparse %.3fs", med[["local"]], med[["sparse"]])))
 }
 fill <- function(l) {
