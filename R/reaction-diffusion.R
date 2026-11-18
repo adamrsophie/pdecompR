@@ -108,7 +108,7 @@ reaction_diffusion_problem <- function(mesh, species = "u", diffusion = 1, react
 
 #' @rdname solve_pde
 #' @param newton_tol,newton_maxit Newton tolerance (on the residual norm
-#'   relative to its initial value, or absolute `1e-12`) and maximum
+#'   relative to its initial value, or `1e-14` relative to the size of the terms of the step equations) and maximum
 #'   iterations per step.
 #' @export
 solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-euler", "implicit-euler"),
@@ -141,14 +141,15 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
   }
   assembly_time <- proc.time()[["elapsed"]] - ta
   t0 <- if (is.null(st0)) problem$time[1] else st0$t; t1 <- problem$time[2]
-  N <- max(1L, as.integer(ceiling((t1 - t0) / dt - 1e-10)))
-  dt <- (t1 - t0) / N
-  grid <- t0 + (0:N) * dt
+  tg <- time_grid(t0, t1, dt); N <- tg$N; dt <- tg$dt; grid <- tg$grid
   out_idx <- output_index(output_times, grid, dt)
   xy <- V$dof_coords
-  U <- vapply(sp, function(s) initial_values(problem$initial[[s]], V), numeric(n))
-  U <- matrix(U, n, ns, dimnames = list(NULL, sp))
-  if (!is.null(st0)) {
+  if (is.null(st0)) {
+    U <- vapply(sp, function(s) initial_values(problem$initial[[s]], V), numeric(n))
+    U <- matrix(U, n, ns, dimnames = list(NULL, sp))
+  } else {
+    # The initial condition is not evaluated on restart.
+    U <- matrix(0, n, ns, dimnames = list(NULL, sp))
     check_restart_space(st0, V)
     old <- colnames(st0$u)
     if (NROW(st0$u) != n || is.null(old) || !setequal(old, sp) || length(old) != length(sp)) {
@@ -250,15 +251,20 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
         dd <- dirichlet_data(V, problem$bcs[[s]], tn)
         if (length(dd$dofs)) Z[dd$dofs, s] <- dd$values
       }
+      # The residual and the size of the terms it balances; the absolute
+      # floor is rounding level relative to those terms, so it does not
+      # depend on the units of the assembled equations.
       resid <- function(Z) {
         z <- as.vector(Z)
-        g <- as.numeric(Lb %*% z) - mzold -
-          dt * as.numeric(Mb %*% as.vector(reac(Z, tn))) - dt * Fn
-        g[freeb]
+        a <- as.numeric(Lb %*% z); r <- dt * as.numeric(Mb %*% as.vector(reac(Z, tn))); f <- dt * Fn
+        g <- (a - mzold - r - f)[freeb]
+        attr(g, "scale") <- sqrt(sum(((abs(a) + abs(mzold) + abs(r) + abs(f))[freeb])^2))
+        g
       }
+      floor_of <- function(g) 1e-14 * attr(g, "scale")
       g <- resid(Z); g0 <- sqrt(sum(g^2)); gn <- g0
       it <- 0L
-      while (gn > max(newton_tol * g0, 1e-12) && it < newton_maxit) {
+      while (gn > max(newton_tol * g0, floor_of(g)) && it < newton_maxit) {
         it <- it + 1L
         J <- jac_r(Z, tn)
         JR <- Matrix::sparseMatrix(i = JI, j = JJ, x = as.vector(J), dims = c(n * ns, n * ns))
@@ -283,7 +289,7 @@ solve_pde.reaction_diffusion_problem <- function(problem, dt, method = c("imex-e
         }
         Z <- Zt; g <- resid(Z); gn <- sqrt(sum(g^2))
       }
-      if (gn > max(newton_tol * g0, 1e-12) * 10) {
+      if (gn > max(newton_tol * g0, floor_of(g)) * 10) {
         warnf("Newton did not converge at t = %s (residual %s).", fmt_num(tn), fmt_num(gn))
       }
       newton_its <- c(newton_its, it)

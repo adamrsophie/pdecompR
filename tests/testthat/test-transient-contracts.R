@@ -147,3 +147,93 @@ test_that("time intervals too short to represent are rejected", {
   p <- heat_problem(pde_mesh_rectangle(nx = 2), initial = 0, time = c(1e6, 1e6 + 1e-9))
   expect_error(solve_pde(p, dt = 1e-10, method = "sdirk2", adaptive = TRUE), "too short")
 })
+
+test_that("time-dependent tensors are reassembled and adaptive SUPG uses the Galerkin norm", {
+  m <- pde_mesh_rectangle(nx = 2)
+  k <- function(x, y, t) 1 + 8 * t
+  step <- function(d) solve_pde(heat_problem(m, diffusivity = d, time = c(0, .125), bcs = dirichlet_bc(0),
+                                             initial = function(x, y) 16 * x * (1 - x) * y * (1 - y)),
+                                dt = .125, method = "backward-euler")$state$u[5]
+  expect_equal(step(tensor_coefficient(k)), step(k), tolerance = 1e-12)
+  expect_equal(step(k), 1 / 9, tolerance = 1e-12)
+  g <- 1 - 1 / sqrt(2); h <- .01
+  p <- parabolic_problem(pde_mesh_rectangle(nx = 1), diffusion = .001, advection = c(1, 0), stabilization = "supg",
+                         source = function(x, y, t) (t / h - g) * (1 - x), time = c(0, h))
+  expect_gt(solve_pde(p, dt = h, method = "sdirk2", adaptive = TRUE, tol = 1e-8)$diagnostics$steps, 1)
+})
+
+test_that("restart checks connectivity and rebalances the acceleration", {
+  pp <- function(pattern, T) heat_problem(pde_mesh_rectangle(nx = 1, pattern = pattern), initial = function(x, y) x * y,
+                                          time = c(0, T))
+  a <- solve_pde(pp("right", .1), dt = .1)
+  expect_error(solve_pde(pp("left", .2), dt = .1, restart = a), "different finite-element space")
+  m <- pde_mesh_rectangle(nx = 2)
+  a <- solve_pde(wave_problem(m, source = 0, time = c(0, 1)), dt = 1)
+  b <- solve_pde(wave_problem(m, source = 1, time = c(0, 2)), dt = 1, restart = a)
+  expect_equal(c(b$state$u[5], b$state$v[5], b$state$a[5]), c(.5, 1, 1), tolerance = 1e-12)
+  rd <- function(initial, T) reaction_diffusion_problem(m, initial = initial, reaction = function(u, x, y, t) 0 * u,
+                                                        time = c(0, T))
+  a <- solve_pde(rd(1, .5), dt = .5)
+  r <- solve_pde(rd(function(x, y) stop("initial executed"), 1), dt = .5, restart = a)
+  expect_equal(range(r$state$u), c(1, 1))
+  q <- update_mesh(elastodynamics_problem(elasticity_problem(m, bcs = displacement_bc(0, "left"))), refine_uniform(m))
+  expect_equal(solve_pde(q, dt = 1)$diagnostics$ndof, 2 * nrow(q$mesh$nodes))
+})
+
+test_that("time grids are built in elapsed time with exact endpoints", {
+  m <- pde_mesh_rectangle(nx = 2); o <- 2^40
+  p <- heat_problem(m, source = 1, time = c(o, o + 1))
+  expect_equal(solve_pde(p, dt = .25)$times - o, c(0, .25, .5, .75, 1))
+  expect_equal(solve_pde(p, dt = .25, method = "sdirk2", adaptive = TRUE)$state$t, o + 1)
+  expect_error(solve_pde(heat_problem(m, source = 1, time = c(o, o + 2^-12)), dt = 2^-14), "too small")
+  g <- function(x, y, t) if (t > .1) stop("past T") else 0
+  w <- solve_pde(wave_problem(pde_mesh_rectangle(nx = 1), time = c(-1, .1), bcs = dirichlet_bc(g)), dt = 2)
+  expect_identical(w$times[2], .1)
+  expect_identical(w$state$t, .1)
+})
+
+test_that("the transient adjoint owns its trajectory and checks every time level", {
+  m <- pde_mesh_rectangle(nx = 2)
+  pf <- function(z) parabolic_problem(m, reaction = z, initial = 1)
+  J <- function(u) list(value = mean(u), gradient = rep(1 / length(u), length(u)))
+  g <- function(...) transient_sensitivity(pf, 1, J, dt = .25, ...)$gradient
+  expect_equal(g(), -1.25^-5, tolerance = 1e-7)
+  expect_equal(g(output_times = (1:4) / 4), -1.25^-5, tolerance = 1e-7)
+  expect_equal(g(output_times = 1, checkpoint = 2), -1.25^-5, tolerance = 1e-7)
+  pf2 <- function(z) heat_problem(m, bcs = dirichlet_bc(function(x, y, t) z * t * (t - .5) * (t - 1)))
+  J5 <- function(u) list(value = u[5], gradient = as.numeric(seq_along(u) == 5))
+  expect_error(transient_sensitivity(pf2, 1, J5, dt = .25), "must not depend on theta")
+})
+
+test_that("Newton convergence floors are dimensionless", {
+  m <- pde_mesh_rectangle(nx = 2)
+  for (k in c(1, 1e-18)) {
+    s <- solve_pde(nonlinear_problem(m, diffusion = k, source = k, bcs = dirichlet_bc(0), initial = 0))
+    expect_equal(s$u$values[5], .0625, tolerance = 1e-10)
+  }
+  for (L in c(1, 1e-6)) {
+    b <- pde_mesh_rectangle(c(0, L), c(0, L), nx = 2)
+    p <- reaction_diffusion_problem(b, diffusion = 0, reaction = function(u, x, y, t) -u, initial = 1)
+    expect_equal(solve_pde(p, dt = 1, method = "implicit-euler")$state$u[5], .5, tolerance = 1e-10)
+  }
+})
+
+test_that("nonlinear initialization and the flat constant mode", {
+  m <- pde_mesh_rectangle(nx = 2)
+  p <- nonlinear_problem(m, reaction = function(u) u^3, reaction_derivative = function(u) 3 * u^2, source = 1)
+  expect_equal(range(solve_pde(p)$u$values), c(1, 1), tolerance = 1e-8)
+  gf <- function(u) pmax(u - 2.25, 0)^3 - pmax(1.75 - u, 0)^3
+  expect_error(solve_pde(nonlinear_problem(pde_mesh_rectangle(nx = 1), reaction = gf, initial = 2)), "not unique")
+  p0 <- nonlinear_problem(m, reaction = function(u) u^3, reaction_derivative = function(u) 3 * u^2, source = 0)
+  expect_equal(max(abs(solve_pde(p0)$u$values)), 0)
+})
+
+test_that("numerical gradients resolve translated coordinates and projections integrate the mass exactly", {
+  z <- function(o) {
+    V <- fe_space(pde_mesh_rectangle(x = o + c(0, 1), nx = 8))
+    errornorm(interpolate(0, V), function(x, y) sin(2 * pi * (x - o)), "H1_semi")
+  }
+  expect_equal(z(1e12), z(0), tolerance = 1e-4)
+  V <- fe_space(pde_mesh_rectangle(nx = 1), 2)
+  expect_equal(l2_project(1, V, quad_degree = 2)$values, rep(1, V$ndof), tolerance = 1e-12)
+})

@@ -195,11 +195,9 @@ solve_pde.parabolic_problem <- function(problem, dt, method = c("crank-nicolson"
   ops <- parabolic_operators(problem)
   V <- ops$V
   t0 <- if (is.null(st0)) problem$time[1] else st0$t; t1 <- problem$time[2]
-  N <- max(1L, as.integer(ceiling((t1 - t0) / dt - 1e-10)))
-  dt <- (t1 - t0) / N
+  tg <- time_grid(t0, t1, dt); N <- tg$N; dt <- tg$dt; grid <- tg$grid
   done <- if (is.null(st0)) 0L else st0$step
   startup <- min(max(0L, startup - done), N)
-  grid <- t0 + (0:N) * dt
   out_idx <- output_index(output_times, grid, dt)
   dd0 <- dirichlet_data(V, problem$bcs, t0)
   bdofs <- dd0$dofs
@@ -301,9 +299,11 @@ restart_values <- function(s, n, V) {
 # rejected instead of being read wrongly.
 state_version <- 1L
 
-# Identity of a finite-element space for checkpoints: degree and the
-# coordinates of the degrees of freedom in their numbering.
-space_id <- function(V) list(degree = V$degree, coords = V$dof_coords)
+# Identity of a finite-element space for checkpoints: degree, the
+# coordinates of the degrees of freedom in their numbering and the
+# element-to-dof map (the same nodes with other triangles give other basis
+# functions).
+space_id <- function(V) list(degree = V$degree, coords = V$dof_coords, cells = V$cell_dofs)
 
 # A restart state must come from the same space with the same numbering of
 # degrees of freedom; the data (loads, boundary values) may change.
@@ -316,22 +316,45 @@ check_restart_space <- function(s, V) {
   X <- V$dof_coords
   diam <- max(apply(X, 2, function(z) diff(range(z))))
   if (!identical(as.integer(id$degree), as.integer(V$degree)) || !identical(dim(id$coords), dim(X)) ||
-      max(abs(id$coords - X)) > 1e-10 * diam) {
+      max(abs(id$coords - X)) > 1e-10 * diam || !same_cells(id$cells, V$cell_dofs)) {
     stopf(paste0("`restart` was computed on a different finite-element space (degree, mesh or numbering of ",
                  "the degrees of freedom); restart on the same mesh and degree."))
   }
   invisible(TRUE)
 }
 
+# Same elements: equal rows of the element-to-dof map up to the order of
+# the elements and a cyclic or reversed order within each element.
+same_cells <- function(a, b) {
+  if (is.null(a) || !identical(dim(a), dim(b))) return(FALSE)
+  key <- function(C) { C <- t(apply(C, 1, sort)); do.call(paste, c(as.data.frame(C), sep = ":")) }
+  setequal(key(a), key(b)) && length(unique(key(a))) == nrow(a)
+}
+
 # Time tolerance relative to the interval [t0, t1], at least a few units in
 # the last place of the endpoints, so that intervals in small time units are
 # resolved and those too short to represent are rejected.
 time_tol <- function(t0, t1) {
-  ulp <- 8 * .Machine$double.eps * max(abs(t0), abs(t1))
-  if (t1 - t0 <= 1e3 * ulp) {
+  ulp <- .Machine$double.eps * max(abs(t0), abs(t1))
+  if (t1 - t0 <= 16 * ulp) {
     stopf("The time interval [%s, %s] is too short to represent in floating point.", fmt_num(t0, 15), fmt_num(t1, 15))
   }
-  max(1e-12 * (t1 - t0), ulp)
+  max(1e-12 * (t1 - t0), 2 * ulp)
+}
+
+# Uniform time grid on [t0, t1] with N = ceiling((t1 - t0) / dt) steps,
+# built from the elapsed time so that the last point is t1 exactly. Steps
+# whose times cannot be told apart at this time offset are rejected
+# instead of producing repeated time stamps.
+time_grid <- function(t0, t1, dt) {
+  N <- max(1L, as.integer(ceiling((t1 - t0) / dt - 1e-10)))
+  h <- (t1 - t0) / N
+  grid <- c(t0 + (0:(N - 1L)) * h, t1)
+  if (any(diff(grid) <= 0) || any(t0 + (0:(N - 1L) + 0.5) * h <= grid[-(N + 1L)])) {
+    stopf(paste0("The time step %s is too small to tell successive times apart at t = %s; ",
+                 "use a larger step or shift the time origin."), fmt_num(h), fmt_num(t0, 15))
+  }
+  list(N = N, dt = h, grid = grid)
 }
 
 output_index <- function(output_times, grid, dt) {
@@ -477,12 +500,13 @@ solve_parabolic_multistage <- function(problem, dt, method, output_times, solver
     uh <- u + (U1 - u) / gam
     list(u = U2, err = U2 - uh)
   }
-  mnorm <- function(v) sqrt(max(0, sum(v * as.numeric(M %*% v))))
+  # The error is measured in the L2 norm of the symmetric Galerkin mass; the
+  # SUPG mass is not symmetric and its quadratic form can be negative.
+  M0 <- if (identical(problem$stabilization, "supg")) assemble_matrix(V, "mass") else M
+  mnorm <- function(v) sqrt(sum(v * as.numeric(M0 %*% v)))
   rng <- range(u)
   if (!adaptive) {
-    N <- max(1L, as.integer(ceiling((t1 - t0) / dt - 1e-10)))
-    dt <- (t1 - t0) / N
-    grid <- t0 + (0:N) * dt
+    tg <- time_grid(t0, t1, dt); N <- tg$N; dt <- tg$dt; grid <- tg$grid
     out_idx <- output_index(output_times, grid, dt)
     U <- matrix(NA_real_, V$ndof, length(out_idx))
     k_out <- 1L

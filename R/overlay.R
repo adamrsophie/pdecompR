@@ -145,7 +145,9 @@ overlay_error <- function(u, ref, type, diffusion, quad_degree) {
 #' @export
 l2_project <- function(f, space, quad_degree = NULL) {
   stopifnot(inherits(space, "fe_space"))
-  M <- assemble_matrix(space, "mass", quad_degree = quad_degree)
+  # The mass matrix is always integrated exactly (degree 2p products);
+  # `quad_degree` applies to the load only.
+  M <- assemble_matrix(space, "mass", quad_degree = max(2L * space$degree, if (is.null(quad_degree)) 0L else quad_degree))
   b <- if (inherits(f, "fe_function") && !same_space(f$space, space) &&
            is.null(nested_parent(space$mesh, f$space$mesh))) {
     if (is.null(quad_degree)) quad_degree <- f$space$degree + space$degree + 2L

@@ -136,7 +136,7 @@ runs.}
 \item{maxit}{Maximum number of Newton iterations.}
 
 \item{newton_tol, newton_maxit}{Newton tolerance (on the residual norm
-relative to its initial value, or absolute \code{1e-12}) and maximum
+relative to its initial value, or \code{1e-14} relative to the size of the terms of the step equations) and maximum
 iterations per step.}
 }
 \value{

@@ -131,6 +131,8 @@ eval_spatial <- function(f, x, y, t = NULL, name = "function") {
 # A function is time dependent when its third formal argument is named `t`;
 # extra arguments with other names (for example `amp = 5`) keep their defaults.
 is_time_function <- function(f) {
+  # A tensor depends on time when any of its entries does.
+  if (inherits(f, "pde_tensor")) return(any(vapply(f[c("xx", "xy", "yy")], is_time_function, logical(1))))
   is.function(f) && length(formals(f)) >= 3L && identical(names(formals(f))[3], "t")
 }
 

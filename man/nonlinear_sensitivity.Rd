@@ -15,6 +15,7 @@ transient_sensitivity(
   method = c("backward-euler", "crank-nicolson"),
   h = 1e-06,
   checkpoint = NULL,
+  output_times = NULL,
   ...
 )
 }
@@ -40,6 +41,11 @@ kept and the states in between are recomputed segment by segment during
 the backward sweep (one extra forward solve per step). With
 \code{k = ceiling(sqrt(N))} for \code{N} steps, memory falls from \code{N} to about
 \verb{2 sqrt(N)} state vectors. The gradient is the same up to rounding.}
+
+\item{output_times}{Times kept in the returned \code{solution} (default all
+steps, or only the final time with \code{checkpoint}). The adjoint always
+uses its own record of every step, so this choice does not change the
+gradient.}
 }
 \value{
 A list with \code{value}, \code{gradient}, the \code{solution} and the adjoint.

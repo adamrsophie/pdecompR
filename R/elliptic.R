@@ -149,7 +149,10 @@ update_mesh <- function(problem, mesh) {
     stopf(paste0("The forms of a variational problem are tied to their function space; ",
                  "rebuild them on the new mesh instead of calling update_mesh()."))
   }
-  if (inherits(problem, "reaction_diffusion_problem")) {
+  if (inherits(problem, "elastodynamics_problem")) {
+    # The embedded elasticity problem owns the mesh that is discretized.
+    problem$elasticity <- update_mesh(problem$elasticity, mesh)
+  } else if (inherits(problem, "reaction_diffusion_problem")) {
     for (b in problem$bcs) check_bc_markers(b, mesh)
   } else {
     check_bc_markers(problem$bcs, mesh)

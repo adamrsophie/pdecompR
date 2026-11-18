@@ -138,9 +138,7 @@ newmark <- function(M, C, K, load, bdofs, g, u, v, time, dt, output_times, solve
   check_number(dt, "dt", positive = TRUE)
   beta <- 0.25; gam <- 0.5
   t0 <- time[1]; t1 <- time[2]
-  N <- max(1L, as.integer(ceiling((t1 - t0) / dt - 1e-10)))
-  dt <- (t1 - t0) / N
-  grid <- t0 + (0:N) * dt
+  tg <- time_grid(t0, t1, dt); N <- tg$N; dt <- tg$dt; grid <- tg$grid
   out_idx <- output_index(output_times, grid, dt)
   n <- nrow(M)
   free <- setdiff(seq_len(n), bdofs)
@@ -150,18 +148,19 @@ newmark <- function(M, C, K, load, bdofs, g, u, v, time, dt, output_times, solve
   note <- function(s) { max_rel <<- max(max_rel, s$info$relative_residual); if (!solve_ok(s$info)) bad <<- s$info }
   # Consistent initial acceleration on the free rows; on prescribed rows a
   # one-sided second difference of the data inside the first step.
-  if (!is.null(a0)) {
-    a <- a0   # restart: the acceleration of the previous run
-  } else {
-    a <- numeric(n)
+  # On restart the prescribed accelerations of the previous run are kept,
+  # but the free ones are recomputed from the equations of this run at t0,
+  # whose loads may differ from those the stored acceleration satisfied.
+  a <- numeric(n)
+  if (length(bdofs)) {
     # Second difference on [t0, t0 + dt] with half steps, so the data are
     # never evaluated after the first step (or the end of the interval).
-    if (length(bdofs)) a[bdofs] <- (g(t0 + dt) - 2 * g(t0 + dt / 2) + g(t0)) / (dt / 2)^2
-    r0 <- load(t0) - as.numeric(C %*% v) - as.numeric(K %*% u) - as.numeric(M[, bdofs, drop = FALSE] %*% a[bdofs])
-    sM <- linear_solver(M[free, free, drop = FALSE], solver, ...)
-    s0 <- sM$solve(r0[free]); note(s0)
-    a[free] <- s0$x
+    a[bdofs] <- if (!is.null(a0)) a0[bdofs] else (g(grid[2]) - 2 * g((grid[1] + grid[2]) / 2) + g(t0)) / (dt / 2)^2
   }
+  r0 <- load(t0) - as.numeric(C %*% v) - as.numeric(K %*% u) - as.numeric(M[, bdofs, drop = FALSE] %*% a[bdofs])
+  sM <- linear_solver(M[free, free, drop = FALSE], solver, ...)
+  s0 <- sM$solve(r0[free]); note(s0)
+  a[free] <- s0$x
   c0 <- 1 / (beta * dt^2); c1 <- gam / (beta * dt)
   Keff <- c0 * M + c1 * C + K
   slv <- linear_solver(Keff[free, free, drop = FALSE], solver, ...)

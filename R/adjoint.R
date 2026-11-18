@@ -75,9 +75,14 @@ nonlinear_sensitivity <- function(problem_fun, theta, objective, h = 1e-6, ...) 
 #'   the backward sweep (one extra forward solve per step). With
 #'   `k = ceiling(sqrt(N))` for `N` steps, memory falls from `N` to about
 #'   `2 sqrt(N)` state vectors. The gradient is the same up to rounding.
+#' @param output_times Times kept in the returned `solution` (default all
+#'   steps, or only the final time with `checkpoint`). The adjoint always
+#'   uses its own record of every step, so this choice does not change the
+#'   gradient.
 #' @export
 transient_sensitivity <- function(problem_fun, theta, objective, dt,
-                                  method = c("backward-euler", "crank-nicolson"), h = 1e-6, checkpoint = NULL, ...) {
+                                  method = c("backward-euler", "crank-nicolson"), h = 1e-6, checkpoint = NULL,
+                                  output_times = NULL, ...) {
   method <- match.arg(method)
   theta <- as.numeric(theta); check_tol(h, "h")
   if (!is.null(checkpoint)) checkpoint <- check_count(checkpoint, "checkpoint", min = 1L)
@@ -88,12 +93,12 @@ transient_sensitivity <- function(problem_fun, theta, objective, dt,
   if (ops$coef_time_dependent) stopf("Coefficients must not depend on time.")
   V <- ops$V
   t0 <- prob$time[1]; t1 <- prob$time[2]
-  N <- max(1L, as.integer(ceiling((t1 - t0) / dt - 1e-10))); dt <- (t1 - t0) / N
-  grid <- t0 + (0:N) * dt
+  tg <- time_grid(t0, t1, dt); N <- tg$N; dt <- tg$dt; grid <- tg$grid
   # Forward run: all states, or only every `checkpoint`-th one.
   if (is.null(checkpoint)) {
     sol <- solve_pde(prob, dt = dt, method = method, startup = 0L, ...)
     U <- sol$values
+    if (ncol(U) != N + 1L) stopf("The forward run must store every step.")
     getU <- function(n) U[, n]
   } else {
     keep <- seq(1L, N + 1L, by = checkpoint)
@@ -134,8 +139,8 @@ transient_sensitivity <- function(problem_fun, theta, objective, dt,
     tp <- theta; tp[j] <- tp[j] + hj; tm <- theta; tm[j] <- tm[j] - hj
     pp <- problem_fun(tp); pm <- problem_fun(tm)
     # The adjoint omits derivatives of prescribed values; check that there
-    # are none (at the first, middle and last time).
-    for (t in grid[unique(c(1L, N %/% 2L + 1L, N + 1L))]) {
+    # are none at every time level of the scheme.
+    for (t in grid) {
       dp <- dirichlet_data(V, pp$bcs, t); dm <- dirichlet_data(V, pm$bcs, t)
       if (!identical(dp$dofs, d) || !identical(dm$dofs, d) ||
           max(abs(dp$values - dm$values), 0) > 1e-12 * max(1, abs(dp$values))) {
@@ -175,6 +180,13 @@ transient_sensitivity <- function(problem_fun, theta, objective, dt,
   for (j in seq_along(der)) gr[j] <- gr[j] + sum(lam * as.numeric(R %*% der[[j]]$du0)[f])
   # (The step residual is L u_n - R u_{n-1} - dt F with L = M + theta dt A
   # and R = M - (1 - theta) dt A, so dM enters as dM (u_n - u_{n-1}).)
+  if (!is.null(output_times)) {
+    keep <- match(output_index(output_times, grid, dt), seq_len(N + 1L))
+    have <- match(grid[keep], sol$times)
+    if (anyNA(have)) stopf("`output_times` must be stored times of the forward run (with `checkpoint`, only the final time).")
+    sol$times <- sol$times[have]; sol$values <- sol$values[, have, drop = FALSE]
+    if (!is.null(sol$diagnostics$integral)) sol$diagnostics$integral <- sol$diagnostics$integral[have]
+  }
   list(value = ob$value, gradient = gr, solution = sol, adjoint = full_lam)
 }
 

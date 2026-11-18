@@ -112,7 +112,17 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
                             },
                             bcs = problem$bcs, degree = problem$degree,
                             quad_degree = problem$quad_degree)
-    u <- solve_pde(lin)$u$values
+    anchored <- length(dd$dofs) || (!is.null(nat$A) && any(nat$A@x != 0)) || (!is.null(dg) && dg(0) > 0)
+    if (anchored || is.null(g)) {
+      u <- solve_pde(lin)$u$values
+    } else {
+      # The linearization at 0 has lost the reaction (g'(0) = 0, as for
+      # u^3), so it is a pure Neumann problem. Start from the constant that
+      # balances the reaction against the loads instead: sum_i r_i(c 1) = 0.
+      bal <- function(cc) sum(ns$residual_jac(rep(cc, V$ndof), jacobian = FALSE)$r)
+      cc <- tryCatch(stats::uniroot(bal, c(-1, 1), extendInt = "yes")$root, error = function(e) 0)
+      u <- rep(cc, V$ndof)
+    }
   }
   u[dd$dofs] <- dd$values
   robin <- !is.null(nat$A) && any(nat$A@x != 0)
@@ -127,7 +137,7 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
   r0 <- sqrt(sum(rj$r[free]^2)); rn <- r0
   hist[1, ] <- list(0L, r0, NA)
   it <- 0L
-  converged <- rn <= 1e-12
+  converged <- rn <= 1e-14 * rj$scale
   status <- "not converged"
   while (!converged && it < maxit) {
     it <- it + 1L
@@ -149,7 +159,7 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
     rj <- residual_jac(u)
     rn <- sqrt(sum(rj$r[free]^2))
     hist[it + 1L, ] <- list(it, rn, lam)
-    converged <- rn <= max(tol * r0, 1e-12)
+    converged <- rn <= max(tol * r0, 1e-14 * rj$scale)
   }
   if (converged) status <- "converged"
   if (converged && !length(dd$dofs)) {
@@ -157,8 +167,12 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
     # constant still solves the discrete equations (as for a constant
     # reaction): then the solution is not unique. The Jacobian alone cannot
     # decide this; for g(u) = u^3 it is singular at the unique root u = 0.
+    # Large shifts detect a reaction that ignores the level everywhere;
+    # small ones a flat stretch around the converged level (every constant
+    # in an interval solves). An isolated degenerate root such as u = 0 for
+    # u^3 fails both, because the shifted residual is of the size of g.
     s <- max(abs(u)); if (s == 0) s <- 1
-    shift_solves <- vapply(c(s, -s), function(cc) {
+    shift_ok <- vapply(c(s, -s, 1e-3 * s, -1e-3 * s), function(cc) {
       w <- u + cc
       rw <- trial_eval(function() residual_jac(w, jacobian = FALSE)$r)
       if (is.null(rw) || !all(is.finite(rw))) return(FALSE)
@@ -169,7 +183,7 @@ solve_pde.nonlinear_problem <- function(problem, tol = 1e-10, maxit = 30, method
       ref <- gl(w) + gl(u) + sqrt(sum((rj$J %*% rep(cc, V$ndof))^2))
       sqrt(sum(rw^2)) <= 1e-10 * ref
     }, logical(1))
-    if (all(shift_solves)) {
+    if (all(shift_ok[1:2]) || all(shift_ok[3:4])) {
       stopf(paste0("The solution is not unique: without Dirichlet data, adding a constant to the converged ",
                    "state still solves the equations (pure Neumann with a reaction that does not fix the ",
                    "level); add a Dirichlet condition or a reaction that depends on u."))
@@ -217,9 +231,13 @@ nonlinear_system <- function(problem) {
     }
     flux <- list(x = kq * q$dx, y = kq * q$dy)
     gq <- if (is.null(g)) NULL else eval_u(g, q$value, "reaction")
-    r <- global_vector(V, local_linear(geo, f = gq, g = flux)) - b_nat
-    if (!is.null(nat$A)) r <- r + as.numeric(nat$A %*% u)
-    if (!jacobian) return(list(r = r))
+    ri <- global_vector(V, local_linear(geo, f = gq, g = flux))
+    rr <- if (!is.null(nat$A)) as.numeric(nat$A %*% u) else 0
+    r <- ri + rr - b_nat
+    # Size of the terms the residual balances: the absolute convergence
+    # floor is rounding level relative to it, independent of units.
+    scale <- sqrt(sum(((abs(ri) + abs(rr) + abs(b_nat))[free])^2))
+    if (!jacobian) return(list(r = r, scale = scale))
     if (plap) {
       c2 <- (problem$p - 2) * s^((problem$p - 4) / 2)
       D <- list(xx = kq + c2 * q$dx * q$dx, xy = c2 * q$dx * q$dy,
@@ -233,7 +251,7 @@ nonlinear_system <- function(problem) {
     if (is.null(plan)) plan <<- assembly_plan(V)
     J <- plan(A)
     if (!is.null(nat$A)) J <- J + nat$A
-    list(r = r, J = J)
+    list(r = r, J = J, scale = scale)
   }
   list(V = V, geo = geo, nat = nat, dd = dd, free = free, plap = plap, k = k, dk = dk, g = g, dg = dg,
        residual_jac = residual_jac)

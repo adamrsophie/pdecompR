@@ -142,7 +142,7 @@ errornorm <- function(u, exact, type = c("L2", "H1_semi", "H1", "energy"), gradi
 # point.
 fd_gradient <- function(f, h = 1e-5, scale = 1) {
   function(x, y) {
-    st <- function(v) pmax(h * scale, 1e3 * .Machine$double.eps * abs(v))
+    st <- function(v) pmax(h * scale, 4 * .Machine$double.eps * abs(v))
     hx <- st(x); hy <- st(y)
     xp <- x + hx; xm <- x - hx; yp <- y + hy; ym <- y - hy
     cbind((f(xp, y) - f(xm, y)) / (xp - xm), (f(x, yp) - f(x, ym)) / (yp - ym))
