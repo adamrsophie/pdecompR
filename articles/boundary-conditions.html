@@ -239,7 +239,7 @@ not detected.</p>
 <span><span class="co">#&gt;   solver: lu, status solved</span></span>
 <span><span class="co">#&gt;   linear residual: 6.41e-12 (relative 1.63e-11)</span></span>
 <span><span class="co">#&gt;   pure Neumann: zero-mean gauge, compatibility defect -1.57e-10</span></span>
-<span><span class="co">#&gt;   assembly 0.002 s, solve 0.007 s</span></span>
+<span><span class="co">#&gt;   assembly 0.003 s, solve 0.01 s</span></span>
 <span><span class="co">#&gt;   solution range [-0.9937, 1.003]</span></span>
 <span><span class="co">#&gt;   (the linear residual measures the algebraic solve, not the discretization error)</span></span></code></pre></div>
 <p>Incompatible data are an error, not an arbitrary answer:</p>
@@ -299,6 +299,19 @@ are identified transitively, so all four corners become one unknown.</p>
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="../reference/elliptic_problem.html">elliptic_problem</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">4</span><span class="op">)</span>, source <span class="op">=</span> <span class="fl">1</span>, bcs <span class="op">=</span> <span class="va">both</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> Pure Neumann problem with incompatible data: compatibility defect     1 (relative     1). The discrete problem has no solution.</span></span></code></pre></div>
+<p>The gauge is decided per connected part of the domain, after the
+constraints: a part with a Dirichlet value, a reaction term or a Robin
+term is solved as usual, and only the parts left floating get the
+zero-mean gauge and the compatibility check. Below, the left triangle is
+held at 1 and the right one floats with zero data.</p>
+<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">P</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">0</span><span class="op">)</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">2</span>, <span class="fl">1</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">two</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/set_boundary_marker.html">set_boundary_marker</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh.html">pde_mesh</a></span><span class="op">(</span><span class="va">P</span>, <span class="fu"><a href="https://rdrr.io/r/base/cbind.html" class="external-link">rbind</a></span><span class="op">(</span><span class="fl">1</span><span class="op">:</span><span class="fl">3</span>, <span class="fl">4</span><span class="op">:</span><span class="fl">6</span><span class="op">)</span><span class="op">)</span>, <span class="st">"fixed"</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="va">x</span> <span class="op">&lt;</span> <span class="fl">1.5</span><span class="op">)</span></span>
+<span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="../reference/elliptic_problem.html">poisson_problem</a></span><span class="op">(</span><span class="va">two</span>, boundary <span class="op">=</span> <span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"fixed"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="va">s</span><span class="op">$</span><span class="va">u</span><span class="op">$</span><span class="va">values</span></span>
+<span><span class="co">#&gt; [1] 1 1 1 0 0 0</span></span>
+<span><span class="va">s</span><span class="op">$</span><span class="va">diagnostics</span><span class="op">$</span><span class="va">gauge</span><span class="op">$</span><span class="va">components</span></span>
+<span><span class="co">#&gt; [1] 1</span></span></code></pre></div>
 <p>Periodic conditions are supported for elliptic problems.
 Time-dependent, nonlinear and reaction-diffusion problems reject them
 with an error instead of ignoring them.</p>
@@ -309,12 +322,12 @@ with an error instead of ignoring them.</p>
 <p>Meshes read from Gmsh carry their physical line names as markers.
 Otherwise <code><a href="../reference/set_boundary_marker.html">set_boundary_marker()</a></code> can label edges
 geometrically, once, after which all selection is by marker:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">m</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/set_boundary_marker.html">set_boundary_marker</a></span><span class="op">(</span><span class="fu"><a href="../reference/pde_mesh_rectangle.html">pde_mesh_rectangle</a></span><span class="op">(</span>nx <span class="op">=</span> <span class="fl">16</span><span class="op">)</span>, <span class="st">"hot"</span>, <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">y</span><span class="op">)</span> <span class="va">y</span> <span class="op">&lt;</span> <span class="fl">1e-12</span> <span class="op">&amp;</span> <span class="va">x</span> <span class="op">&lt;</span> <span class="fl">0.5</span><span class="op">)</span></span>
 <span><span class="va">s</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/solve_pde.html">solve_pde</a></span><span class="op">(</span><span class="fu"><a href="../reference/elliptic_problem.html">poisson_problem</a></span><span class="op">(</span><span class="va">m</span>, source <span class="op">=</span> <span class="fl">0</span>,</span>
 <span>                               boundary <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"hot"</span><span class="op">)</span>, <span class="fu"><a href="../reference/dirichlet_bc.html">dirichlet_bc</a></span><span class="op">(</span><span class="fl">0</span>, <span class="st">"top"</span><span class="op">)</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/graphics/plot.default.html" class="external-link">plot</a></span><span class="op">(</span><span class="va">s</span><span class="op">)</span></span></code></pre></div>
-<p><img src="boundary-conditions_files/figure-html/unnamed-chunk-12-1.png" class="r-plt" alt="" width="576"></p>
+<p><img src="boundary-conditions_files/figure-html/unnamed-chunk-13-1.png" class="r-plt" alt="" width="576"></p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

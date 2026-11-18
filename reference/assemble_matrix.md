@@ -24,7 +24,8 @@ assemble_boundary_matrix(
   alpha = 1,
   marker = "boundary",
   t = NULL,
-  quad_degree = NULL
+  quad_degree = NULL,
+  nonnegative = FALSE
 )
 
 assemble_boundary_vector(
@@ -67,6 +68,12 @@ assemble_boundary_vector(
 - marker:
 
   Boundary markers.
+
+- nonnegative:
+
+  For `assemble_boundary_matrix()`, reject a coefficient that is
+  negative at any boundary quadrature point (used for Robin conditions,
+  whose coefficient must be non-negative).
 
 ## Value
 

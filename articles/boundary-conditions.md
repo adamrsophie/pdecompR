@@ -115,7 +115,7 @@ summary(s)
 #>   solver: lu, status solved
 #>   linear residual: 6.41e-12 (relative 1.63e-11)
 #>   pure Neumann: zero-mean gauge, compatibility defect -1.57e-10
-#>   assembly 0.002 s, solve 0.007 s
+#>   assembly 0.003 s, solve 0.01 s
 #>   solution range [-0.9937, 1.003]
 #>   (the linear residual measures the algebraic solve, not the discretization error)
 ```
@@ -191,6 +191,23 @@ solve_pde(elliptic_problem(pde_mesh_rectangle(nx = 4), source = 1, bcs = both))
 #> ! Pure Neumann problem with incompatible data: compatibility defect     1 (relative     1). The discrete problem has no solution.
 ```
 
+The gauge is decided per connected part of the domain, after the
+constraints: a part with a Dirichlet value, a reaction term or a Robin
+term is solved as usual, and only the parts left floating get the
+zero-mean gauge and the compatibility check. Below, the left triangle is
+held at 1 and the right one floats with zero data.
+
+``` r
+
+P <- rbind(c(0, 0), c(1, 0), c(0, 1), c(2, 0), c(3, 0), c(2, 1))
+two <- set_boundary_marker(pde_mesh(P, rbind(1:3, 4:6)), "fixed", function(x, y) x < 1.5)
+s <- solve_pde(poisson_problem(two, boundary = dirichlet_bc(1, "fixed")))
+s$u$values
+#> [1] 1 1 1 0 0 0
+s$diagnostics$gauge$components
+#> [1] 1
+```
+
 Periodic conditions are supported for elliptic problems. Time-dependent,
 nonlinear and reaction-diffusion problems reject them with an error
 instead of ignoring them.
@@ -211,4 +228,4 @@ s <- solve_pde(poisson_problem(m, source = 0,
 plot(s)
 ```
 
-![](boundary-conditions_files/figure-html/unnamed-chunk-12-1.png)
+![](boundary-conditions_files/figure-html/unnamed-chunk-13-1.png)

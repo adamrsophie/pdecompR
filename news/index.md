@@ -80,8 +80,12 @@ of the sparse matrix classes of ‘Matrix’.
   stepping.
 - Quasilinear diffusion, semilinear reaction and p-Laplace problems
   solved by damped Newton iteration. Without Dirichlet data, a converged
-  state that stays a solution when shifted by a constant is reported as
-  not unique.
+  state that stays a solution when shifted by a constant (large or small
+  shifts, so a flat interval of solutions is found too) is reported as
+  not unique. Newton convergence floors are relative to the size of the
+  terms of the equations, so they do not depend on units, and the
+  default initial guess balances a reaction that vanishes to first order
+  at zero.
 - Linear elasticity in plane strain and plane stress with displacement,
   roller and traction conditions, and strain, stress and von Mises
   output.
@@ -91,7 +95,8 @@ of the sparse matrix classes of ‘Matrix’.
 - [`pde_mesh()`](https://adamrsophie.github.io/pdecompR/reference/pde_mesh.md)
   rejects elements that overlap without sharing an edge (folded node
   neighborhoods, crossing boundary edges, or a disconnected part lying
-  inside another element).
+  inside another component, including on an interior edge). Refinement
+  that moves nodes onto curves validates the result.
 - [`curved_boundary()`](https://adamrsophie.github.io/pdecompR/reference/curved_boundary.md)
   declares boundary parts as curves; refinement then places new boundary
   nodes on the curve, which restores second-order P1 convergence on
@@ -110,13 +115,18 @@ of the sparse matrix classes of ‘Matrix’.
   from the final state of an earlier run (including multistep history,
   Newmark velocity and acceleration, the adaptive step size and startup
   steps), so long runs can be streamed and checkpointed. The state
-  records its finite-element space, and restarts on another mesh, degree
-  or numbering are rejected; reaction-diffusion species are matched by
-  name.
-- Time tolerances are relative to the time interval, so short intervals
-  in small time units are integrated and intervals too short to
-  represent are rejected. Newmark startup never evaluates boundary data
-  after the first step.
+  records its finite-element space (degree, dof coordinates and element
+  connectivity), and restarts on another mesh, degree or numbering are
+  rejected; reaction-diffusion species are matched by name and the
+  initial condition is not evaluated on restart. Newmark restarts
+  recompute the free acceleration from the loads of the new run.
+- Time grids are built in elapsed time and end exactly at the requested
+  time; steps that cannot be told apart at the time offset are rejected
+  instead of producing repeated time stamps. Time tolerances are a few
+  units in the last place, so large time origins work. Newmark startup
+  never evaluates boundary data after the first step. Tensor
+  coefficients with a time-dependent entry are reassembled in time, and
+  adaptive SDIRK2 under SUPG measures errors in the Galerkin mass norm.
 - Time-dependent solvers report the range of nodal values over all steps
   (`diagnostics$range`) next to the integral, to expose violations of
   positivity or of the discrete maximum principle.
@@ -127,8 +137,11 @@ of the sparse matrix classes of ‘Matrix’.
   pseudo-traction and do-nothing outflow conditions, solved by sparse LU
   or by GMRES with a block-diagonal preconditioner
   ([`stokes_problem()`](https://adamrsophie.github.io/pdecompR/reference/stokes_problem.md)).
-  The pressure gauge is found from the constrained divergence operator,
-  so walls with only the normal velocity prescribed are gauged too.
+  The pressure gauge is found from the constrained divergence operator
+  per pressure component, each against its own coupling scale, so walls
+  with only the normal velocity prescribed are gauged too. Free velocity
+  translations and velocity spaces too small to control the pressure are
+  reported.
 - Eigenvalue problems for symmetric elliptic operators and elastic
   vibration modes by shift-and-invert subspace iteration
   ([`solve_eigen()`](https://adamrsophie.github.io/pdecompR/reference/solve_eigen.md)).
@@ -145,16 +158,29 @@ of the sparse matrix classes of ‘Matrix’.
   ([`multigrid_preconditioner()`](https://adamrsophie.github.io/pdecompR/reference/multigrid_preconditioner.md))
   with mesh-independent iteration counts; coarse levels inherit the
   homogeneous Dirichlet constraints. Algebraic multigrid is invariant to
-  scaling of the system.
+  scaling of the system. GMRES is flexible, so preconditioners that are
+  not fixed linear maps are applied consistently.
+- The symmetry test behind the automatic Cholesky choice works on the
+  equilibrated matrix, so it does not depend on the scale of the system.
+- Pure Neumann gauges are decided per connected component (joined by
+  periodic conditions) after Dirichlet, reaction and Robin terms;
+  anchored components are solved as usual. The compatibility test
+  normalizes the load and `compatibility_tol` is at most 0.01.
+- Repeated assembly (time-dependent coefficients, Newton iterations)
+  builds its sparse plans only once enough fills amortize them, and load
+  vectors are not reassembled when only Dirichlet data move in time.
 
 ### Verification and adaptivity
 
 - L2, H1 and energy error norms against exact or finite-element
   reference solutions on nested or unrelated meshes of the same domain
   (integrated on the mesh overlay, which keeps arbitrarily small cells),
-  and convergence studies with observed orders. The finite-difference
-  gradient used when no exact gradient is given does not change when the
-  domain is translated.
+  and convergence studies with observed orders. Common domains are
+  certified triangle by triangle, so a missing small component is
+  rejected, and the overlay works in a translated local frame. A
+  reference on the same space is compared through the coefficient
+  difference. The finite-difference gradient used when no exact gradient
+  is given does not change when the domain is translated.
 - Symbolic manufactured solutions through the optional ‘symcompR’
   package.
 - A residual a posteriori error estimator, Doerfler marking and an
@@ -176,10 +202,14 @@ of the sparse matrix classes of ‘Matrix’.
   [`transient_sensitivity()`](https://adamrsophie.github.io/pdecompR/reference/nonlinear_sensitivity.md);
   the transient sweep accumulates the gradient step by step, includes
   the derivative of the SUPG mass matrix, and can checkpoint the forward
-  states.
+  states. It keeps its own record of every step, so `output_times` only
+  thins the returned solution, and it checks that the Dirichlet data do
+  not depend on the parameters at every time level.
 - Parameter estimation with adjoint gradients, bounds (including fixed
   parameters), Gauss-Newton standard errors and identifiability
   diagnostics: the rank of the observation sensitivities against the
   number of free parameters, and the null space of unidentified
-  directions.
-- Distributed optimal control with optional control bounds.
+  directions. The regularization of fixed parameters stays in the
+  reported objective.
+- Distributed optimal control with optional control bounds;
+  contradictory bounds are rejected.

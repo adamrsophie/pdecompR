@@ -100,7 +100,8 @@ constant and affine coefficients.</p>
 <span>  alpha <span class="op">=</span> <span class="fl">1</span>,</span>
 <span>  marker <span class="op">=</span> <span class="st">"boundary"</span>,</span>
 <span>  t <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  quad_degree <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  quad_degree <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  nonnegative <span class="op">=</span> <span class="cn">FALSE</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">assemble_boundary_vector</span><span class="op">(</span></span>
@@ -143,6 +144,12 @@ constant and affine coefficients.</p>
 
 <dt id="arg-marker">marker<a class="anchor" aria-label="anchor" href="#arg-marker"></a></dt>
 <dd><p>Boundary markers.</p></dd>
+
+
+<dt id="arg-nonnegative">nonnegative<a class="anchor" aria-label="anchor" href="#arg-nonnegative"></a></dt>
+<dd><p>For <code>assemble_boundary_matrix()</code>, reject a coefficient
+that is negative at any boundary quadrature point (used for Robin
+conditions, whose coefficient must be non-negative).</p></dd>
 
 </dl></div>
     <div class="section level2">

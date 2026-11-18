@@ -101,6 +101,7 @@ state (no extra nonlinear solves).</p>
 <span>  method <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"backward-euler"</span>, <span class="st">"crank-nicolson"</span><span class="op">)</span>,</span>
 <span>  h <span class="op">=</span> <span class="fl">1e-06</span>,</span>
 <span>  checkpoint <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  output_times <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  <span class="va">...</span></span>
 <span><span class="op">)</span></span></code></pre></div>
     </div>
@@ -143,6 +144,13 @@ kept and the states in between are recomputed segment by segment during
 the backward sweep (one extra forward solve per step). With
 <code>k = ceiling(sqrt(N))</code> for <code>N</code> steps, memory falls from <code>N</code> to about
 <code>2 sqrt(N)</code> state vectors. The gradient is the same up to rounding.</p></dd>
+
+
+<dt id="arg-output-times">output_times<a class="anchor" aria-label="anchor" href="#arg-output-times"></a></dt>
+<dd><p>Times kept in the returned <code>solution</code> (default all
+steps, or only the final time with <code>checkpoint</code>). The adjoint always
+uses its own record of every step, so this choice does not change the
+gradient.</p></dd>
 
 </dl></div>
     <div class="section level2">

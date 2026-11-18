@@ -22,6 +22,7 @@ transient_sensitivity(
   method = c("backward-euler", "crank-nicolson"),
   h = 1e-06,
   checkpoint = NULL,
+  output_times = NULL,
   ...
 )
 ```
@@ -67,6 +68,12 @@ transient_sensitivity(
   backward sweep (one extra forward solve per step). With
   `k = ceiling(sqrt(N))` for `N` steps, memory falls from `N` to about
   `2 sqrt(N)` state vectors. The gradient is the same up to rounding.
+
+- output_times:
+
+  Times kept in the returned `solution` (default all steps, or only the
+  final time with `checkpoint`). The adjoint always uses its own record
+  of every step, so this choice does not change the gradient.
 
 ## Value
 

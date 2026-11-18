@@ -156,7 +156,7 @@ for (m in c("auto", "lu", "cg", "bicgstab", "gmres")) {
 #> lu       lu        iterations   NA  relative residual 1.77e-13
 #> cg       cg        iterations   54  relative residual 4.51e-13
 #> bicgstab bicgstab  iterations   43  relative residual 5.04e-13
-#> gmres    gmres     iterations   54  relative residual 8.66e-13
+#> gmres    gmres     iterations   54  relative residual 8.73e-13
 ```
 
 Every solve reports a status, the residual and its relative size, the
@@ -255,7 +255,7 @@ for (n in c(16, 32, 64)) {
 }
 #> n =  16  dofs =    289  assembly 0.00s  solve 0.00s
 #> n =  32  dofs =   1089  assembly 0.00s  solve 0.00s
-#> n =  64  dofs =   4225  assembly 0.01s  solve 0.00s
+#> n =  64  dofs =   4225  assembly 0.01s  solve 0.01s
 ```
 
 Where coefficients change every time step or Newton iteration, the
@@ -266,15 +266,22 @@ the matrix from triplets. The element integrals themselves then dominate
 (about 80 percent of a reassembly for P1 on a 128 by 128 mesh), so the
 end-to-end gain is modest: 7 percent for a heat problem with
 time-dependent diffusion and 4 percent for a quasilinear Newton solve.
+Building the plan costs about as much as 9 direct assemblies for P1 and
+20 for P2, so the first fills are assembled directly and the plan is
+built only once that many fills have been requested: short runs do not
+pay for it. Load vectors are reassembled in time only when the source or
+the natural boundary data depend on time; moving Dirichlet values alone
+do not trigger it.
 
 `benchmarks/protocol.R` in the source repository times the clean public
 workload (mesh creation and one
 [`solve_pde()`](https://adamrsophie.github.io/pdecompR/reference/solve_pde.md)
 call) in a fresh R process under `/usr/bin/time`, so the peak memory
-belongs to that workload alone, and times the assembly components
-separately in another process. Each case runs twice to warm up and then
-five times; every repeat is saved, the median and range are reported,
-and the commit, BLAS, CPU and thread settings are recorded. P1, P2 and
-AMG solves are compared at a fixed error. On the unit square P2 reaches
-an L2 error of `1e-5` with 4,225 unknowns, where P1 needs more than
-66,000.
+belongs to that workload alone, times the assembly components separately
+in another process, and computes the error of each case in a third
+process, so the error quadrature enters neither the solve time nor its
+peak memory. Each case runs twice to warm up and then five times; every
+repeat is saved, the median and range are reported, and the commit,
+BLAS, CPU and thread settings are recorded. P1, P2 and AMG solves are
+compared at a fixed error. On the unit square P2 reaches an L2 error of
+`1e-5` with 4,225 unknowns, where P1 needs more than 66,000.

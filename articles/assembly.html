@@ -239,7 +239,7 @@ gradients, BiCGSTAB and restarted GMRES are also available.</p>
 <span><span class="co">#&gt; lu       lu        iterations   NA  relative residual 1.77e-13</span></span>
 <span><span class="co">#&gt; cg       cg        iterations   54  relative residual 4.51e-13</span></span>
 <span><span class="co">#&gt; bicgstab bicgstab  iterations   43  relative residual 5.04e-13</span></span>
-<span><span class="co">#&gt; gmres    gmres     iterations   54  relative residual 8.66e-13</span></span></code></pre></div>
+<span><span class="co">#&gt; gmres    gmres     iterations   54  relative residual 8.73e-13</span></span></code></pre></div>
 <p>Every solve reports a status, the residual and its relative size, the
 iteration count, the matrix size and the number of nonzeros. Iterative
 methods report <code>"not converged"</code> instead of returning
@@ -321,7 +321,7 @@ workstation.</p>
 <span><span class="op">}</span></span>
 <span><span class="co">#&gt; n =  16  dofs =    289  assembly 0.00s  solve 0.00s</span></span>
 <span><span class="co">#&gt; n =  32  dofs =   1089  assembly 0.00s  solve 0.00s</span></span>
-<span><span class="co">#&gt; n =  64  dofs =   4225  assembly 0.01s  solve 0.00s</span></span></code></pre></div>
+<span><span class="co">#&gt; n =  64  dofs =   4225  assembly 0.01s  solve 0.01s</span></span></code></pre></div>
 <p>Where coefficients change every time step or Newton iteration, the
 matrix is reassembled on a fixed sparsity pattern: the map from element
 entries to the nonzeros is computed once, and each reassembly is one
@@ -329,18 +329,25 @@ sparse matrix-vector product, about twelve times faster than building
 the matrix from triplets. The element integrals themselves then dominate
 (about 80 percent of a reassembly for P1 on a 128 by 128 mesh), so the
 end-to-end gain is modest: 7 percent for a heat problem with
-time-dependent diffusion and 4 percent for a quasilinear Newton
-solve.</p>
+time-dependent diffusion and 4 percent for a quasilinear Newton solve.
+Building the plan costs about as much as 9 direct assemblies for P1 and
+20 for P2, so the first fills are assembled directly and the plan is
+built only once that many fills have been requested: short runs do not
+pay for it. Load vectors are reassembled in time only when the source or
+the natural boundary data depend on time; moving Dirichlet values alone
+do not trigger it.</p>
 <p><code>benchmarks/protocol.R</code> in the source repository times the
 clean public workload (mesh creation and one <code><a href="../reference/solve_pde.html">solve_pde()</a></code>
 call) in a fresh R process under <code>/usr/bin/time</code>, so the peak
-memory belongs to that workload alone, and times the assembly components
-separately in another process. Each case runs twice to warm up and then
-five times; every repeat is saved, the median and range are reported,
-and the commit, BLAS, CPU and thread settings are recorded. P1, P2 and
-AMG solves are compared at a fixed error. On the unit square P2 reaches
-an L2 error of <code>1e-5</code> with 4,225 unknowns, where P1 needs
-more than 66,000.</p>
+memory belongs to that workload alone, times the assembly components
+separately in another process, and computes the error of each case in a
+third process, so the error quadrature enters neither the solve time nor
+its peak memory. Each case runs twice to warm up and then five times;
+every repeat is saved, the median and range are reported, and the
+commit, BLAS, CPU and thread settings are recorded. P1, P2 and AMG
+solves are compared at a fixed error. On the unit square P2 reaches an
+L2 error of <code>1e-5</code> with 4,225 unknowns, where P1 needs more
+than 66,000.</p>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>
