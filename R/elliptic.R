@@ -29,24 +29,27 @@
 #' diffusion the term `grad k . grad u_h` is omitted, which keeps the
 #' convergence order but is not strictly consistent.
 #'
-#' When no Dirichlet data are imposed and constants lie in the kernel of the
-#' assembled operator (no reaction, no Robin term with positive `alpha`), the
-#' problem is a pure Neumann problem: the solution is unique only up to a
-#' constant. The solver then checks the compatibility condition (for a
-#' symmetric operator `int f + int g = 0`) and
-#' returns the solution with zero mean, labeled as such. The compatibility
-#' defect is read from the Lagrange multiplier of the zero-mean constraint and
-#' compared with `compatibility_tol * sum_i |b_i|` (an argument of
-#' [solve_pde()], default `1e-6`). For a nonsymmetric operator (advection) the
-#' left null vector is not constant, and data that are compatible for the
-#' PDE leave a discrete defect of the size of the discretization error. A
-#' relative defect up to `(h / diameter)^2` is then accepted silently, one up
-#' to one percent with a warning, and anything larger is an error on every
-#' mesh: the discrete equations have no solution, and refining the mesh is
-#' the remedy when the data are compatible. Whenever the defect exceeds
-#' `compatibility_tol`, the returned function solves the equations with the
-#' source shifted by the multiplier times the constant mass, not the
-#' original ones: `diagnostics$gauge$modified` is then `TRUE`,
+#' A connected part of the domain (mesh components joined by periodic
+#' conditions) on which no Dirichlet value, reaction term or Robin term with
+#' positive `alpha` acts keeps the constants in its kernel: there the
+#' solution is unique only up to a constant. The solver gauges each such
+#' component separately, checks its compatibility condition (for a symmetric
+#' operator `int f + int g = 0` over the component) and returns the solution
+#' with zero mean on it, labeled as such. Components that are anchored are
+#' solved as usual. The compatibility defect is read from the Lagrange
+#' multiplier of the zero-mean constraint, after the load is normalized, and
+#' compared with `compatibility_tol * sum_i |b_i|` over the component (an
+#' argument of [solve_pde()], default `1e-6`, at most `0.01`). For a
+#' nonsymmetric operator (advection) the left null vector is not constant,
+#' and data that are compatible for the PDE leave a discrete defect of the
+#' size of the discretization error. A relative defect up to
+#' `(h / diameter)^2` is then accepted silently, one up to one percent with a
+#' warning, and anything larger is an error on every mesh: the discrete
+#' equations have no solution, and refining the mesh is the remedy when the
+#' data are compatible. Whenever the defect is above rounding level
+#' (`1e-10`), the returned function solves the equations with the source
+#' shifted by the multiplier times the constant mass, not the original ones:
+#' `diagnostics$gauge$modified` is then `TRUE`,
 #' `diagnostics$gauge$original_problem_solved` is `FALSE`, and
 #' `diagnostics$solver$relative_residual` is the residual of the original
 #' equations.
@@ -235,13 +238,16 @@ discretize.elliptic_problem <- function(problem, t = NULL, ...) {
   b <- b + nat$b
   dd <- dirichlet_data(V, problem$bcs, t)
   pc <- periodic_constraints(V, problem$bcs)
+  # Constants are in the kernel of a component exactly when nothing but
+  # diffusion, advection and zero-flux or Neumann data act on u there;
+  # decided from the problem data, not from the size of A %*% 1.
+  anch <- logical(V$ndof)
+  if (!is.null(cq)) anch[V$cell_dofs[rowSums(cq != 0) > 0, ]] <- TRUE
+  if (!is.null(nat$A)) anch[unique(Matrix::summary(Matrix::drop0(nat$A))$i)] <- TRUE
+  fl <- floating_components(V, anch, dd$dofs, pc)
   structure(list(space = V, A = A, b = b, dirichlet = dd, periodic = pc$P, periodic_col = pc$col,
-                 free = setdiff(seq_len(V$ndof), dd$dofs),
-                 # Constants are in the kernel exactly when nothing but diffusion,
-                 # advection and zero-flux or Neumann data act on u; decided from
-                 # the problem data, not from the size of A %*% 1.
-                 pure_neumann = !length(dd$dofs) && is.null(cq) &&
-                   (is.null(nat$A) || all(nat$A@x == 0)),
+                 free = setdiff(seq_len(V$ndof), dd$dofs), floating = fl,
+                 pure_neumann = length(fl$float) > 0L,
                  assembly_time = proc.time()[["elapsed"]] - t0),
             class = "pde_discretization")
 }
@@ -294,14 +300,45 @@ constrained_system <- function(disc) {
        dirichlet = dd, free = setdiff(seq_len(ncol(Pm)), dd$dofs), P = Pm)
 }
 
+# Connected components of the constrained problem (mesh components joined
+# by periodic identification) and those that keep a constant null mode:
+# no Dirichlet value and no anchoring (reaction or Robin) term on any of
+# their degrees of freedom. `comp` labels the unknowns of the solved system
+# (the reduced unknowns with periodic conditions).
+floating_components <- function(V, anchored, ddofs, pc = NULL) {
+  cc <- mesh_components(V$mesh)
+  dc <- dof_components(V, cc)
+  anchored[ddofs] <- TRUE
+  if (is.null(pc)) {
+    comp <- dc; anch_c <- anchored
+  } else {
+    # Union of the mesh components that a periodic class connects.
+    parent <- seq_len(cc$n)
+    find <- function(a) { while (parent[a] != a) a <- parent[a]; a }
+    o <- order(pc$col); co <- pc$col[o]; dco <- dc[o]
+    same <- which(co[-1] == co[-length(co)])
+    for (k in same) {
+      a <- find(dco[k]); b <- find(dco[k + 1L])
+      if (a != b) parent[max(a, b)] <- min(a, b)
+    }
+    root <- vapply(seq_len(cc$n), find, integer(1))
+    comp <- integer(ncol(pc$P)); comp[pc$col] <- root[dc]
+    anch_c <- logical(ncol(pc$P)); anch_c[pc$col[anchored]] <- TRUE
+  }
+  float <- setdiff(unique(comp), unique(comp[anch_c]))
+  list(comp = comp, float = sort(float))
+}
+
 # Prescribed values on the reduced (periodic) unknowns: every class of
 # identified degrees of freedom must carry one value.
 reduce_prescribed <- function(dd, col) {
   rd <- col[dd$dofs]
   if (length(rd)) {
+    # Each class is compared with its own values, so a large value on an
+    # unrelated class cannot hide a conflict.
+    bad <- vapply(split(dd$values, rd), function(v) diff(range(v)) > 1e-10 * max(abs(v)), logical(1))
     rng <- vapply(split(dd$values, rd), function(v) diff(range(v)), numeric(1))
-    tol <- 1e-10 * max(abs(dd$values), .Machine$double.xmin)
-    if (any(rng > tol)) {
+    if (any(bad)) {
       stopf(paste0("Inconsistent prescribed values on periodically identified degrees of freedom ",
                    "(largest difference %s): Dirichlet data must agree on both sides of a periodic pair."),
             fmt_num(max(rng)))
@@ -331,80 +368,86 @@ solve_discretization <- function(disc, method = "auto", compatibility_tol = 1e-6
   u[dd$dofs] <- dd$values
   t0 <- proc.time()[["elapsed"]]
   gauge <- NULL
-  if (disc$pure_neumann) {
-    # Bordered system [A M; M' 0], where column k of M is the mass of the
-    # constant on connected component k (one gauge per component). It is
-    # nonsingular, and multiplier lambda_k = w_k'b / w_k'm_k vanishes exactly
-    # when b is orthogonal to the left null vector w_k of A on component k
-    # (w_k = 1 there when A is symmetric, so the test is int f + int g = 0
-    # per component; with advection w_k is not constant). lambda_k * sum(m_k)
-    # is therefore the compatibility defect of component k.
-    one <- assemble_vector(V, 1)
-    cc <- mesh_components(V$mesh)
-    dc <- dof_components(V, cc)
-    if (!is.null(Pm)) {
-      if (cc$n > 1L) stopf("Periodic pure Neumann problems need a connected mesh.")
-      one <- as.numeric(Matrix::crossprod(Pm, one)); dc <- rep(1L, nd)
-    }
-    nc <- cc$n
-    Mc <- Matrix::sparseMatrix(i = seq_len(nd), j = dc, x = one, dims = c(nd, nc))
-    Z <- Matrix::sparseMatrix(i = integer(), j = integer(), x = numeric(), dims = c(nc, nc))
-    K <- rbind(cbind(A, Mc), cbind(Matrix::t(Mc), Z))
-    s <- solve_linear_system(K, c(bv, numeric(nc)), method = "lu", ...)
-    lam <- s$x[nd + seq_len(nc)]
-    mass <- as.numeric(Matrix::colSums(Mc))
-    comp <- lam * mass
-    scale <- as.numeric(tapply(abs(bv), factor(dc, levels = seq_len(nc)), sum))
-    rel <- comp / pmax(scale, 1e-300)
-    sym <- Matrix::isSymmetric(A, tol = 1e-12)
-    # (h / diameter)^2 per component is dimensionless, so the decision does
-    # not change with the length unit.
-    hrel <- vapply(seq_len(nc), function(k) {
-      bb <- apply(V$mesh$nodes[cc$node == k, , drop = FALSE], 2, range)
-      mesh_size(V$mesh) / sqrt(sum((bb[2, ] - bb[1, ])^2))
-    }, numeric(1))
-    tol_c <- if (sym) rep(compatibility_tol, nc) else pmin(pmax(compatibility_tol, hrel^2), 0.01)
-    where <- function(k) if (nc > 1L) sprintf(" on connected component %d", k) else ""
-    for (kk in seq_len(nc)) {
-      if (abs(rel[kk]) <= tol_c[kk]) next
-      # With advection the left null vector is only an approximation of the
-      # continuous one, so data that are compatible for the PDE leave a
-      # defect of the size of the discretization error; only defects above
-      # (h / diameter)^2 are reported, and those above 1% are rejected.
-      # The one percent cap does not depend on the mesh, so a coarse mesh
-      # cannot authorize a materially incompatible request.
-      if (sym || abs(rel[kk]) > 0.01) {
-        stopf(paste0("Pure Neumann problem with incompatible data%s: ",
-                     "compatibility defect %s (relative %s). The discrete problem has no solution%s."),
-              where(kk), fmt_num(comp[kk]), fmt_num(rel[kk]),
-              if (sym) "" else "; if the data are compatible for the PDE, refine the mesh")
-      }
-      warnf(paste0("Pure Neumann problem: the data violate the discrete compatibility condition%s ",
-                   "by %s (relative %s); the solution satisfies the equations up to a constant ",
-                   "times the multiplier. Check that the data are compatible."),
-            where(kk), fmt_num(comp[kk]), fmt_num(rel[kk]))
-    }
-    u <- s$x[seq_len(nd)]
-    gauge <- list(type = "zero mean", components = nc, multiplier = lam,
-                  compatibility = comp, relative_compatibility = rel,
-                  modified = abs(rel) > compatibility_tol,
-                  original_problem_solved = all(abs(rel) <= compatibility_tol))
-    info <- s$info
-    # Report the residual of the original equations A u = b; the bordered
-    # system is solved to rounding error even when A u = b has no solution.
-    info$augmented_relative_residual <- info$relative_residual
-    info$residual <- safe_norm(bv - as.numeric(A %*% u))
-    nb <- safe_norm(bv)
-    info$relative_residual <- if (nb > 0) info$residual / nb else info$residual
-    warn_solver(list(status = info$status, relative_residual = info$augmented_relative_residual))
+  if (compatibility_tol > 0.01) stopf("`compatibility_tol` must be at most 0.01.")
+  fl <- disc$floating
+  if (is.null(fl)) fl <- list(comp = integer(nd), float = integer(0))
+  if (!length(free)) {
+    info <- list(method = "none", status = "solved", residual = 0, relative_residual = 0,
+                 iterations = 0L, n = 0L, nnz = 0L, symmetric = TRUE, tol = NA)
   } else {
-    if (!length(free)) {
-      info <- list(method = "none", status = "solved", residual = 0, relative_residual = 0,
-                   iterations = 0L, n = 0L, nnz = 0L, symmetric = TRUE, tol = NA)
+    Aff <- A[free, free, drop = FALSE]
+    rhs <- bv[free]
+    if (length(dd$dofs)) rhs <- rhs - as.numeric(A[free, dd$dofs, drop = FALSE] %*% dd$values)
+    if (length(fl$float)) {
+      # Components left with a constant null mode after the Dirichlet,
+      # periodic, reaction and Robin constraints (decided per component in
+      # discretize()). Bordered system [A M; M' 0]: column k of M is the
+      # mass of the constant on floating component k. It is nonsingular, and
+      # multiplier lambda_k = w_k'b / w_k'm_k vanishes exactly when b is
+      # orthogonal to the left null vector w_k of A on that component
+      # (w_k = 1 when A is symmetric; with advection it is not constant).
+      # lambda_k * sum(m_k) is the compatibility defect of component k. The
+      # load is normalized first, so tiny loads keep full relative accuracy.
+      one <- assemble_vector(V, 1)
+      if (!is.null(Pm)) one <- as.numeric(Matrix::crossprod(Pm, one))
+      fc <- fl$comp[free]; sel <- which(fc %in% fl$float); nc <- length(fl$float)
+      kcol <- match(fc[sel], fl$float)
+      Mc <- Matrix::sparseMatrix(i = sel, j = kcol, x = one[free][sel], dims = c(length(free), nc))
+      Z <- Matrix::sparseMatrix(i = integer(), j = integer(), x = numeric(), dims = c(nc, nc))
+      K <- rbind(cbind(Aff, Mc), cbind(Matrix::t(Mc), Z))
+      bs <- max(abs(rhs)); if (bs == 0) bs <- 1
+      s <- solve_linear_system(K, c(rhs / bs, numeric(nc)), method = "lu", ...)
+      lam <- s$x[length(free) + seq_len(nc)]
+      mass <- as.numeric(Matrix::colSums(Mc))
+      comp <- lam * mass
+      scale <- vapply(seq_len(nc), function(k) sum(abs(rhs[sel][kcol == k])) / bs, numeric(1))
+      rel <- ifelse(scale > 0, comp / scale, 0)
+      comp <- comp * bs
+      sym <- scaled_symmetric(Aff)
+      # (h / diameter)^2 per component is dimensionless, so the decision does
+      # not change with the length unit.
+      hrel <- vapply(fl$float, function(k) {
+        X <- V$dof_coords[if (is.null(Pm)) which(fl$comp == k) else which(fl$comp[disc$periodic_col] == k), , drop = FALSE]
+        bb <- apply(X, 2, range)
+        mesh_size(V$mesh) / sqrt(sum((bb[2, ] - bb[1, ])^2))
+      }, numeric(1))
+      tol_c <- if (sym) rep(compatibility_tol, nc) else pmin(pmax(compatibility_tol, hrel^2), 0.01)
+      where <- function(k) if (nc > 1L) sprintf(" on floating component %d", k) else ""
+      for (kk in seq_len(nc)) {
+        if (abs(rel[kk]) <= tol_c[kk]) next
+        # With advection the left null vector is only an approximation of the
+        # continuous one, so data that are compatible for the PDE leave a
+        # defect of the size of the discretization error; only defects above
+        # (h / diameter)^2 are reported, and those above 1% are rejected.
+        # The one percent cap does not depend on the mesh, so a coarse mesh
+        # cannot authorize a materially incompatible request.
+        if (sym || abs(rel[kk]) > 0.01) {
+          stopf(paste0("Pure Neumann problem with incompatible data%s: ",
+                       "compatibility defect %s (relative %s). The discrete problem has no solution%s."),
+                where(kk), fmt_num(comp[kk]), fmt_num(rel[kk]),
+                if (sym) "" else "; if the data are compatible for the PDE, refine the mesh")
+        }
+        warnf(paste0("Pure Neumann problem: the data violate the discrete compatibility condition%s ",
+                     "by %s (relative %s); the solution satisfies the equations up to a constant ",
+                     "times the multiplier. Check that the data are compatible."),
+              where(kk), fmt_num(comp[kk]), fmt_num(rel[kk]))
+      }
+      u[free] <- s$x[seq_len(length(free))] * bs
+      # The original discrete problem is solved only when every defect is at
+      # rounding level; a defect within the tolerance still modifies the load.
+      gauge <- list(type = "zero mean", components = nc, multiplier = lam * bs,
+                    compatibility = comp, relative_compatibility = rel,
+                    modified = abs(rel) > 1e-10,
+                    original_problem_solved = all(abs(rel) <= 1e-10))
+      info <- s$info
+      # Report the residual of the original equations; the bordered system is
+      # solved to rounding error even when they have no solution.
+      info$augmented_relative_residual <- info$relative_residual
+      info$residual <- safe_norm(rhs - as.numeric(Aff %*% u[free]))
+      nb <- safe_norm(rhs)
+      info$relative_residual <- if (nb > 0) info$residual / nb else info$residual
+      warn_solver(list(status = info$status, relative_residual = info$augmented_relative_residual))
     } else {
-      Aff <- A[free, free, drop = FALSE]
-      rhs <- bv[free]
-      if (length(dd$dofs)) rhs <- rhs - as.numeric(A[free, dd$dofs, drop = FALSE] %*% dd$values)
       dots <- list(...)
       pcs <- dots$preconditioner
       if (inherits(pcs, "pde_preconditioner")) {

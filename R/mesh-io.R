@@ -104,6 +104,7 @@ read_gmsh <- function(file, check_overlap = TRUE) {
     stopf("The file contains no linear triangles (element type 2); second-order meshes are not supported.")
   }
   if (any(!match(tri, tags, nomatch = 0L))) stopf("A triangle references a node that is not in the file.")
+  if (nrow(lin) && any(!match(lin, tags, nomatch = 0L))) stopf("A line element references a node that is not in the file.")
   if (other > 0L) message(sprintf("Ignored %d element(s) that are not triangles or lines.", other))
   if (diff(range(xyz[, 3])) > 0) stopf("The mesh is not planar (z varies); only 2D meshes are supported.")
   T <- tri

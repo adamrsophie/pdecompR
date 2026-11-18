@@ -106,11 +106,27 @@ solve_pde.stokes_problem <- function(problem, method = c("lu", "gmres"), tol = 1
   # of that component, with or without tangential slip. Each such mode gets
   # a zero-mean gauge on its component.
   pc <- dof_components(Q)
-  colabs <- Matrix::colSums(abs(Bf))
+  vc <- dof_components(V)
+  # A velocity component that is free everywhere on a connected part of the
+  # mesh can be translated without changing the equations (the viscous form
+  # annihilates constants); the velocity is then not determined.
+  for (k in sort(unique(vc))) for (cmp in 1:2) {
+    idx <- which(vc == k) + (cmp - 1L) * n
+    if (any(fixed[idx])) next
+    net <- sum(b[idx])
+    scl <- sum(abs(b[idx]))
+    stopf(paste0("The %s velocity is not constrained on %s, so it is determined only up to a constant%s; ",
+                 "prescribe it (velocity_bc()) on part of the boundary."),
+          c("x", "y")[cmp], if (length(unique(vc)) > 1L) sprintf("connected component %d", k) else "the mesh",
+          if (scl > 0 && abs(net) > 1e-10 * scl) " and the loads have a net force in that direction (no solution exists)" else "")
+  }
+  # Each component's cancellation is measured against its own coupling
+  # entries, so a large component elsewhere cannot hide a small open one.
   gauges <- list(); mq <- assemble_vector(Q, 1)
   for (k in sort(unique(pc))) {
     q <- as.numeric(pc == k)
-    if (all(abs(as.numeric(Matrix::crossprod(Bf, q))) <= 1e-10 * max(colabs))) {
+    own <- as.numeric(Matrix::crossprod(abs(Bf), q))
+    if (all(abs(as.numeric(Matrix::crossprod(Bf, q))) <= 1e-10 * max(own, .Machine$double.xmin))) {
       # Testing div u = 0 with this pressure gives the net boundary flux of
       # the prescribed velocity through the component, which must vanish.
       flux <- sum(rhs_p[pc == k])
@@ -123,6 +139,14 @@ solve_pde.stokes_problem <- function(problem, method = c("lu", "gmres"), tol = 1
     }
   }
   enclosed <- length(gauges) > 0L
+  # Too few free velocity unknowns leave further pressure modes that no
+  # gauge removes (for example a mesh whose triangles have no interior
+  # vertex); report that instead of a failed factorization.
+  if (nq - length(gauges) > length(fv)) {
+    stopf(paste0("The pressure is not determined: %d pressure unknowns (after %d gauge(s)) but only %d free ",
+                 "velocity unknowns; refine the mesh so that the velocity space can control every pressure mode."),
+          nq, length(gauges), length(fv))
+  }
   assembly_time <- proc.time()[["elapsed"]] - t0
   ts <- proc.time()[["elapsed"]]
   s <- solve_saddle(Aff, Bf, NULL, rhs_u, rhs_p, gauge = if (enclosed) do.call(cbind, gauges),

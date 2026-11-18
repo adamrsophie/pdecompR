@@ -343,9 +343,12 @@ discretize.variational_problem <- function(problem, ...) {
   structural <- all(vapply(problem$a$parts, function(pt) {
     all(vapply(pt$expr$terms, function(t) t$trial %in% c("grad", "none"), logical(1)))
   }, logical(1)))
-  pn <- !length(dd$dofs) && switch(ns, auto = structural, constant = TRUE, none = FALSE)
+  # With a constant null space every component without Dirichlet data floats.
+  fl <- if (switch(ns, auto = structural, constant = TRUE, none = FALSE)) {
+    floating_components(V, logical(V$ndof), dd$dofs)
+  } else list(comp = integer(V$ndof), float = integer(0))
   structure(list(space = V, A = A, b = b, dirichlet = dd,
-                 free = setdiff(seq_len(V$ndof), dd$dofs), pure_neumann = pn,
+                 free = setdiff(seq_len(V$ndof), dd$dofs), floating = fl, pure_neumann = length(fl$float) > 0L,
                  assembly_time = proc.time()[["elapsed"]] - t0),
             class = "pde_discretization")
 }

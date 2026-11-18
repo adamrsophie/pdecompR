@@ -88,6 +88,12 @@ pde_sensitivity <- function(problem_fun, theta, mesh = NULL, objective = NULL,
       }
       dA <- Matrix::crossprod(Pm, dA %*% Pm); db <- red(db)
       dud <- if (is.null(dj$dirichlet)) numeric(length(base$dofs)) else as.numeric(dj$dirichlet)
+      # A derivative of the full Dirichlet data (as affine_derivative()
+      # returns) is reduced by the same periodic classes as the data; values
+      # within one class must agree.
+      if (!is.null(base$col) && length(dud) == length(base$full_dofs) && length(dud) != length(base$dofs)) {
+        dud <- reduce_prescribed(list(dofs = base$full_dofs, values = dud), base$col)$values
+      }
       if (length(dud) != length(base$dofs)) stopf("`derivative(theta, j)$dirichlet` must have one value per Dirichlet dof.")
       f <- base$free; d <- base$dofs
       dK <- dA[f, f, drop = FALSE]
@@ -246,7 +252,7 @@ reduced_system <- function(problem, solve = TRUE) {
   r <- cs$b[f]
   if (length(d)) r <- r - as.numeric(A[f, d, drop = FALSE] %*% cs$dirichlet$values)
   out <- list(K = K, r = r, ud = cs$dirichlet$values, free = f, dofs = d,
-              A_fd = A[f, d, drop = FALSE], P = cs$P)
+              A_fd = A[f, d, drop = FALSE], P = cs$P, full_dofs = disc$dirichlet$dofs, col = disc$periodic_col)
   if (solve) {
     slv <- linear_solver(K)
     ur <- numeric(ncol(cs$P))

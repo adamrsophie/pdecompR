@@ -242,6 +242,9 @@ global_vector <- function(space, b) {
 #' @param marker Boundary markers.
 #' @param t Optional time passed to time-dependent coefficients.
 #' @param quad_degree Quadrature exactness degree.
+#' @param nonnegative For `assemble_boundary_matrix()`, reject a coefficient
+#'   that is negative at any boundary quadrature point (used for Robin
+#'   conditions, whose coefficient must be non-negative).
 #' @return A sparse `dgCMatrix` or a numeric vector.
 #' @examples
 #' V <- fe_space(pde_mesh_rectangle(nx = 4))
@@ -274,11 +277,12 @@ assemble_vector <- function(space, f, t = NULL, quad_degree = NULL) {
 #' @rdname assemble_matrix
 #' @export
 assemble_boundary_matrix <- function(space, alpha = 1, marker = "boundary",
-                                     t = NULL, quad_degree = NULL) {
+                                     t = NULL, quad_degree = NULL, nonnegative = FALSE) {
   bg <- boundary_geometry(space, marker, quad_degree)
   if (is.null(bg)) return(Matrix::sparseMatrix(i = integer(), j = integer(), x = numeric(),
                                                 dims = c(space$ndof, space$ndof)))
   a <- matrix(eval_spatial(alpha, as.vector(bg$x), as.vector(bg$y), t, "alpha"), bg$ne)
+  if (nonnegative && any(a < 0)) stopf("The Robin coefficient `alpha` must be non-negative on the boundary.")
   nl <- bg$nloc
   A <- array(0, c(bg$ne, nl, nl))
   for (k in seq_along(bg$w)) {
@@ -365,7 +369,10 @@ diffusion_qp <- function(k, geo, t = NULL) {
   if (inherits(k, "pde_tensor")) {
     K <- tensor_at(k, as.vector(geo$x), as.vector(geo$y), t)
     if (any(!is.finite(unlist(K)))) stopf("The diffusion tensor must be finite.")
-    if (any(K$xx <= 0 | K$xx * K$yy - K$xy^2 <= 0)) {
+    # Positive definite iff both diagonals are positive and the normalized
+    # coupling |k_xy| / sqrt(k_xx k_yy) is below one; formed without the
+    # determinant, which underflows or overflows for tiny or huge tensors.
+    if (any(K$xx <= 0 | K$yy <= 0) || any(abs(K$xy) / sqrt(K$xx) / sqrt(K$yy) >= 1)) {
       stopf("The diffusion tensor must be positive definite at every quadrature point.")
     }
     return(lapply(K, matrix, geo$m, geo$nq))

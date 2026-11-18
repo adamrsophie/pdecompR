@@ -66,7 +66,9 @@ pde_domain <- function(type = c("rectangle", "polygon"),
   if (!is.character(markers) || length(markers) != nv || anyNA(markers)) {
     stopf("`markers` must be one name or one name per polygon side (%d).", nv)
   }
-  if (anyDuplicated(paste(v[, 1], v[, 2]))) stopf("Polygon has repeated vertices.")
+  # Compare the numbers themselves; decimal strings merge distinct values.
+  o <- order(v[, 1], v[, 2])
+  if (nv > 1L && any(diff(v[o, 1]) == 0 & diff(v[o, 2]) == 0)) stopf("Polygon has repeated vertices.")
   nxt <- c(2:nv, 1L)
   len <- sqrt(rowSums((v[nxt, , drop = FALSE] - v)^2))
   if (any(len <= 0)) stopf("Polygon has a zero-length side.")

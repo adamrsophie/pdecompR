@@ -22,7 +22,8 @@ assemble_boundary_matrix(
   alpha = 1,
   marker = "boundary",
   t = NULL,
-  quad_degree = NULL
+  quad_degree = NULL,
+  nonnegative = FALSE
 )
 
 assemble_boundary_vector(
@@ -48,6 +49,10 @@ assemble_boundary_vector(
 \verb{function(x, y, t)} together with \code{t}).}
 
 \item{marker}{Boundary markers.}
+
+\item{nonnegative}{For \code{assemble_boundary_matrix()}, reject a coefficient
+that is negative at any boundary quadrature point (used for Robin
+conditions, whose coefficient must be non-negative).}
 }
 \value{
 A sparse \code{dgCMatrix} or a numeric vector.

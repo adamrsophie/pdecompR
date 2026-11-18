@@ -206,7 +206,7 @@ natural_bc_terms <- function(space, bcs, t = NULL, quad_degree = NULL, matrix = 
   for (bc in bcs) {
     if (!bc$type %in% c("neumann", "robin")) next
     if (matrix && bc$type == "robin") {
-      R <- assemble_boundary_matrix(space, bc$alpha, bc$marker, t, quad_degree)
+      R <- assemble_boundary_matrix(space, bc$alpha, bc$marker, t, quad_degree, nonnegative = TRUE)
       A <- if (is.null(A)) R else A + R
     }
     b <- b + assemble_boundary_vector(space, bc$value, bc$marker, t, quad_degree)

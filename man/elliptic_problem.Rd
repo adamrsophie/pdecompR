@@ -82,24 +82,27 @@ method is consistent when the diffusion is constant; with variable
 diffusion the term \verb{grad k . grad u_h} is omitted, which keeps the
 convergence order but is not strictly consistent.
 
-When no Dirichlet data are imposed and constants lie in the kernel of the
-assembled operator (no reaction, no Robin term with positive \code{alpha}), the
-problem is a pure Neumann problem: the solution is unique only up to a
-constant. The solver then checks the compatibility condition (for a
-symmetric operator \verb{int f + int g = 0}) and
-returns the solution with zero mean, labeled as such. The compatibility
-defect is read from the Lagrange multiplier of the zero-mean constraint and
-compared with \verb{compatibility_tol * sum_i |b_i|} (an argument of
-\code{\link[=solve_pde]{solve_pde()}}, default \code{1e-6}). For a nonsymmetric operator (advection) the
-left null vector is not constant, and data that are compatible for the
-PDE leave a discrete defect of the size of the discretization error. A
-relative defect up to \code{(h / diameter)^2} is then accepted silently, one up
-to one percent with a warning, and anything larger is an error on every
-mesh: the discrete equations have no solution, and refining the mesh is
-the remedy when the data are compatible. Whenever the defect exceeds
-\code{compatibility_tol}, the returned function solves the equations with the
-source shifted by the multiplier times the constant mass, not the
-original ones: \code{diagnostics$gauge$modified} is then \code{TRUE},
+A connected part of the domain (mesh components joined by periodic
+conditions) on which no Dirichlet value, reaction term or Robin term with
+positive \code{alpha} acts keeps the constants in its kernel: there the
+solution is unique only up to a constant. The solver gauges each such
+component separately, checks its compatibility condition (for a symmetric
+operator \verb{int f + int g = 0} over the component) and returns the solution
+with zero mean on it, labeled as such. Components that are anchored are
+solved as usual. The compatibility defect is read from the Lagrange
+multiplier of the zero-mean constraint, after the load is normalized, and
+compared with \verb{compatibility_tol * sum_i |b_i|} over the component (an
+argument of \code{\link[=solve_pde]{solve_pde()}}, default \code{1e-6}, at most \code{0.01}). For a
+nonsymmetric operator (advection) the left null vector is not constant,
+and data that are compatible for the PDE leave a discrete defect of the
+size of the discretization error. A relative defect up to
+\code{(h / diameter)^2} is then accepted silently, one up to one percent with a
+warning, and anything larger is an error on every mesh: the discrete
+equations have no solution, and refining the mesh is the remedy when the
+data are compatible. Whenever the defect is above rounding level
+(\code{1e-10}), the returned function solves the equations with the source
+shifted by the multiplier times the constant mass, not the original ones:
+\code{diagnostics$gauge$modified} is then \code{TRUE},
 \code{diagnostics$gauge$original_problem_solved} is \code{FALSE}, and
 \code{diagnostics$solver$relative_residual} is the residual of the original
 equations.

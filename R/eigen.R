@@ -63,9 +63,11 @@ solve_eigen <- function(problem, n = 6, sigma = NULL, tol = 1e-10, maxit = 500) 
     M <- Matrix::drop0(Matrix::crossprod(Pm, M %*% Pm))
   }
   K <- A[f, f, drop = FALSE]; Mf <- M[f, f, drop = FALSE]
-  if (!Matrix::isSymmetric(K, tol = 1e-10)) stopf("Eigenproblems need a symmetric operator.")
+  if (!scaled_symmetric(K, tol = 1e-10)) stopf("Eigenproblems need a symmetric operator.")
   N <- length(f)
-  if (n >= N) stopf("At most %d eigenpairs exist for %d free degrees of freedom.", N - 1L, N)
+  # With n close to N the block spans the whole space and Rayleigh-Ritz is
+  # exact, so the full spectrum (n == N) is allowed.
+  if (n > N) stopf("At most %d eigenpairs exist for %d free degrees of freedom.", N, N)
   if (is.null(sigma)) {
     sigma <- if (length(disc$dirichlet$dofs)) 0 else -1e-3 * mean(Matrix::diag(K)) / mean(Matrix::diag(Mf))
   }

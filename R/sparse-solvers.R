@@ -85,8 +85,9 @@ linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgsta
   } else if (!is.function(preconditioner) && !inherits(preconditioner, "pde_preconditioner")) {
     stopf("`preconditioner` must be \"jacobi\", \"ssor\", \"none\" or a function.")
   }
-  A_res <- if (inherits(A, "Matrix")) A else methods::as(A, "CsparseMatrix")  # for residuals, as passed
-  A <- Matrix::drop0(methods::as(methods::as(A, "CsparseMatrix"), "generalMatrix"))
+  # Residuals use the operator as passed (every entry of a base matrix).
+  A_res <- if (inherits(A, "Matrix")) A else as_general(A)
+  A <- Matrix::drop0(as_general(A))
   n <- nrow(A)
   if (ncol(A) != n) stopf("The system matrix must be square.")
   if (n == 0L) {
@@ -103,7 +104,7 @@ linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgsta
   maxit <- check_count(maxit, "maxit", min = 1L)
   restart <- check_count(restart, "restart", min = 1L)
   check_number(tol, "tol", positive = TRUE)
-  sym <- Matrix::isSymmetric(A, tol = 1e-12)
+  sym <- scaled_symmetric(A)
   base <- list(n = n, nnz = length(A@x), symmetric = sym, tol = tol)
   normA <- max(Matrix::rowSums(abs(A)))
   factor <- NULL
@@ -160,6 +161,7 @@ linear_solver <- function(A, method = c("auto", "cholesky", "lu", "cg", "bicgsta
   }
   pc <- if (!used %in% c("cg", "bicgstab", "gmres")) NULL else make_preconditioner(preconditioner, A)
   solve_fun <- function(b, x0 = NULL) {
+    if (inherits(b, "Matrix")) b <- as.matrix(b)
     if (is.matrix(b) && ncol(b) != 1L) return(solve_block(b, x0))
     b <- as.numeric(b)
     if (length(b) != n) stopf("The right-hand side has length %d; expected %d.", length(b), n)
@@ -391,7 +393,7 @@ amg_preconditioner <- function(strength = 0.08, smoothed = TRUE, smoothing = 1L,
   smoothing <- check_count(smoothing, "smoothing", min = 1L)
   coarse_size <- check_count(coarse_size, "coarse_size", min = 1L)
   structure(list(setup = function(A, free = NULL) {
-    A <- methods::as(A, "CsparseMatrix")
+    A <- as_general(A)
     Pl <- list(); Ak <- A
     while (nrow(Ak) > coarse_size) {
       P <- aggregation_prolongation(Ak, strength, smoothed)
@@ -410,7 +412,10 @@ aggregation_prolongation <- function(A, strength, smoothed) {
   d <- abs(Matrix::diag(A)); d[d == 0] <- 1
   S <- methods::as(Matrix::drop0(A), "TsparseMatrix")
   i <- S@i + 1L; j <- S@j + 1L
-  keep <- i != j & abs(S@x) >= strength * sqrt(d[i] * d[j])
+  # sqrt(d_i) sqrt(d_j), not sqrt(d_i d_j): the product overflows or
+  # underflows for very large or small entries and changes the graph.
+  sd <- sqrt(d)
+  keep <- i != j & abs(S@x) / sd[i] / sd[j] >= strength
   G <- Matrix::sparseMatrix(i = i[keep], j = j[keep], x = 1, dims = c(n, n))
   G <- methods::as(G, "CsparseMatrix")
   ptr <- G@p; idx <- G@i + 1L
@@ -516,13 +521,17 @@ krylov_gmres <- function(A, b, x0, pc, tol, maxit, restart) {
     r <- b - as.numeric(A %*% x)
     beta <- sqrt(sum(r^2))
     if (beta <= tol * nb) return(list(x = x, iterations = total, converged = TRUE))
-    V <- matrix(0, n, m + 1L); H <- matrix(0, m + 1L, m)
+    V <- matrix(0, n, m + 1L); Z <- matrix(0, n, m); H <- matrix(0, m + 1L, m)
     cs <- sn <- numeric(m); g <- numeric(m + 1L); g[1] <- beta
     V[, 1] <- r / beta
     j_used <- 0L
     for (j in seq_len(m)) {
       total <- total + 1L
-      w <- as.numeric(A %*% pc(V[, j]))
+      # Flexible GMRES: keep the preconditioned vectors, so a preconditioner
+      # that is not a fixed linear map (an inner iteration, a callback) is
+      # still applied consistently.
+      Z[, j] <- pc(V[, j])
+      w <- as.numeric(A %*% Z[, j])
       for (i in seq_len(j)) {
         H[i, j] <- sum(w * V[, i]); w <- w - H[i, j] * V[, i]
       }
@@ -543,10 +552,35 @@ krylov_gmres <- function(A, b, x0, pc, tol, maxit, restart) {
     }
     if (j_used == 0L) break
     y <- backsolve(H[seq_len(j_used), seq_len(j_used), drop = FALSE], g[seq_len(j_used)])
-    x <- x + pc(as.numeric(V[, seq_len(j_used), drop = FALSE] %*% y))
+    x <- x + as.numeric(Z[, seq_len(j_used), drop = FALSE] %*% y)
   }
   r <- b - as.numeric(A %*% x)
   list(x = x, iterations = total, converged = isTRUE(sqrt(sum(r^2)) <= tol * nb))
+}
+
+# General sparse copy of a matrix with every entry kept. Coercing a base
+# matrix with as(, "CsparseMatrix") lets Matrix decide that a matrix is
+# symmetric with an absolute tolerance, which for tiny entries stores only
+# one triangle and drops the other.
+as_general <- function(A) {
+  if (inherits(A, "Matrix")) return(methods::as(methods::as(A, "CsparseMatrix"), "generalMatrix"))
+  A <- as.matrix(A); storage.mode(A) <- "double"
+  idx <- which(A != 0 | is.na(A), arr.ind = TRUE)
+  Matrix::sparseMatrix(i = idx[, 1], j = idx[, 2], x = A[idx], dims = dim(A))
+}
+
+# Entrywise symmetry test on the diagonally equilibrated matrix, so that it
+# neither depends on the scale of A nor lets a small asymmetric block hide
+# behind large entries elsewhere: |a_ij - a_ji| / sqrt(d_i d_j) <= tol.
+scaled_symmetric <- function(A, tol = 1e-12) {
+  A <- as_general(A)
+  if (nrow(A) != ncol(A)) return(FALSE)
+  d <- abs(Matrix::diag(A)); rn <- Matrix::rowSums(abs(A))
+  d[d == 0] <- rn[d == 0]; d[d == 0] <- 1
+  s <- 1 / sqrt(d)
+  D <- methods::as(Matrix::drop0(A - Matrix::t(A)), "TsparseMatrix")
+  if (!length(D@x)) return(TRUE)
+  all(abs(D@x) * s[D@i + 1L] * s[D@j + 1L] <= tol)
 }
 
 solve_ok <- function(info) !is.null(info$status) && info$status %in% c("solved", "converged")

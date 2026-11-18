@@ -76,6 +76,11 @@ estimate_parameters <- function(problem_fun, theta0, observations, mesh = NULL,
   problem_fun <- if (length(formals(pf_full)) >= 2L) function(th, m) pf_full(full_theta(th), m)
                  else function(th) pf_full(full_theta(th))
   dfree <- if (is.null(derivative)) NULL else function(th, j) derivative(full_theta(th), ifree[j])
+  # Fixed parameters are not optimized, but their regularization term is a
+  # constant part of the objective and stays in the reported value.
+  reg_all <- rep_len(regularization, np)
+  fixed_cost <- 0.5 * sum((reg_all * (theta0 - theta_ref)^2)[fixed])
+  if (length(regularization) > 1L) regularization <- regularization[ifree]
   theta0 <- theta0[ifree]; theta_ref <- theta_ref[ifree]
   lower <- lower[ifree]; upper <- upper[ifree]
   call_pf <- function(th, m = mesh) if (is.null(m)) problem_fun(th) else problem_fun(th, m)
@@ -87,7 +92,7 @@ estimate_parameters <- function(problem_fun, theta0, observations, mesh = NULL,
     s <- pde_sensitivity(problem_fun, theta, mesh = mesh, objective = obj, method = "adjoint",
                          lower = lower, upper = upper, derivative = dfree)
     reg <- regularization * (theta - theta_ref)
-    res <- list(value = s$value + 0.5 * sum(reg * (theta - theta_ref)),
+    res <- list(value = s$value + 0.5 * sum(reg * (theta - theta_ref)) + fixed_cost,
                 gradient = s$gradient + reg, solution = s$solution)
     cache$theta <- theta; cache$res <- res
     cache$n_solves <- (if (is.null(cache$n_solves)) 0 else cache$n_solves) + 1
@@ -267,6 +272,11 @@ optimal_control <- function(mesh, target, alpha, diffusion = 1, source = 0,
     method <- "KKT (sparse LU)"; iters <- NA; conv <- 0L
   } else {
     lo <- if (is.null(lower)) -Inf else lower; hi <- if (is.null(upper)) Inf else upper
+    if (!is.numeric(lo) || !is.numeric(hi) || !length(lo) %in% c(1L, V$ndof) || !length(hi) %in% c(1L, V$ndof) ||
+        anyNA(lo) || anyNA(hi)) {
+      stopf("`lower` and `upper` must be numbers or vectors with one value per degree of freedom (%d).", V$ndof)
+    }
+    if (any(rep_len(lo, V$ndof) > rep_len(hi, V$ndof))) stopf("`lower` must not exceed `upper`: the feasible set is empty.")
     q0 <- pmin(pmax(numeric(V$ndof), lo), hi)
     opt <- stats::optim(q0, function(q) J(state(q, slv), q), grad_fun, method = "L-BFGS-B",
                         lower = lo, upper = hi, control = utils::modifyList(list(maxit = 500), control))
