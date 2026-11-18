@@ -104,3 +104,73 @@ test_that("curves follow their edges through local refinement and partial relabe
   expect_equal(rad[bmid[!upper]], rep(1, sum(!upper)), tolerance = 1e-12)
   expect_true(all(rad[bmid[upper]] < 1 - 1e-3))
 })
+
+test_that("nesting is certified per parent and thin crossing strips are integrated", {
+  h <- 2^-40
+  kink <- function(a) {
+    b <- pde_mesh_rectangle(nx = 2, ny = 1); P <- b$nodes; P[P[, 1] == .5, 1] <- a
+    interpolate(function(x, y) pmax(0, x - a) / sqrt(h), fe_space(pde_mesh(P, b$triangles)))
+  }
+  u <- kink(.5); v <- kink(.5 + h)
+  expect_equal(as.numeric(errornorm(u, v, "H1_semi")), 1, tolerance = 1e-6)
+  expect_equal(as.numeric(errornorm(v, u, "H1_semi")), 1, tolerance = 1e-6)
+})
+
+test_that("a missing small component is a different domain", {
+  m <- pde_mesh_rectangle(nx = 2); h <- 2^-16; n <- nrow(m$nodes)
+  b <- pde_mesh(rbind(m$nodes, c(2, 0), c(2 + h, 0), c(2, h)), rbind(m$triangles, n + 1:3))
+  u <- fe_function(fe_space(b), c(rep(0, n), rep(2 / h^2, 3)))
+  z <- interpolate(0, fe_space(m))
+  expect_error(l2_project(u, z$space), "do not cover the same domain")
+  expect_error(errornorm(u, z), "do not cover the same domain")
+  expect_error(errornorm(z, u), "do not cover the same domain")
+})
+
+test_that("components touching another element's interior edge overlap", {
+  sq <- rbind(c(0, 0), c(1, 0), c(1, 1), c(0, 1))
+  P <- rbind(sq, c(.375, .375), c(.625, .375), c(.5, .75))
+  expect_error(pde_mesh(P, rbind(c(1, 2, 3), c(1, 3, 4), 5:7)), "overlap")
+})
+
+test_that("curved refinement validates the projected mesh", {
+  D <- rbind(c(1, 0), c(0, 1), c(-1, 0), c(0, -1)); T <- rbind(c(1, 2, 3), c(1, 3, 4))
+  b <- pde_mesh(rbind(D, D + 1.25), rbind(T, T + 4))
+  b <- set_boundary_marker(b, "one", function(x, y) x + y < 1.2)
+  b <- set_boundary_marker(b, "two", function(x, y) x + y > 1.2)
+  circle <- function(z) function(x, y) z + cbind(x - z, y - z) / sqrt((x - z)^2 + (y - z)^2)
+  b <- curved_boundary(curved_boundary(b, "one", circle(0)), "two", circle(1.25))
+  expect_error(refine_uniform(b), "invalid mesh")
+  expect_error(refine_mesh(b, 1:4), "invalid mesh")
+})
+
+test_that("overlay projection and estimators are translation invariant", {
+  z <- function(o) {
+    V <- function(n, p) fe_space(pde_mesh_rectangle(x = o + c(0, 1), y = o + c(0, 1), nx = n, pattern = p))
+    a <- V(3, "right"); b <- V(4, "left")
+    f <- interpolate(function(x, y) x - o, a)
+    max(abs(l2_project(f, b)$values - (b$dof_coords[, 1] - o)))
+  }
+  expect_lt(max(sapply(c(0, 1e9, 1e13), z)), 1e-12)
+  for (o in c(0, 2^36)) {
+    b <- pde_mesh_rectangle(x = c(o, o + 1), nx = 4)
+    s <- solve_pde(poisson_problem(b, boundary = dirichlet_bc(function(x, y) x - o)))
+    expect_lt(estimate_error(s)$total, 1e-10)
+  }
+  e <- function(o) {
+    m <- set_region(pde_mesh_rectangle(x = o + c(0, 1), nx = 2, ny = 1), "high", function(x, y) x - o > .5)
+    k <- region_coefficient(m, c(domain = 1, high = 2))
+    estimate_error(solve_pde(poisson_problem(m, diffusion = k, bcs = list(dirichlet_bc(0, "left"),
+                                                                         neumann_bc(1, "right")))))$total
+  }
+  expect_lt(e(1e10), 1e-10)
+})
+
+test_that("polygons with several holes are meshed", {
+  sq <- rbind(c(0, 0), c(1, 0), c(1, 1), c(0, 1))
+  holes <- lapply(c(1, 3), function(y) sweep(sq, 2, c(3, y), "+"))
+  m <- pde_mesh_polygon(pde_domain("polygon", vertices = 10 * sq, holes = holes))
+  expect_equal(integrate_mesh(m, 1), 98, tolerance = 1e-12)
+  holes3 <- lapply(c(1, 4, 7), function(y) sweep(sq, 2, c(y, y), "+"))
+  m3 <- pde_mesh_polygon(pde_domain("polygon", vertices = 10 * sq, holes = holes3))
+  expect_equal(integrate_mesh(m3, 1), 97, tolerance = 1e-12)
+})

@@ -4,8 +4,11 @@
 # convex polygon; it is split into a fan of triangles. On each such piece both
 # piecewise polynomials are polynomials, so quadrature on the pieces
 # integrates products of functions from the two meshes exactly (up to the
-# quadrature degree). Returns a list with the parent triangles `ea`, `eb` and
-# the piece vertices as an n by 6 matrix (x1, y1, x2, y2, x3, y3).
+# quadrature degree). Clipping works in a frame translated to the lower left
+# corner of both meshes, so translated meshes keep their local accuracy.
+# Returns a list with the parent triangles `ea`, `eb`, the piece vertices in
+# that local frame as an n by 6 matrix (x1, y1, x2, y2, x3, y3), the frame
+# `origin` and the parent areas `area_a`, `area_b`.
 
 clip_convex <- function(px, py, cx, cy) {
   # Clip polygon (px, py) by the counterclockwise triangle (cx, cy)
@@ -33,7 +36,8 @@ clip_convex <- function(px, py, cx, cy) {
 }
 
 mesh_overlay <- function(a, b) {
-  Pa <- a$nodes; Ta <- a$triangles; Pb <- b$nodes; Tb <- b$triangles
+  o <- c(min(a$nodes[, 1], b$nodes[, 1]), min(a$nodes[, 2], b$nodes[, 2]))
+  Pa <- shift_nodes(a$nodes, o); Ta <- a$triangles; Pb <- shift_nodes(b$nodes, o); Tb <- b$triangles
   ma <- nrow(Ta); mb <- nrow(Tb)
   bx <- matrix(Pb[Tb, 1], mb); by <- matrix(Pb[Tb, 2], mb)
   bxmin <- pmin(bx[, 1], bx[, 2], bx[, 3]); bxmax <- pmax(bx[, 1], bx[, 2], bx[, 3])
@@ -78,7 +82,35 @@ mesh_overlay <- function(a, b) {
     }
   }
   V <- if (length(out_v)) do.call(rbind, out_v) else matrix(numeric(0), 0, 6)
-  list(ea = out_ea, eb = out_eb, vertices = V)
+  aa <- abs((ax[, 2] - ax[, 1]) * (ay[, 3] - ay[, 1]) - (ax[, 3] - ax[, 1]) * (ay[, 2] - ay[, 1])) / 2
+  list(ea = out_ea, eb = out_eb, vertices = V, origin = o, area_a = aa, area_b = area_b)
+}
+
+shift_nodes <- function(P, o) cbind(P[, 1] - o[1], P[, 2] - o[2])
+
+# A finite-element function whose mesh is expressed in the overlay frame.
+shift_function <- function(u, o) {
+  u$space$mesh$nodes <- shift_nodes(u$space$mesh$nodes, o)
+  u
+}
+
+# The two meshes cover the same domain exactly when every triangle of each
+# is covered by the overlay pieces; checking triangle by triangle, instead of
+# total areas, also catches a small missing component or hole.
+check_overlay_cover <- function(ov, what = "the error is defined only on a common domain") {
+  V <- ov$vertices
+  ar <- abs((V[, 3] - V[, 1]) * (V[, 6] - V[, 2]) - (V[, 5] - V[, 1]) * (V[, 4] - V[, 2])) / 2
+  for (side in c("a", "b")) {
+    area <- ov[[paste0("area_", side)]]
+    cov <- tabulate_sum(ov[[paste0("e", side)]], ar, length(area))
+    bad <- which(abs(cov - area) > 1e-8 * area)
+    if (length(bad)) {
+      stopf(paste0("The two meshes do not cover the same domain: triangle %d of the %s mesh is covered to ",
+                   "%s of its area; %s."), bad[1], if (side == "a") "first" else "second",
+            fmt_num(cov[bad[1]] / area[bad[1]]), what)
+    }
+  }
+  ar
 }
 
 # Squared error contributions of u - ref on the overlay, summed per triangle
@@ -86,14 +118,10 @@ mesh_overlay <- function(a, b) {
 overlay_error <- function(u, ref, type, diffusion, quad_degree) {
   ov <- mesh_overlay(u$space$mesh, ref$space$mesh)
   ma <- nrow(u$space$mesh$triangles)
-  la <- sum(abs(tri_det(u$space$mesh$nodes, u$space$mesh$triangles))) / 2
   V <- ov$vertices
-  ar <- abs((V[, 3] - V[, 1]) * (V[, 6] - V[, 2]) - (V[, 5] - V[, 1]) * (V[, 4] - V[, 2])) / 2
-  lb <- sum(abs(tri_det(ref$space$mesh$nodes, ref$space$mesh$triangles))) / 2
-  if (abs(sum(ar) - la) > 1e-9 * la || abs(sum(ar) - lb) > 1e-9 * lb) {
-    stopf(paste0("The two meshes do not cover the same domain (areas %s and %s, overlap %s); ",
-                 "the error is defined only on a common domain."), fmt_num(la), fmt_num(lb), fmt_num(sum(ar)))
-  }
+  ar <- check_overlay_cover(ov)
+  o <- ov$origin
+  u <- shift_function(u, o); ref <- shift_function(ref, o)
   q <- quadrature_triangle(quad_degree)
   e2 <- numeric(length(ar))
   for (k in seq_along(q$weights)) {
@@ -106,7 +134,7 @@ overlay_error <- function(u, ref, type, diffusion, quad_degree) {
     if (type %in% c("L2", "H1")) val <- val + (gu$value - gr$value)^2
     if (type %in% c("H1_semi", "H1", "energy")) {
       ex <- gu$dx - gr$dx; ey <- gu$dy - gr$dy
-      d2 <- if (type != "energy") ex^2 + ey^2 else energy_density(diffusion, ex, ey, x, y)
+      d2 <- if (type != "energy") ex^2 + ey^2 else energy_density(diffusion, ex, ey, x + o[1], y + o[2])
       val <- val + d2
     }
     e2 <- e2 + 2 * q$weights[k] * ar * val
@@ -164,13 +192,9 @@ l2_project <- function(f, space, quad_degree = NULL) {
 overlay_load <- function(f, space, quad_degree) {
   ov <- mesh_overlay(space$mesh, f$space$mesh)
   V <- ov$vertices
-  ar <- abs((V[, 3] - V[, 1]) * (V[, 6] - V[, 2]) - (V[, 5] - V[, 1]) * (V[, 4] - V[, 2])) / 2
-  la <- sum(abs(tri_det(space$mesh$nodes, space$mesh$triangles))) / 2
-  lb <- sum(abs(tri_det(f$space$mesh$nodes, f$space$mesh$triangles))) / 2
-  if (abs(sum(ar) - la) > 1e-9 * la || abs(sum(ar) - lb) > 1e-9 * lb) {
-    stopf("The two meshes do not cover the same domain (areas %s and %s).", fmt_num(la), fmt_num(lb))
-  }
-  P <- space$mesh$nodes; T <- space$mesh$triangles[ov$ea, , drop = FALSE]
+  ar <- check_overlay_cover(ov, "the projection is defined only between meshes of one domain")
+  f <- shift_function(f, ov$origin)
+  P <- shift_nodes(space$mesh$nodes, ov$origin); T <- space$mesh$triangles[ov$ea, , drop = FALSE]
   x1 <- P[T[, 1], 1]; y1 <- P[T[, 1], 2]
   b11 <- P[T[, 2], 1] - x1; b12 <- P[T[, 3], 1] - x1
   b21 <- P[T[, 2], 2] - y1; b22 <- P[T[, 3], 2] - y1

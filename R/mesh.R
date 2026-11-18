@@ -332,12 +332,14 @@ pde_mesh_polygon <- function(domain, h = Inf, markers = "boundary") {
     }
     inside <- function(p) points_in_polygon(p, domain$vertices) &&
       !any(vapply(hl, function(h) points_in_polygon(p, h), logical(1)))
+    bridges <- matrix(integer(0), 0, 2)
     for (k in order(-vapply(hl, function(h) max(h[, 1]), numeric(1)))) {
       ids <- rev(off[k] + seq_len(nrow(hl[[k]])))          # clockwise
       ids <- ids[c(seq(which.max(v[ids, 1]), length(ids)), seq_len(which.max(v[ids, 1]) - 1L))]
       M <- ids[1]
       cand <- unique(loop); cand <- cand[order(rowSums(sweep(v[cand, , drop = FALSE], 2, v[M, ])^2))]
-      edges <- be
+      # Earlier bridges are edges of the loop too and must not be crossed.
+      edges <- rbind(be, bridges)
       P <- NA_integer_
       for (q in cand) {
         ok <- inside((v[q, ] + v[M, ]) / 2)
@@ -349,8 +351,21 @@ pde_mesh_polygon <- function(domain, h = Inf, markers = "boundary") {
         if (ok) { P <- q; break }
       }
       if (is.na(P)) stopf("Could not connect hole %d to the boundary.", k)
-      pos <- match(P, loop)
+      # A vertex already used by a bridge occurs more than once in the loop;
+      # take the occurrence whose interior wedge contains the new bridge.
+      occ <- which(loop == P)
+      pos <- occ[1]
+      if (length(occ) > 1L) {
+        ang <- function(d) atan2(d[2], d[1])
+        ccw <- function(a, b) (b - a) %% (2 * pi)
+        for (o in occ) {
+          nx <- loop[o %% length(loop) + 1L]; pv <- loop[(o - 2L) %% length(loop) + 1L]
+          a0 <- ang(v[nx, ] - v[P, ])
+          if (ccw(a0, ang(v[M, ] - v[P, ])) < ccw(a0, ang(v[pv, ] - v[P, ]))) { pos <- o; break }
+        }
+      }
       loop <- c(loop[seq_len(pos)], ids, M, P, loop[-seq_len(pos)])
+      bridges <- rbind(bridges, c(M, P))
     }
   }
   tris <- ear_clip(v, loop)
@@ -683,9 +698,11 @@ dof_components <- function(space, cc = mesh_components(space$mesh)) {
 
 # For a mesh `fine` whose triangles each lie inside one triangle of `coarse`
 # (for example after refinement), the containing triangle of each fine
-# triangle; NULL when the meshes are not nested this way. Containment alone
-# would accept a fine mesh of a smaller domain, so the two meshes must also
-# have the same area: then they cover the same domain.
+# triangle; NULL when the meshes are not nested this way. Every fine vertex
+# must lie in the closed parent up to rounding (a looser tolerance accepts
+# triangles that cross a parent edge by a thin strip), and the fine
+# triangles in each parent must fill it: then both meshes cover the same
+# domain, parent by parent.
 nested_parent <- function(fine, coarse) {
   if (identical(fine$nodes, coarse$nodes) && identical(fine$triangles, coarse$triangles)) {
     return(seq_len(nrow(fine$triangles)))
@@ -703,11 +720,14 @@ nested_parent <- function(fine, coarse) {
     det <- b11 * b22 - b12 * b21
     dx <- P[T[, k], 1] - x1; dy <- P[T[, k], 2] - y1
     xi <- (b22 * dx - b12 * dy) / det; eta <- (-b21 * dx + b11 * dy) / det
-    tol <- 1e-10
+    tol <- 64 * .Machine$double.eps
     if (any(xi < -tol | eta < -tol | xi + eta > 1 + tol)) return(NULL)
   }
-  af <- sum(abs(tri_det(P, T))) / 2; ac <- sum(abs(tri_det(Q, C))) / 2
-  if (abs(af - ac) > 1e-9 * ac) return(NULL)
+  af <- rowsum(abs(tri_det(P, T)), par, reorder = TRUE)
+  ac <- abs(tri_det(Q, C))
+  if (nrow(af) != nrow(C) || any(abs(af[, 1] - ac[as.integer(rownames(af))]) > 1e-9 * ac[as.integer(rownames(af))])) {
+    return(NULL)
+  }
   par
 }
 
@@ -746,7 +766,10 @@ mesh_overlap_check <- function(mesh) {
     }
   }
   # Components whose boundaries do not cross are either disjoint or one lies
-  # inside an element of another; test one interior point per component.
+  # inside the other; test one interior point per component. The test is
+  # closed: an interior point of one element on an edge or vertex of another
+  # component's element is also an overlap, since its neighborhood lies in
+  # both.
   cc <- mesh_components(mesh)
   if (cc$n > 1L) {
     ec <- cc$node[T[, 1]]
@@ -760,7 +783,8 @@ mesh_overlap_check <- function(mesh) {
       o <- which(ec != k)
       dx <- cx - x1[o]; dy <- cy - y1[o]
       xi <- (b22[o] * dx - b12[o] * dy) / det[o]; eta <- (-b21[o] * dx + b11[o] * dy) / det[o]
-      inside <- xi > 0 & eta > 0 & xi + eta < 1
+      tol <- 64 * .Machine$double.eps
+      inside <- xi >= -tol & eta >= -tol & xi + eta <= 1 + tol
       if (any(inside)) {
         stopf("Elements overlap: a disconnected part of the mesh (element %d) lies inside element %d.",
               e0, o[which(inside)[1]])

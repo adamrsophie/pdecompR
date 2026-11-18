@@ -44,7 +44,7 @@ refine_uniform <- function(mesh) {
   bd <- mesh$boundary
   bm <- n + bd$edge
   be <- rbind(cbind(bd$n1, bm), cbind(bm, bd$n2))
-  out <- pde_mesh(nodes, tris, be, c(bd$marker, bd$marker), check_overlap = FALSE)
+  out <- curved_mesh(nodes, tris, be, c(bd$marker, bd$marker), pr$moved)
   out <- carry_curves(out, mesh, be, c(bd$curve, bd$curve))
   parent <- rep(seq_len(nrow(T)), 4L)
   out$regions <- mesh_regions(mesh)[parent]
@@ -106,7 +106,7 @@ refine_mesh <- function(mesh, marked) {
               cbind(bd$n1, bmid)[split, , drop = FALSE],
               cbind(bmid, bd$n2)[split, , drop = FALSE])
   bmk <- c(bd$marker[!split], bd$marker[split], bd$marker[split])
-  out <- pde_mesh(nodes, tris, be, bmk, check_overlap = FALSE)
+  out <- curved_mesh(nodes, tris, be, bmk, pr$moved)
   cur <- bd$curve
   if (!is.null(cur)) out <- carry_curves(out, mesh, be, c(cur[!split], cur[split], cur[split]))
   parent <- c(which(!r), which(A_plain), which(A_split), which(A_split),
@@ -165,6 +165,19 @@ nvb_initial_labeling <- function(mesh) {
   out$info$nvb <- TRUE
   out <- carry_curves(out, mesh, cbind(bd$n1, bd$n2), bd$curve)
   out
+}
+
+# Refined mesh from midpoint subdivision. Straight subdivision keeps the
+# embedding, so the overlap check is skipped; when nodes were moved onto
+# curves the projection can fold or overlap elements, and the mesh is
+# validated before it is returned.
+curved_mesh <- function(nodes, tris, be, markers, moved) {
+  if (!length(moved)) return(pde_mesh(nodes, tris, be, markers, check_overlap = FALSE))
+  tryCatch(pde_mesh(nodes, tris, be, markers, check_overlap = TRUE), error = function(e) {
+    stopf(paste0("Placing the new boundary nodes on their curves gives an invalid mesh (%s). ",
+                 "Refine the coarse mesh near the curved boundary first, or relabel those edges with set_boundary_marker(), which drops the curve."),
+          conditionMessage(e))
+  })
 }
 
 # Curves are attached to boundary edges (`boundary$curve`, an index into

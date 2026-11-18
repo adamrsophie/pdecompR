@@ -404,14 +404,23 @@ edge_residuals <- function(prob, u, Kt) {
   out <- numeric(m)
   ctr <- cbind((P[mesh$triangles[, 1], 1] + P[mesh$triangles[, 2], 1] + P[mesh$triangles[, 3], 1]) / 3,
                (P[mesh$triangles[, 1], 2] + P[mesh$triangles[, 2], 2] + P[mesh$triangles[, 3], 2]) / 3)
-  # The diffusion coefficient is evaluated just inside element `e`, so a
-  # coefficient that jumps across an edge uses each side's own value.
+  # The diffusion coefficient is that of element `e`, so a coefficient that
+  # jumps across an edge uses each side's own value: a region coefficient of
+  # this mesh is read per element, any other coefficient is evaluated just
+  # inside the element, at a point that stays distinct from the edge even at
+  # large coordinates.
+  kd <- prob$diffusion
+  kel <- if (inherits(kd, "pde_region_coefficient") && identical(attr(kd, "mesh")$nodes, P) &&
+             identical(attr(kd, "mesh")$triangles, mesh$triangles)) attr(kd, "element_values")
   flux_k <- function(x, y, g, e) {
     if (!is.null(Kt)) {
       list(x = Kt[1, 1] * g$dx + Kt[1, 2] * g$dy, y = Kt[2, 1] * g$dx + Kt[2, 2] * g$dy)
     } else {
-      xs <- x + 1e-6 * (ctr[e, 1] - x); ys <- y + 1e-6 * (ctr[e, 2] - y)
-      kv <- eval_spatial(prob$diffusion, xs, ys, name = "diffusion")
+      kv <- if (!is.null(kel)) kel[e] else {
+        dx <- ctr[e, 1] - x; dy <- ctr[e, 2] - y
+        fr <- pmin(0.5, pmax(1e-6, 16 * .Machine$double.eps * pmax(abs(x), abs(y)) / pmax(sqrt(dx^2 + dy^2), 1e-300)))
+        eval_spatial(kd, x + fr * dx, y + fr * dy, name = "diffusion")
+      }
       list(x = kv * g$dx, y = kv * g$dy)
     }
   }
@@ -484,13 +493,16 @@ edge_residuals <- function(prob, u, Kt) {
         x <- P[a, 1] + s * tx * len; y <- P[a, 2] + s * ty * len
         gi <- grad_in_elements(u, e, x, y)
         dg <- numeric(length(dsel))
-        hs <- 1e-6 * len
+        # Central difference along the edge; the step is at least a few ulp
+        # of the coordinates and the divisor is the distance actually taken.
+        hs <- pmax(1e-6 * len, 8 * .Machine$double.eps * pmax(abs(x), abs(y)))
+        xp <- x + hs * tx; yp <- y + hs * ty; xm <- x - hs * tx; ym <- y - hs * ty
+        sep <- (xp - xm) * tx + (yp - ym) * ty
         for (i in unique(own)) {
           w <- own == i
           g <- prob$bcs[[i]]$value
-          dg[w] <- (eval_spatial(g, x[w] + hs[w] * tx[w], y[w] + hs[w] * ty[w], name = "Dirichlet value") -
-                      eval_spatial(g, x[w] - hs[w] * tx[w], y[w] - hs[w] * ty[w], name = "Dirichlet value")) /
-            (2 * hs[w])
+          dg[w] <- (eval_spatial(g, xp[w], yp[w], name = "Dirichlet value") -
+                      eval_spatial(g, xm[w], ym[w], name = "Dirichlet value")) / sep[w]
         }
         res <- dg - (gi$dx * tx + gi$dy * ty)
         d2 <- d2 + gq$weights[k] * len * res^2
